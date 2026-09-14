@@ -1,5 +1,6 @@
 Git e GitHub o que é?
-Git
+
+Git:
 
 O Git é um sistema de controle de versão, utilizado para registrar e acompanhar as alterações feitas em arquivos e projetos ao longo do tempo.
 
@@ -10,7 +11,7 @@ Com o Git, é possível:
 * Identificar quem fez cada alteração;
 * Trabalhar em equipe sem perder mudanças.
 
-GitHub
+GitHub:
 
 O GitHub é uma plataforma online que hospeda repositórios Git, permitindo:
 
@@ -34,17 +35,8 @@ Conceitos Pricipais:
 * Pull: baixa alterações do GitHub.
 * Clone: copia um repositório do GitHub para o computador.
 
-Comandos básicos:
-
-git init          # cria um repositório
-git status        # verifica alterações
-git add .         # adiciona arquivos
-git commit -m "" # salva alterações
-git push          # envia para o GitHub
-git pull          # baixa atualizações
-git clone URL     # copia um repositório
-
 REFERÊNCIAS:
+
 GIT. Git Documentation. Disponível em: https://git-scm.com/doc⁠￼. 
 
 GITHUB. GitHub Documentation. Disponível em: https://docs.github.com/pt⁠￼. 
