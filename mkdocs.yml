@@ -1,8 +1,51 @@
-site_name: G4 - Estudos
+site_name: Fique de Olho - UnB editais
 site_url: https://unb-mds.github.io/G4-2026-2/
+site_description: Documentação do projeto G4 — plataforma que centraliza, filtra e notifica editais UnB.
+repo_url: https://github.com/unb-mds/G4-2026-2
+repo_name: unb-mds/G4-2026-2
 
 theme:
   name: material
+  language: pt-BR
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: Mudar para modo escuro
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-sunny
+        name: Mudar para modo claro
+  font:
+    text: Inter
+    code: Roboto Mono
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.top
+    - navigation.instant
+    - navigation.tracking
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - toc.follow
+
+markdown_extensions:
+  - attr_list
+  - md_in_html
+  - admonition
+  - tables
+  - footnotes
+  - pymdownx.superfences
+
+extra_css:
+  - stylesheets/extra.css
 
 nav:
   - Início: index.md
@@ -14,6 +57,12 @@ nav:
       - Git e GitHub: Estudos/sprint00/estudo_GitGtHub.md
       - Requisitos de software: Estudos/sprint00/Requisitos_software.md
       - Scrum: Estudos/sprint00/Scrun.md
+  - Requisitos:
+      - Visão de produto: Requisitos/Visão de produto.md
+      - Critérios de aceitação: Requisitos/Criterios de aceitacao.md
+      - Story Map: Requisitos/StoryMap.md
+      - Wireframe: Requisitos/Wireframe.md
+      - Protótipo de alta fidelidade: Requisitos/Protótipo de altafidelidade.md
   - Produto:
-      - Personas: produto/personas.md
-      - Backlog do Produto: produto/backlog.md
+      - Personas: Requisitos/produto/personas.md
+      - Backlog do Produto: Requisitos/produto/backlog.md
