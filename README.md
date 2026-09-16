@@ -10,7 +10,7 @@ bolsas, monitorias, PIBIC e transferências.
 
 ## 📚 Documentação
 
-- [Pages](https://unb-mds.github.io/G4-2026-2/)
+- [Pages](https://unb-mds.github.io/Fique-de-Olho/)
 - [Figma](https://www.figma.com/board/Sw1R44AAXzZrW5eBolJybw/Template-MDS--c%C3%B3pia-limpa---c%C3%B3pia-?node-id=1-291)
 - [protótipo de alta fidelidade](https://www.figma.com/make/yqHT0b3mk0T3EkHD2aUgns/UnB-Editais-Aggregator-Site?fullscreen=1)
 
