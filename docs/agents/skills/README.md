@@ -94,6 +94,12 @@ Em conjunto, elas formam um ciclo de trabalho que vai de:
 - Funcionalidade: move issues e PRs através de estados de triagem e prepara o material para que um agente ou humano possa atuar na próxima etapa.
 - Exemplo simples: se uma issue chega dizendo "o botão não salva dados", a skill classifica como bug, verifica contexto, pede informações extras se necessário e marca como pronto para agente ou pronto para humano.
 
+### 12. doc-to-markdown
+
+- Descrição detalhada: converte automaticamente documentos (PDFs, editais, relatórios), fotos, imagens e arquivos Office em Markdown (.md) estruturado.
+- Funcionalidade: executa script Python utilizando a biblioteca MarkItDown, extraindo o conteúdo de imagens e PDFs e gerando arquivos `.md` limpos no repositório.
+- Exemplo simples: ao receber um PDF de edital do DEG ou a foto de um quadro/anotação, o agente executa a skill e gera o arquivo `.md` correspondente na pasta de documentação.
+
 ---
 
 ## Como essas skills se conectam no fluxo de trabalho
