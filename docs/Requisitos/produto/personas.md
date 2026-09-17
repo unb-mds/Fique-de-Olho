@@ -3,7 +3,7 @@
 Este documento apresenta as personas desenvolvidas para o sistema de busca, análise, filtragem e notificação de editais do Decanato de Ensino de Graduação da Universidade de Brasília (DEG UnB).
 
 As personas foram elaboradas com base no público heterogêneo da UnB, cobrindo diferentes perfis socioeconômicos, demandas acadêmicas e necessidades de acessibilidade.
-
+O veículo de notificação do "Fique de Olho" será o email de escolha do usuário.
 ---
 
 ## 1. Persona 1: Estudante Graduando Cotista
@@ -109,7 +109,6 @@ Rafael já cursou disciplinas equivalentes como aluno especial e estuda a matriz
 | :--- | :--- | :--- | :--- |
 | **Principal Necessidade** | Bolsas de permanência / remuneração | Monitoria / Iniciação Científica (PIBIC) | Edital de Mudança de Curso / Transferência |
 | **Filtros Mais Usados** | Tipo: Bolsas, Auxílios, Prazos urgentes | Campus: Darcy, Curso: Biologia, Tipo: Monitoria | Tipo: Vagas Ociosas/Mudança, Curso: Computação |
-| **Canal de Notificação Preferido** | Push no celular / WhatsApp | Push no app / E-mail | E-mail / Push com alertas de retificação |
 | **Dispositivo Principal** | Smartphone (baixo consumo de dados) | Notebook e Smartphone | Desktop e Smartphone |
 | **Requisito Crítico** | Resumo simples do edital e acessibilidade | Linha do tempo de datas e requisitos de IRA | Quadro de vagas por curso e alertas de mudanças |
 
