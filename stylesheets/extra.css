@@ -1,0 +1,236 @@
+/* ==========================================================================
+   Fique de Olho - UnB Editais — tema customizado do MkDocs Material
+   Paleta: azul do protótipo Figma + identidade oficial da UnB
+   Azul UnB: #003366 | Verde UnB: #006633 | Azul de destaque: #1c63d8
+   ========================================================================== */
+
+:root,
+[data-md-color-scheme="default"] {
+  --radar-blue: #1c63d8;
+  --radar-blue-dark: #003366;
+  --radar-green: #006633;
+  --radar-cream: #f2ece1;
+  --radar-yellow: #f2b705;
+
+  --md-primary-fg-color: var(--radar-blue-dark);
+  --md-primary-fg-color--light: var(--radar-blue);
+  --md-primary-fg-color--dark: #001f3f;
+  --md-accent-fg-color: var(--radar-yellow);
+}
+
+[data-md-color-scheme="slate"] {
+  --radar-blue: #4f8bf0;
+  --radar-blue-dark: #0a2a4d;
+  --radar-cream: #12181f;
+
+  --md-primary-fg-color: #0a2a4d;
+  --md-accent-fg-color: #f2b705;
+}
+
+/* ---------- Tipografia geral ---------- */
+.md-typeset h1,
+.md-typeset h2 {
+  font-weight: 700;
+}
+
+/* ---------- Hero da página inicial ---------- */
+.radar-hero {
+  position: relative;
+  margin: -1.6rem -1.6rem 2.5rem -1.6rem;
+  padding: 4rem 2rem 3.5rem 2rem;
+  overflow: hidden;
+  background-color: var(--radar-blue-dark);
+  background-image: url("../assets/img/pattern-swirls.webp");
+  background-repeat: no-repeat;
+  background-position: right -80px top -40px;
+  background-size: 420px auto;
+  border-radius: 0 0 1.5rem 1.5rem;
+  color: #fff;
+}
+
+.radar-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    120deg,
+    rgba(0, 51, 102, 0.97) 0%,
+    rgba(0, 51, 102, 0.93) 55%,
+    rgba(0, 51, 102, 0.8) 100%
+  );
+}
+
+.radar-hero__content {
+  position: relative;
+  z-index: 1;
+  max-width: 640px;
+}
+
+.radar-hero__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 1rem;
+}
+
+.radar-hero__title {
+  font-size: 2.4rem;
+  line-height: 1.15;
+  margin: 0 0 0.75rem 0;
+  color: #fff !important;
+}
+
+.radar-hero__subtitle {
+  font-size: 1.05rem;
+  color: #e7edf6;
+  margin-bottom: 1.75rem;
+}
+
+.radar-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.radar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.65rem 1.2rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  text-decoration: none !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.radar-btn:hover {
+  transform: translateY(-2px);
+}
+
+.radar-btn--primary {
+  background: var(--radar-yellow);
+  color: #1a1400 !important;
+}
+
+.radar-btn--ghost {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  color: #fff !important;
+}
+
+/* ---------- Faixa de aviso / "novidade" com o megafone ---------- */
+.radar-announce {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: linear-gradient(90deg, var(--radar-blue-dark), var(--radar-blue));
+  color: #fff;
+  border-radius: 0.85rem;
+  padding: 1rem 1.25rem;
+  margin: 1.5rem 0 2rem 0;
+}
+
+.radar-announce img {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 3px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.radar-announce p {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+.radar-announce strong {
+  color: var(--radar-yellow);
+}
+
+/* ---------- Grid de cards (épicos / funcionalidades) ---------- */
+.radar-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0 2.5rem 0;
+}
+
+.radar-card {
+  background: var(--md-default-bg-color);
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.85rem;
+  padding: 1.25rem;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.radar-card:hover {
+  border-color: var(--radar-blue);
+  transform: translateY(-3px);
+}
+
+.radar-card__icon {
+  font-size: 1.6rem;
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.radar-card h3 {
+  margin: 0 0 0.4rem 0 !important;
+  font-size: 1.02rem;
+}
+
+.radar-card p {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--md-default-fg-color--light);
+}
+
+/* ---------- Rodapé de identidade UnB ---------- */
+.radar-unb-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+  font-size: 0.8rem;
+  color: var(--md-default-fg-color--light);
+  border-top: 3px solid var(--radar-green);
+  padding-top: 0.75rem;
+  margin-top: 2rem;
+}
+
+.radar-unb-strip .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--radar-blue-dark);
+  display: inline-block;
+}
+
+.radar-unb-strip .dot--green {
+  background: var(--radar-green);
+}
+
+@media (max-width: 76em) {
+  .radar-hero {
+    background-position: right -140px top -20px;
+    background-size: 320px auto;
+  }
+}
+
+@media (max-width: 44em) {
+  .radar-hero {
+    background-image: none;
+  }
+  .radar-hero__title {
+    font-size: 1.8rem;
+  }
+}
