@@ -58,6 +58,7 @@ nav:
       - Requisitos de software: Estudos/sprint00/Requisitos_software.md
       - Scrum: Estudos/sprint00/Scrun.md
   - Requisitos:
+      - Requisitos: Requisitos/Requisitos.md
       - Visão de produto: Requisitos/Visão de produto.md
       - Critérios de aceitação: Requisitos/Criterios de aceitacao.md
       - Story Map: Requisitos/StoryMap.md
@@ -66,3 +67,5 @@ nav:
   - Produto:
       - Personas: Requisitos/produto/personas.md
       - Backlog do Produto: Requisitos/produto/backlog.md
+  - Decisões Arquiteturais:
+      - ADR 0001 - Stack do Backend: adr/0001-stack-backend.md
