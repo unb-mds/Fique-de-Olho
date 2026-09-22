@@ -1,23 +1,21 @@
 # User Story Map - Fique de Olho (Editais UnB)
 
-Este documento apresenta o **User Story Map** (Mapeamento de Histórias de Usuário) do projeto **Fique de Olho (UnB Editais)**, elaborado colaborativamente pela equipe no FigJam/Miro.
+Este documento apresenta o **User Story Map** (Mapeamento de Histórias de Usuário) do projeto **Fique de Olho (UnB Editais)**, atualizado com base nos quadros colaborativos da equipe.
 
-O mapa organiza a jornada do usuário em três níveis hierárquicos:
-1. **Épicos (Atividades Centrais)**
-2. **Funcionalidades (Passos da Jornada)**
-3. **Histórias de Usuário (User Stories) e Critérios de Aceitação**
+A estrutura é organizada em quatro níveis hierárquicos:
+1. **Épicos (Atividades Centrais da Jornada)**
+2. **Funcionalidades (Passos Específicos)**
+3. **Histórias de Usuário (User Stories)**
+4. **Critérios de Aceitação (Regras de Validação)**
 
 ---
 
 ## 🗺️ Registro Visual do Story Map
 
-| Parte 1: Épicos e Funcionalidades |
-| :---: |
-| ![Story Map - Épicos e Funcionalidades](imagens/storymap_parte1.png) |
+Abaixo encontram-se o link do figma onde encontrasse o SroryMap detalhado.
 
-| Parte 2: Histórias de Usuário e Critérios de Aceitação |
-| :---: |
-| ![Story Map - Histórias e Critérios](imagens/storymap_parte2.png) |
+
+- [Figma](https://www.figma.com/board/Sw1R44AAXzZrW5eBolJybw/Template-MDS--c%25C3%25B3pia-limpa---c%25C3%25B3pia-?node-id=0-1&p=f&t=sEcwdIkLjWeMiq8P-0) 
 
 ---
 
@@ -27,37 +25,56 @@ O mapa organiza a jornada do usuário em três níveis hierárquicos:
 flowchart TD
     subgraph Projeto["FIQUE DE OLHO (UnB Editais)"]
         direction TB
-        E1["Épico 1: Home (Landing Page)"]
+
+        %% Épicos
+        E1["Épico 1: Descoberta de Editais"]
         E2["Épico 2: Detalhamento do Edital"]
-        E3["Épico 3: Página de Login"]
+        E3["Épico 3: Acompanhamento e Notificações"]
 
-        %% Épico 1
-        E1 --> F1["Página inicial com os campi"]
-        E1 --> F2["Ver possíveis áreas"]
-        E1 --> F3["Editais abertos"]
-        E1 --> F4["Pesquisar"]
+        %% Funcionalidades Épico 1
+        E1 --> F1["Busca por nome"]
+        E1 --> F2["Exibir situação (Abertos/Encerrados)"]
+        E1 --> F3["Filtrar pelo ano, tipo, curso"]
 
-        F1 & F2 --> US1["US01: Visualizar editais por campus e áreas de conhecimento"]
-        F3 & F4 --> US2["US02: Ver principais editais abertos e pesquisar específicos"]
+        %% Histórias Épico 1
+        F1 --> US1["US01: Buscar edital especificamente pelo nome"]
+        F2 --> US2["US02: Saber quais editais estão abertos para inscrição"]
+        F3 --> US3["US03: Filtrar oportunidades ligadas à minha graduação"]
 
-        US1 & US2 --> CA1["Critérios: Dropdown/cards de campi, filtro dinâmico e busca com termos parciais"]
+        %% Critérios Épico 1
+        US1 --> CA1["Termos parciais, tolerante a acentos/caixa; sugestão se vazio"]
+        US2 --> CA2["Listagem inicial exibe abertos; indicador visual de status"]
+        US3 --> CA3["Exibe áreas e anos disponíveis como filtro"]
 
-        %% Épico 2
-        E2 --> F5["Tela que detalha o edital escolhido"]
-        F5 --> US3["US03: Ter um resumo do edital"]
-        F5 --> US4["US04: Visualizar detalhes do edital"]
-        F5 --> US5["US05: Saber as etapas do edital"]
-        F5 --> US6["US06: Acessar link/PDF do edital"]
+        %% Funcionalidades Épico 2
+        E2 --> F4["Resumo do edital"]
+        E2 --> F5["Acesso ao PDF"]
+        E2 --> F6["Cronograma"]
 
-        US3 & US4 & US5 & US6 --> CA2["Critérios: Resumo com objetivo/bolsa/público, abrir PDF em nova aba, cronograma com destaque na etapa atual"]
+        %% Histórias Épico 2
+        F4 --> US4["US04: Obter resumo para rápida tomada de decisão"]
+        F5 --> US5["US05: Acessar link/PDF oficial do edital"]
+        F6 --> US6["US06: Consultar etapas e prazos do edital"]
 
-        %% Épico 3
-        E3 --> F6["Local para salvar editais como favoritos"]
-        F6 --> US7["US07: Receber notificações sobre retificações"]
-        F6 --> US8["US08: Salvar edital para acompanhar com facilidade"]
-        F6 --> US9["US09: Ver lista com todos os editais favoritados"]
+        %% Critérios Épico 2
+        US4 --> CA4["Card com objetivo, bolsa e público em até 3 linhas (RF11)"]
+        US5 --> CA5["Link/botão abre PDF em nova aba no domínio oficial da UnB"]
+        US6 --> CA6["Cronograma cronológico com destaque visual na etapa atual"]
 
-        US7 & US8 & US9 --> CA3["Critérios: Favoritar/alertas requer login (modal), disparo de alerta em atualizações, e-mail com link do edital"]
+        %% Funcionalidades Épico 3
+        E3 --> F7["Lista de favoritos"]
+        E3 --> F8["Favoritar edital"]
+        E3 --> F9["Notificação de novo edital/prazo"]
+
+        %% Histórias Épico 3
+        F7 --> US7["US07: Acompanhar editais salvos em lista dedicada"]
+        F8 --> US8["US08: Favoritar com ícone de estrela"]
+        F9 --> US9["US09: Ser notificado sobre prazos encerrarem"]
+
+        %% Critérios Épico 3
+        US7 --> CA7["Página 'Meus Editais Salvos' (autenticado) com status (RF05)"]
+        US8 --> CA8["Estrela alterna estado; modal de login se anônimo"]
+        US9 --> CA9["Lembretes 48h e 24h antes; escolha por e-mail e/ou navegador"]
     end
 ```
 
@@ -65,40 +82,47 @@ flowchart TD
 
 ## 📌 Detalhamento dos Épicos e Histórias de Usuário
 
-### 1. Épico: Home (Landing Page)
-Responsável pelo primeiro contato do estudante com a plataforma, permitindo a descoberta e a filtragem inicial das oportunidades da UnB.
+### 1. Épico: Descoberta de Editais
+Responsável pela busca, exploração e filtragem de editais com base nas necessidades imediatas do estudante.
 
 | ID | Funcionalidade | História de Usuário (User Story) | Critérios de Aceitação |
 | :--- | :--- | :--- | :--- |
-| **US01** | • Página inicial com os campi<br>• Ver possíveis áreas | **Como usuário**, quero visualizar os editais do meu campus e as áreas do conhecimento de forma específica. | • O sistema deve exibir uma lista suspensa (*dropdown*) ou *cards* com os campi da UnB.<br>• A página deve atualizar dinamicamente mostrando apenas os editais do campus selecionado. |
-| **US02** | • Editais abertos<br>• Pesquisar | **Como usuário**, gostaria de ver os principais editais abertos e poder pesquisar algum específico. | • A pesquisa textual deve aceitar termos parciais e palavras-chave.<br>• Exibir listagem clara com os editais atualmente vigentes. |
+| **US01** | Busca por nome | **Como usuário**, quero buscar um edital especificamente pelo seu nome, encontrando de forma rápida quando já sei o que procuro. | • A busca aceita termos parciais e é tolerante a acentuação e maiúsculas/minúsculas.<br>• Se nenhum resultado for encontrado, exibe mensagem clara sugerindo ajustar os termos da pesquisa. |
+| **US02** | Exibir situação (Abertos/encerrados) | **Como usuário**, quero saber quais editais estão abertos, para uma possível inscrição. | • A listagem inicial mostra, por padrão, apenas editais com inscrições em aberto.<br>• Um indicador visual diferencia claramente editais "abertos" de "encerrados". |
+| **US03** | Filtrar pelo ano, tipo, curso | **Como usuário**, gostaria de ter diferentes filtros para encontrar oportunidades ligadas à minha graduação. | • O sistema exibe as áreas de conhecimento, cursos e anos disponíveis como opções de filtro dinâmico. |
 
 ---
 
 ### 2. Épico: Detalhamento do Edital
-Permite ao estudante compreender rapidamente as exigências, cronogramas e anexos de um edital sem a necessidade de ler dezenas de páginas de PDF de imediato.
+Permite ao estudante compreender os aspectos essenciais do edital (regras, prazos, valor de bolsa e requisitos) de maneira rápida e visual antes de abrir o documento completo.
 
 | ID | Funcionalidade | História de Usuário (User Story) | Critérios de Aceitação |
 | :--- | :--- | :--- | :--- |
-| **US03** | Tela que detalha o edital escolhido | **Como usuário**, gostaria de ter um resumo do edital. | • Ao selecionar um edital, deve ser exibido um resumo contendo:<br>&nbsp;&nbsp;- Objetivo do edital;<br>&nbsp;&nbsp;- Valor da bolsa/auxílio (se houver);<br>&nbsp;&nbsp;- Público-alvo. |
-| **US04** | Tela que detalha o edital escolhido | **Como usuário**, gostaria de consultar as informações consolidadas da publicação. | • Apresentar os dados de forma estruturada e acessível em dispositivos móveis. |
-| **US05** | Tela que detalha o edital escolhido | **Como usuário**, gostaria de saber as etapas do edital. | • O cronograma deve estar atualizado e em ordem cronológica.<br>• Deve haver destaque visual explícito na etapa atual/vigente do processo. |
-| **US06** | Tela que detalha o edital escolhido | **Como usuário**, gostaria de ter o link/PDF do edital. | • O link e o arquivo PDF oficial devem abrir em uma nova aba do navegador quando clicados. |
+| **US04** | Resumo do edital | **Como usuário**, gostaria de ter um resumo do edital para uma rápida decisão. | • O *card* exibe objetivo, valor da bolsa/auxílio (se houver) e público-alvo em até 3 linhas.<br>• O resumo é gerado a partir do conteúdo do PDF ([RF11](./Requisitos.md)). |
+| **US05** | Acesso ao PDF | **Como usuário**, gostaria de ter o link/PDF do edital, para ler o documento oficial. | • Um link/botão abre o PDF oficial em uma nova aba do navegador.<br>• O link aponta diretamente para o documento hospedado no domínio oficial da UnB. |
+| **US06** | Cronograma | **Como usuário**, gostaria de saber as etapas e prazos, para saber em qual fase o edital se encontra. | • O cronograma é exibido em ordem cronológica (inscrição &rarr; homologação &rarr; resultado).<br>• A etapa atual/vigente é destacada visualmente. |
 
 ---
 
-### 3. Épico: Página de Login & Favoritos
-Gerencia a autenticação e personalização do estudante, permitindo o acompanhamento ativo de editais e o recebimento de alertas de mudanças.
+### 3. Épico: Acompanhamento e Notificações
+Gerencia o engajamento contínuo do estudante com os editais de seu interesse, possibilitando o salvamento e o envio de lembretes preventivos de encerramento de prazos.
 
 | ID | Funcionalidade | História de Usuário (User Story) | Critérios de Aceitação |
 | :--- | :--- | :--- | :--- |
-| **US07** | Local para salvar editais como favoritos | **Como usuário**, gostaria de receber notificações sobre retificações. | • Será disparado um novo alerta/notificação com qualquer atualização ou retificação no edital.<br>• O e-mail disparado deve conter o link direto do edital. |
-| **US08** | Local para salvar editais como favoritos | **Como usuário**, gostaria de salvar o edital para acompanhar com mais facilidade. | • Favoritar ou criar alerta só é permitido se o usuário estiver logado.<br>• Se o usuário não estiver logado, o sistema deve abrir um modal convidando-o a realizar o login. |
-| **US09** | Local para salvar editais como favoritos | **Como usuário**, quero ver uma lista com todos os editais que favoritei. | • Interface dedicada ou painel com todos os editais salvos pelo usuário autenticado. |
+| **US07** | Lista de favoritos | **Como usuário**, gostaria de ver uma lista com todos os editais que favoritei, para acompanhar meus editais com mais facilidade. | • Existe uma aba/página dedicada "Meus Editais Salvos", acessível apenas a usuários logados.<br>• Cada item da lista indica se já há resultado divulgado ([RF05](./Requisitos.md)). |
+| **US08** | Favoritar edital | **Como usuário**, quero favoritar um edital com um ícone de estrela, para reencontrá-lo com facilidade. | • O ícone de estrela alterna de estado (vazio &rarr; preenchido) ao ser clicado.<br>• Se o usuário não estiver logado, o clique abre um *modal* convidando-o a fazer login. |
+| **US09** | Notificação de novo edital/prazo | **Como usuário**, quero ser notificado quando um edital favoritado estiver com o prazo terminando. | • Notificação disparada quando um novo edital ou retificação corresponde aos interesses.<br>• Envio de lembrete preventivo 48h e 24h antes do encerramento de um edital favoritado.<br>• O usuário pode escolher receber via e-mail e/ou notificação push no navegador. |
 
 ---
 
-## 🎯 Rastreabilidade e Próximos Passos
-- Os critérios descritos acima alimentam diretamente o documento [`Criterios de aceitacao.md`](./Criterios%20de%20aceitacao.md).
-- A disposição das telas e interações mapeadas refletem os protótipos em [`Wireframe.md`](./Wireframe.md) e [`Protótipo de altafidelidade.md`](./Protótipo%20de%20altafidelidade.md).
+## 🎯 Rastreabilidade com Requisitos de Software
+
+As histórias de usuário mapeadas neste Story Map conectam-se diretamente à especificação de [**Requisitos do Sistema**](./Requisitos.md):
+
+* **US01, US02, US03** &rarr; RF02 (Filtros), RF04 (Busca), RF05 (Status), RF06 (Categorias) e RF13 (Campos de interesse).
+* **US04, US05, US06** &rarr; RF09 (Visualizar PDF) e RF11 (Resumo do edital).
+* **US07, US08, US09** &rarr; RF01 (Notificações), RF03 (Favoritar) e RF12 (Avisar prazo). Consulte [Requisitos do Sistema](./Requisitos.md).
+
+---
+
 
