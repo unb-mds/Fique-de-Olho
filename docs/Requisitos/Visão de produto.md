@@ -14,10 +14,13 @@ Por isso, o projeto busca deixar essas informações mais organizadas e fáceis 
 
 O sistema será voltado principalmente para:
 
-Alunos da UnB;
-Professores e pesquisadores;
-Pessoas interessadas em oportunidades acadêmicas;
-Usuários que precisam acompanhar editais e inscrições.
+•Alunos da UnB;
+
+•Professores e pesquisadores;
+
+•Pessoas interessadas em oportunidades acadêmicas;
+
+•Usuários que precisam acompanhar editais e inscrições.
 
 4. Objetivo
 
@@ -28,15 +31,23 @@ Com a plataforma, o usuário poderá encontrar um edital, conferir suas informa�
 
 Entre as principais funções planejadas estão:
 
-Pesquisar editais;
-Filtrar por categorias;
-Filtrar por campus;
-Visualizar os detalhes de cada edital;
-Ver prazos e informações importantes;
-Favoritar editais;
-Acessar o link de inscrição;
-Receber avisos sobre prazos;
-Consultar editais abertos e encerrados.
+•Pesquisar editais;
+
+•Filtrar por categorias;
+
+•Filtrar por campus;
+
+•Visualizar os detalhes de cada edital;
+
+•Ver prazos e informações importantes;
+
+•Favoritar editais;
+
+•Acessar o link de inscrição;
+
+•Receber avisos sobre prazos;
+
+•Consultar editais abertos e encerrados.
 
 6. Como o usuário utilizará
 
@@ -50,15 +61,23 @@ Dessa forma, o usuário consegue encontrar o que procura sem precisar ficar proc
 
 Para a primeira versão do sistema, serão priorizadas as funções mais importantes:
 
-Página inicial;
-Barra de pesquisa;
-Filtros;
-Lista de editais;
-Página com detalhes do edital;
-Categorias;
-Informações por campus;
-Favoritos;
-Link para inscrição.
+•Página inicial;
+
+•Barra de pesquisa;
+
+•Filtros;
+
+•Lista de editais;
+
+•Página com detalhes do edital;
+
+•Categorias;
+
+•Informações por campus;
+
+•Favoritos;
+
+•Link para inscrição.
 
 Outras funções poderão ser adicionadas posteriormente, conforme o desenvolvimento do projeto.
 
@@ -66,12 +85,17 @@ Outras funções poderão ser adicionadas posteriormente, conforme o desenvolvim
 
 Além das funções, o sistema precisa ser:
 
-Fácil de usar;
-Rápido;
-Responsivo, funcionando em computador e celular;
-Seguro;
-Organizado;
-Fácil de entender.
+•Fácil de usar;
+
+•Rápido;
+
+•Responsivo, funcionando em computador e celular;
+
+•Seguro;
+
+•Organizado;
+
+•Fácil de entender.
 
 9. Visão geral
 
