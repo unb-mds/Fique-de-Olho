@@ -20,7 +20,7 @@ Back/
 │   │
 │   └── modules/                 # MÓDULOS DE NEGÓCIO INDEPENDENTES
 │       ├── editais/             # Descoberta, filtros, busca e detalhamento de editais
-│       ├── scraper/             # Ingestão e extração de PDFs (BeautifulSoup + pdfplumber)
+│       ├── scraper/             # Coleta de listagens e extração de PDFs
 │       ├── usuarios/            # Autenticação, login e perfil do estudante
 │       └── favoritos/           # Acompanhamento de editais e notificações de prazo
 │
@@ -85,6 +85,50 @@ Para executar a suíte de testes com o `pytest`:
 ```bash
 pytest -v
 ```
+
+### Testando o scraper do portal DEG
+
+O scraper de nível 1 está em `app/modules/scraper/deg.py`. Ele acessa as páginas de editais do portal do DEG, usando `httpx` para a requisição e `BeautifulSoup` para extrair:
+
+- `titulo`: título completo do edital;
+- `link`: endereço da página individual do edital;
+- `data_publicacao`: data exibida na listagem.
+
+Ele aceita a página atual ou uma página de ano anterior:
+
+```text
+https://deg.unb.br/editais/
+https://deg.unb.br/editais-2025/
+https://deg.unb.br/editais-2024/
+```
+
+#### 1. Rodar os testes automatizados
+
+Na pasta `Back/`, com o ambiente virtual ativado:
+
+```powershell
+pytest tests/test_scraper.py -v
+```
+
+Se o ambiente virtual não estiver ativado, execute pelo caminho direto do Python no Windows:
+
+```powershell
+.\venv\Scripts\python.exe -m pytest tests/test_scraper.py -v
+```
+
+Esses testes não dependem da internet. Eles simulam o HTML do portal para 2026 e 2025 e verificam também se uma falha de rede retorna uma lista vazia sem interromper a execução.
+
+#### 2. Consultar o portal real
+
+Para executar o scraper contra as páginas reais do DEG:
+
+```powershell
+python -c "from app.modules.scraper.deg import fetch_editais; atual = fetch_editais(); anterior = fetch_editais(2025); print(f'2026: {len(atual)} editais'); print(atual[0] if atual else 'nenhum'); print(f'2025: {len(anterior)} editais'); print(anterior[0] if anterior else 'nenhum')"
+```
+
+O resultado deve mostrar a quantidade encontrada e o primeiro edital de cada ano. A função `fetch_editais()` retorna `[]` quando ocorre uma falha de comunicação com o portal.
+
+> **Nota:** nesta etapa o scraper ainda é uma função de coleta independente. A integração com o endpoint de listagem da API e a persistência no PostgreSQL serão feitas nas próximas etapas do backend.
 
 ---
 
