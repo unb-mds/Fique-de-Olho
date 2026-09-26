@@ -130,6 +130,24 @@ O resultado deve mostrar a quantidade encontrada e o primeiro edital de cada ano
 
 > **Nota:** nesta etapa o scraper ainda é uma função de coleta independente. A integração com o endpoint de listagem da API e a persistência no PostgreSQL serão feitas nas próximas etapas do backend.
 
+### Scraper nível 2: documentos PDF
+
+O scraper de nível 2 recebe o link de uma página individual de edital e extrai os PDFs disponíveis no conteúdo principal. Cada documento retorna:
+
+- `titulo`: texto exibido no link;
+- `link`: endereço do arquivo PDF;
+- `tipo`: classificação por heurística.
+
+As classificações reconhecidas são `resultado_final`, `resultado_provisorio`, `retificacao` e `homologacao`. Quando nenhuma palavra-chave é encontrada no título ou no nome do arquivo, o documento é classificado como `original`.
+
+Para testar contra uma página real:
+
+```powershell
+python -c "from app.modules.scraper.deg import fetch_documentos; url = 'https://deg.unb.br/edital-deg-n-58-2026-premio-anual-de-inovacao-no-ensino-de-graduacao-da-universidade-de-brasilia/'; documentos = fetch_documentos(url); print(f'{len(documentos)} documentos'); [print(documento) for documento in documentos]"
+```
+
+Os testes automatizados do nível 2 estão em `tests/test_scraper.py` e não dependem da internet.
+
 ---
 
 ## 📦 Como Adicionar uma Nova Feature/Módulo

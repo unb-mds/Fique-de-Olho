@@ -14,6 +14,19 @@ HTML_BY_YEAR = {
     """,
 }
 
+DOCUMENTS_HTML = """
+    <nav><a href="/rodape.pdf">PDF do menu</a></nav>
+    <main class="entry-content">
+        <table>
+            <tr><td><a href="/docs/edital-01.pdf">Edital completo</a></td></tr>
+            <tr><td><a href="/docs/resultado_final.pdf">Resultado final</a></td></tr>
+            <tr><td><a href="/docs/resultado_provisorio.pdf">Resultado provisório</a></td></tr>
+            <tr><td><a href="/docs/retificacao.pdf">Retificação</a></td></tr>
+            <tr><td><a href="/docs/homologacao.pdf">Homologação</a></td></tr>
+        </table>
+    </main>
+"""
+
 
 def test_fetch_editais_supports_current_and_previous_year(monkeypatch):
     requested_urls = []
@@ -54,3 +67,47 @@ def test_fetch_editais_returns_empty_list_on_network_error(monkeypatch):
     monkeypatch.setattr(deg.httpx, "get", fake_get)
 
     assert deg.fetch_editais() == []
+
+
+def test_parse_documentos_extracts_and_classifies_all_pdfs():
+    documentos = deg.parse_documentos(DOCUMENTS_HTML)
+
+    assert documentos == [
+        {
+            "titulo": "Edital completo",
+            "link": "https://deg.unb.br/docs/edital-01.pdf",
+            "tipo": "original",
+        },
+        {
+            "titulo": "Resultado final",
+            "link": "https://deg.unb.br/docs/resultado_final.pdf",
+            "tipo": "resultado_final",
+        },
+        {
+            "titulo": "Resultado provisório",
+            "link": "https://deg.unb.br/docs/resultado_provisorio.pdf",
+            "tipo": "resultado_provisorio",
+        },
+        {
+            "titulo": "Retificação",
+            "link": "https://deg.unb.br/docs/retificacao.pdf",
+            "tipo": "retificacao",
+        },
+        {
+            "titulo": "Homologação",
+            "link": "https://deg.unb.br/docs/homologacao.pdf",
+            "tipo": "homologacao",
+        },
+    ]
+
+
+def test_fetch_documentos_returns_empty_list_on_network_error(monkeypatch):
+    def fake_get(url, **kwargs):
+        raise httpx.RequestError(
+            "falha de conexão",
+            request=httpx.Request("GET", url),
+        )
+
+    monkeypatch.setattr(deg.httpx, "get", fake_get)
+
+    assert deg.fetch_documentos("https://deg.unb.br/edital") == []
