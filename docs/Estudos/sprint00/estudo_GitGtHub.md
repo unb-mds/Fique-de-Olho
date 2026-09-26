@@ -35,12 +35,3 @@ Conceitos Pricipais:
 * Pull: baixa alterações do GitHub.
 * Clone: copia um repositório do GitHub para o computador.
 
-REFERÊNCIAS:
-
-GIT. Git Documentation. Disponível em: https://git-scm.com/doc⁠￼. 
-
-GITHUB. GitHub Documentation. Disponível em: https://docs.github.com/pt⁠￼. 
-
-CHACON, Scott; STRAUB, Ben. Pro Git. Disponível em: https://git-scm.com/book/pt-br/v2⁠￼.
-
-
