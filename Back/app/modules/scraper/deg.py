@@ -1,4 +1,5 @@
 import re
+import unicodedata
 from typing import Any
 from urllib.parse import urljoin
 
@@ -11,6 +12,12 @@ DATE_PATTERN = re.compile(
     r"\b\d{1,2}\s+de\s+[A-Za-zÀ-ÿ]+\s+de\s+\d{4}\b"
     r"|\b\d{1,2}/\d{1,2}/\d{4}\b",
     re.IGNORECASE,
+)
+DOCUMENT_TYPES = (
+    ("resultado_final", ("resultado_final", "resultado final")),
+    ("resultado_provisorio", ("resultado_provisorio", "resultado provisorio")),
+    ("retificacao", ("retificacao",)),
+    ("homologacao", ("homologacao",)),
 )
 
 
@@ -64,6 +71,63 @@ def fetch_editais(year: int | None = None, timeout: float = DEFAULT_TIMEOUT) -> 
         return []
 
     return parse_editais(response.text)
+
+
+def _normalize_document_text(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", value)
+    without_accents = "".join(character for character in normalized if not unicodedata.combining(character))
+    return re.sub(r"[^a-z0-9]+", "_", without_accents.lower()).strip("_")
+
+
+def classify_document(title: str, link: str) -> str:
+    """Classifica um documento usando o texto do link e o nome do arquivo."""
+    searchable_text = _normalize_document_text(f"{title} {link}")
+
+    for document_type, keywords in DOCUMENT_TYPES:
+        if any(_normalize_document_text(keyword) in searchable_text for keyword in keywords):
+            return document_type
+
+    return "original"
+
+
+def parse_documentos(html: str, base_url: str = DEG_BASE_URL) -> list[dict[str, str]]:
+    """Extrai PDFs vinculados ao conteúdo principal de uma página de edital."""
+    soup = BeautifulSoup(html, "html.parser")
+    content = soup.select_one(".entry-content") or soup
+    documentos: list[dict[str, str]] = []
+
+    for link_element in content.select("a[href]"):
+        href = str(link_element["href"])
+        if ".pdf" not in href.lower():
+            continue
+
+        title = link_element.get_text(" ", strip=True)
+        link = urljoin(base_url, href)
+        documentos.append(
+            {
+                "titulo": title,
+                "link": link,
+                "tipo": classify_document(title, link),
+            }
+        )
+
+    return documentos
+
+
+def fetch_documentos(url: str, timeout: float = DEFAULT_TIMEOUT) -> list[dict[str, str]]:
+    """Busca uma página de edital e retorna seus PDFs classificados."""
+    try:
+        response = httpx.get(
+            url,
+            follow_redirects=True,
+            timeout=timeout,
+            headers={"User-Agent": "Fique-de-Olho/1.0"},
+        )
+        response.raise_for_status()
+    except httpx.HTTPError:
+        return []
+
+    return parse_documentos(response.text, base_url=url)
 
 
 def edital_to_dict(edital: Any) -> dict[str, str]:
