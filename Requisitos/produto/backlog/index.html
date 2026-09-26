@@ -1,0 +1,2252 @@
+
+<!doctype html>
+<html lang="pt" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentação do projeto G4 — plataforma que centraliza, filtra e notifica editais UnB.">
+      
+      
+      
+        <link rel="canonical" href="https://unb-mds.github.io/G4-2026-2/Requisitos/produto/backlog/">
+      
+      
+        <link rel="prev" href="../personas/">
+      
+      
+        <link rel="next" href="../../../adr/0001-stack-backend/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Backlog do Produto - Fique de Olho - UnB editais</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#backlog-do-produto-radar-de-editais-deg-unb" class="md-skip">
+          Pular para conteúdo
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Cabeçalho">
+    <a href="../../.." title="Fique de Olho - UnB editais" class="md-header__button md-logo" aria-label="Fique de Olho - UnB editais" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Fique de Olho - UnB editais
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Backlog do Produto
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Mudar para modo escuro"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Mudar para modo escuro" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Mudar para modo claro"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Mudar para modo claro" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Buscar" placeholder="Buscar" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Pesquisar">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Limpar" aria-label="Limpar" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Inicializando busca
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/unb-mds/G4-2026-2" title="Ir para repositório" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    unb-mds/G4-2026-2
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Abas" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Início
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../Estudos/sprint00/agentes_IA/" class="md-tabs__link">
+          
+  
+  
+  Estudos
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../Requisitos/" class="md-tabs__link">
+          
+  
+  
+  Requisitos
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../personas/" class="md-tabs__link">
+          
+  
+  
+  Produto
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../adr/0001-stack-backend/" class="md-tabs__link">
+          
+  
+  
+  Decisões Arquiteturais
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navegação" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="Fique de Olho - UnB editais" class="md-nav__button md-logo" aria-label="Fique de Olho - UnB editais" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Fique de Olho - UnB editais
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/unb-mds/G4-2026-2" title="Ir para repositório" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    unb-mds/G4-2026-2
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Início
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Estudos
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Estudos
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../Estudos/sprint00/agentes_IA/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agentes de IA
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../Estudos/sprint00/arquitetura/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Arquitetura
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../Estudos/sprint00/Cyber_Security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cyber Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../Estudos/sprint00/docker/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docker
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../Estudos/sprint00/estudo_GitGtHub/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Git e GitHub
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../Estudos/sprint00/Requisitos_software/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Requisitos de software
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../Estudos/sprint00/Scrun/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scrum
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Requisitos
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Requisitos
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Requisitos/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Requisitos
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Vis%C3%A3o%20de%20produto/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visão de produto
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Criterios%20de%20aceitacao/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Critérios de aceitação
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../StoryMap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Story Map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Wireframe/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Wireframe
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Prot%C3%B3tipo%20de%20altafidelidade/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Protótipo de alta fidelidade
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Produto
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Produto
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../personas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Personas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backlog do Produto
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backlog do Produto
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Índice">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Índice
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-visao-do-produto" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Visão do Produto
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-estrutura-de-epicos-e-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Estrutura de Épicos e Features
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-detalhamento-dos-epicos-e-historias-de-usuario-us" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Detalhamento dos Épicos e Histórias de Usuário (US)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Detalhamento dos Épicos e Histórias de Usuário (US)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#epico-01-ep01-coleta-e-processamento-inteligente-de-editais" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Épico 01 [EP01] - Coleta e Processamento Inteligente de Editais
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Épico 01 [EP01] - Coleta e Processamento Inteligente de Editais">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#us01-coleta-automatizada-de-editais-do-portal-deg" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [US01] - Coleta Automatizada de Editais do Portal DEG
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#us02-extracao-de-metadados-e-prazos-dos-editais-parsing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [US02] - Extração de Metadados e Prazos dos Editais (Parsing)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#us03-classificacao-automatica-do-tipo-de-oportunidade" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [US03] - Classificação Automática do Tipo de Oportunidade
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#epico-02-ep02-busca-filtros-e-visualizacao-de-editais" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Épico 02 [EP02] - Busca, Filtros e Visualização de Editais
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Épico 02 [EP02] - Busca, Filtros e Visualização de Editais">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#us04-busca-textual-por-palavra-chave" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [US04] - Busca Textual por Palavra-Chave
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#us05-filtragem-multifacetada-campus-tipo-curso-e-prazos" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [US05] - Filtragem Multifacetada (Campus, Tipo, Curso e Prazos)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#us06-visualizacao-de-card-resumo-e-cronograma-do-edital" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [US06] - Visualização de Card Resumo e Cronograma do Edital
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#epico-03-ep03-notificacoes-e-alertas-personalizados" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Épico 03 [EP03] - Notificações e Alertas Personalizados
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Épico 03 [EP03] - Notificações e Alertas Personalizados">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#us07-configuracao-de-preferencias-de-interesse" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [US07] - Configuração de Preferências de Interesse
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#us08-notificacao-de-novos-editais-e-prazos-a-vencer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [US08] - Notificação de Novos Editais e Prazos a Vencer
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#us09-alerta-critico-de-retificacao-de-edital" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [US09] - Alerta Crítico de Retificação de Edital
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#epico-04-ep04-acessibilidade-inclusao-e-experiencia-do-usuario" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Épico 04 [EP04] - Acessibilidade, Inclusão e Experiência do Usuário
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Épico 04 [EP04] - Acessibilidade, Inclusão e Experiência do Usuário">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#us10-acessibilidade-digital-e-suporte-a-leitores-de-tela-wcag" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [US10] - Acessibilidade Digital e Suporte a Leitores de Tela (WCAG)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#us11-modo-economico-de-dados-e-responsividade-movel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [US11] - Modo Econômico de Dados e Responsividade Móvel
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#epico-05-ep05-acompanhamento-e-gestao-de-editais-favoritos" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Épico 05 [EP05] - Acompanhamento e Gestão de Editais Favoritos
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Épico 05 [EP05] - Acompanhamento e Gestão de Editais Favoritos">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#us12-favoritar-e-acompanhar-editais" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [US12] - Favoritar e Acompanhar Editais
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-matriz-de-priorizacao-do-backlog-moscow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Matriz de Priorização do Backlog (MoSCoW)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-rastreabilidade-personas-vs-historias-do-backlog" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Rastreabilidade: Personas vs. Histórias do Backlog
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#historico-de-revisoes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Histórico de Revisões
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decisões Arquiteturais
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Decisões Arquiteturais
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../adr/0001-stack-backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR 0001 - Stack do Backend
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Índice">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Índice
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-visao-do-produto" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Visão do Produto
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-estrutura-de-epicos-e-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Estrutura de Épicos e Features
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-detalhamento-dos-epicos-e-historias-de-usuario-us" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Detalhamento dos Épicos e Histórias de Usuário (US)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Detalhamento dos Épicos e Histórias de Usuário (US)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#epico-01-ep01-coleta-e-processamento-inteligente-de-editais" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Épico 01 [EP01] - Coleta e Processamento Inteligente de Editais
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Épico 01 [EP01] - Coleta e Processamento Inteligente de Editais">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#us01-coleta-automatizada-de-editais-do-portal-deg" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [US01] - Coleta Automatizada de Editais do Portal DEG
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#us02-extracao-de-metadados-e-prazos-dos-editais-parsing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [US02] - Extração de Metadados e Prazos dos Editais (Parsing)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#us03-classificacao-automatica-do-tipo-de-oportunidade" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [US03] - Classificação Automática do Tipo de Oportunidade
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#epico-02-ep02-busca-filtros-e-visualizacao-de-editais" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Épico 02 [EP02] - Busca, Filtros e Visualização de Editais
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Épico 02 [EP02] - Busca, Filtros e Visualização de Editais">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#us04-busca-textual-por-palavra-chave" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [US04] - Busca Textual por Palavra-Chave
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#us05-filtragem-multifacetada-campus-tipo-curso-e-prazos" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [US05] - Filtragem Multifacetada (Campus, Tipo, Curso e Prazos)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#us06-visualizacao-de-card-resumo-e-cronograma-do-edital" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [US06] - Visualização de Card Resumo e Cronograma do Edital
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#epico-03-ep03-notificacoes-e-alertas-personalizados" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Épico 03 [EP03] - Notificações e Alertas Personalizados
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Épico 03 [EP03] - Notificações e Alertas Personalizados">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#us07-configuracao-de-preferencias-de-interesse" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [US07] - Configuração de Preferências de Interesse
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#us08-notificacao-de-novos-editais-e-prazos-a-vencer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [US08] - Notificação de Novos Editais e Prazos a Vencer
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#us09-alerta-critico-de-retificacao-de-edital" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [US09] - Alerta Crítico de Retificação de Edital
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#epico-04-ep04-acessibilidade-inclusao-e-experiencia-do-usuario" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Épico 04 [EP04] - Acessibilidade, Inclusão e Experiência do Usuário
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Épico 04 [EP04] - Acessibilidade, Inclusão e Experiência do Usuário">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#us10-acessibilidade-digital-e-suporte-a-leitores-de-tela-wcag" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [US10] - Acessibilidade Digital e Suporte a Leitores de Tela (WCAG)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#us11-modo-economico-de-dados-e-responsividade-movel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [US11] - Modo Econômico de Dados e Responsividade Móvel
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#epico-05-ep05-acompanhamento-e-gestao-de-editais-favoritos" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Épico 05 [EP05] - Acompanhamento e Gestão de Editais Favoritos
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Épico 05 [EP05] - Acompanhamento e Gestão de Editais Favoritos">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#us12-favoritar-e-acompanhar-editais" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [US12] - Favoritar e Acompanhar Editais
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-matriz-de-priorizacao-do-backlog-moscow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Matriz de Priorização do Backlog (MoSCoW)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-rastreabilidade-personas-vs-historias-do-backlog" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Rastreabilidade: Personas vs. Histórias do Backlog
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#historico-de-revisoes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Histórico de Revisões
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="backlog-do-produto-radar-de-editais-deg-unb">Backlog do Produto: Radar de Editais DEG UnB</h1>
+<p>Este documento apresenta o <strong>Backlog do Produto</strong> para o sistema de busca, análise, filtragem e notificação de editais do Decanato de Ensino de Graduação da Universidade de Brasília (DEG UnB).</p>
+<hr />
+<h2 id="1-visao-do-produto">1. Visão do Produto</h2>
+<blockquote>
+<p><strong>Para</strong> a comunidade discente da UnB (em especial cotistas, graduandos e alunos buscando oportunidades ou transferência),<br />
+<strong>Que</strong> sofrem com a dispersão de editais em PDFs longos, perda de prazos e dificuldade de encontrar vagas relevantes para seu curso e campus,<br />
+<strong>O Radar de Editais DEG</strong> é uma plataforma centralizada e acessível (web/mobile)<br />
+<strong>Que</strong> coleta automaticamente os editais do DEG, extrai seus prazos, vagas e tipos (PIBIC, extensão, monitoria, bolsas), filtra por campus/curso e notifica os usuários sobre oportunidades de seu interesse,<br />
+<strong>Diferente</strong> da navegação manual pelo portal institucional do DEG e murais físicos,<br />
+<strong>Nosso produto</strong> oferece alertas proativos, leitura simplificada e busca focada no perfil de cada estudante.</p>
+</blockquote>
+<hr />
+<h2 id="2-estrutura-de-epicos-e-features">2. Estrutura de Épicos e Features</h2>
+<div class="highlight"><pre><span></span><code>mindmap
+  root((Radar DEG UnB))
+    Épico 1: Coleta e Processamento
+      Web Scraping do Portal DEG
+      Extração e Parsing de PDFs
+      Classificação de Tipos de Edital
+    Épico 2: Busca e Filtros Inteligentes
+      Busca Textual por Palavra-chave
+      Filtros Multifacetados Campus/Curso/Tipo
+      Visualização e Resumo Estruturado
+    Épico 3: Notificações e Alertas
+      Configuração de Interesses
+      Alertas de Novos Editais e Prazos
+      Notificação de Retificações
+    Épico 4: Acessibilidade e Experiência
+      Acessibilidade Digital WCAG
+      Design Responsivo Mobile/Web
+      Modo Econômico de Dados
+    Épico 5: Acompanhamento e Favoritos
+      Favoritar Editais
+      Linha do Tempo dos Prazos
+</code></pre></div>
+<hr />
+<h2 id="3-detalhamento-dos-epicos-e-historias-de-usuario-us">3. Detalhamento dos Épicos e Histórias de Usuário (US)</h2>
+<hr />
+<h3 id="epico-01-ep01-coleta-e-processamento-inteligente-de-editais">Épico 01 [EP01] - Coleta e Processamento Inteligente de Editais</h3>
+<p><strong>Objetivo:</strong> Automatizar a captura contínua das publicações no portal do DEG e processar seus conteúdos (PDFs e páginas web) transformando dados não estruturados em informações organizadas e consultáveis.</p>
+<h4 id="us01-coleta-automatizada-de-editais-do-portal-deg">[US01] - Coleta Automatizada de Editais do Portal DEG</h4>
+<ul>
+<li><strong>Prioridade:</strong> Must Have</li>
+<li><strong>Persona:</strong> Todas as personas (Lucas, Mariana, Rafael)</li>
+<li>
+<p><strong>Descrição:</strong>  </p>
+<blockquote>
+<p><strong>Como</strong> sistema / estudante,<br />
+<strong>Eu quero</strong> que a plataforma rastreie periodicamente o site do DEG UnB em busca de novos editais e anexos publicados,<br />
+<strong>Para que</strong> as informações da plataforma estejam sempre atualizadas sem necessidade de cadastro manual.</p>
+</blockquote>
+</li>
+<li>
+<p><strong>Critérios de Aceitação:</strong></p>
+</li>
+<li>[ ] O <em>crawler/scraper</em> deve verificar o portal do DEG periodicamente (ex: a cada 6 ou 12 horas).</li>
+<li>[ ] O sistema deve identificar novas publicações, minutas, editais completos, anexos e retificações.</li>
+<li>[ ] Cada publicação coletada deve armazenar: título oficial, data de publicação, link para o documento original (PDF) e identificador único.</li>
+<li>[ ] Falhas temporárias de conexão com o site do DEG não devem derrubar o serviço.</li>
+</ul>
+<hr />
+<h4 id="us02-extracao-de-metadados-e-prazos-dos-editais-parsing">[US02] - Extração de Metadados e Prazos dos Editais (Parsing)</h4>
+<ul>
+<li><strong>Prioridade:</strong> Must Have</li>
+<li><strong>Persona:</strong> Lucas Alves e Mariana Silveira</li>
+<li>
+<p><strong>Descrição:</strong>  </p>
+<blockquote>
+<p><strong>Como</strong> estudante com pouco tempo livre,<br />
+<strong>Eu quero</strong> que o sistema identifique automaticamente nos editais as datas limites de inscrição, número de vagas e cursos contemplados,<br />
+<strong>Para que</strong> eu não precise ler um documento extenso de dezenas de páginas só para saber prazos e elegibilidade.</p>
+</blockquote>
+</li>
+<li>
+<p><strong>Critérios de Aceitação:</strong></p>
+</li>
+<li>[ ] O sistema deve extrair do texto do edital: período de inscrições, data do resultado preliminar e final.</li>
+<li>[ ] Deve identificar o quantitativo de vagas (remuneradas e/ou voluntárias) quando informado no edital.</li>
+<li>[ ] Deve identificar o campus mencionado (Darcy Ribeiro, FGA, FCE, FUP ou Geral).</li>
+<li>[ ] Se a extração automática falhar em algum campo, o documento deve ser marcado com status "parcialmente processado" mantendo o link do PDF acessível.</li>
+</ul>
+<hr />
+<h4 id="us03-classificacao-automatica-do-tipo-de-oportunidade">[US03] - Classificação Automática do Tipo de Oportunidade</h4>
+<ul>
+<li><strong>Prioridade:</strong> Must Have</li>
+<li><strong>Persona:</strong> Mariana Silveira e Rafael Mendes</li>
+<li>
+<p><strong>Descrição:</strong>  </p>
+<blockquote>
+<p><strong>Como</strong> estudante procurando oportunidades acadêmicas específicas,<br />
+<strong>Eu quero</strong> que os editais sejam categorizados por tipo (PIBIC, Monitoria, Extensão, Bolsas/Auxílios, Mudança de Curso/Transferência),<br />
+<strong>Para que</strong> eu encontre diretamente as categorias relevantes para minha trajetória universitária.</p>
+</blockquote>
+</li>
+<li>
+<p><strong>Critérios de Aceitação:</strong></p>
+</li>
+<li>[ ] Cada edital deve ser rotulado com uma ou mais tags temáticas: <code>Monitoria</code>, <code>PIBIC / Iniciação Científica</code>, <code>Extensão</code>, <code>Bolsas / Auxílios</code>, <code>Mudança de Curso / Vagas Ociosas</code>, <code>Estágio / Outros</code>.</li>
+<li>[ ] A categorização deve ser baseada em regras de palavras-chave e cabeçalhos do documento.</li>
+<li>[ ] O usuário deve visualizar as tags coloridas de forma destacada no card do edital.</li>
+</ul>
+<hr />
+<h3 id="epico-02-ep02-busca-filtros-e-visualizacao-de-editais">Épico 02 [EP02] - Busca, Filtros e Visualização de Editais</h3>
+<p><strong>Objetivo:</strong> Permitir que o estudante pesquise, refine e encontre com rapidez as oportunidades certas para seu campus, curso e perfil.</p>
+<h4 id="us04-busca-textual-por-palavra-chave">[US04] - Busca Textual por Palavra-Chave</h4>
+<ul>
+<li><strong>Prioridade:</strong> Must Have</li>
+<li><strong>Persona:</strong> Mariana Silveira e Lucas Alves</li>
+<li>
+<p><strong>Descrição:</strong>  </p>
+<blockquote>
+<p><strong>Como</strong> estudante graduando,<br />
+<strong>Eu quero</strong> pesquisar editais por termos específicos (como "biologia", "cálculo", "alimentação", "software"),<br />
+<strong>Para que</strong> eu localize instantaneamente editais que mencionem as disciplinas ou temas do meu interesse.</p>
+</blockquote>
+</li>
+<li>
+<p><strong>Critérios de Aceitação:</strong></p>
+</li>
+<li>[ ] Barra de busca com resposta rápida (busca textual no título e corpo do edital).</li>
+<li>[ ] Suporte a busca tolerante a acentuação e maiúsculas/minúsculas.</li>
+<li>[ ] Exibição de mensagem amigável caso nenhum resultado seja encontrado, com sugestão de limpeza de termos.</li>
+</ul>
+<hr />
+<h4 id="us05-filtragem-multifacetada-campus-tipo-curso-e-prazos">[US05] - Filtragem Multifacetada (Campus, Tipo, Curso e Prazos)</h4>
+<ul>
+<li><strong>Prioridade:</strong> Must Have</li>
+<li><strong>Persona:</strong> Lucas Alves, Mariana Silveira e Rafael Mendes</li>
+<li>
+<p><strong>Descrição:</strong>  </p>
+<blockquote>
+<p><strong>Como</strong> estudante de um campus ou curso específico,<br />
+<strong>Eu quero</strong> filtrar os editais combinando critérios de campus, modalidade (bolsa/monitoria/pibic), curso e status de inscrição,<br />
+<strong>Para que</strong> eu veja apenas as vagas para as quais sou elegível e que ainda estejam no prazo.</p>
+</blockquote>
+</li>
+<li>
+<p><strong>Critérios de Aceitação:</strong></p>
+</li>
+<li>[ ] Filtro por <strong>Campus:</strong> Campus Darcy Ribeiro (Plano Piloto), FGA (Gama), FCE (Ceilândia), FUP (Planaltina), Todos.</li>
+<li>[ ] Filtro por <strong>Tipo de Edital:</strong> Monitoria (Remunerada / Voluntária), PIBIC, Extensão, Bolsas e Auxílios, Mudança de Curso / Transferência.</li>
+<li>[ ] Filtro por <strong>Status / Prazo:</strong> Inscrições Abertas, Em Breve, Encerradas.</li>
+<li>[ ] Filtro por <strong>Curso:</strong> Seleção de cursos de graduação da UnB.</li>
+<li>[ ] Os filtros podem ser combinados livremente e limpos com um único clique.</li>
+</ul>
+<hr />
+<h4 id="us06-visualizacao-de-card-resumo-e-cronograma-do-edital">[US06] - Visualização de Card Resumo e Cronograma do Edital</h4>
+<ul>
+<li><strong>Prioridade:</strong> Must Have</li>
+<li><strong>Persona:</strong> Lucas Alves e Rafael Mendes</li>
+<li>
+<p><strong>Descrição:</strong>  </p>
+<blockquote>
+<p><strong>Como</strong> estudante acessando pelo smartphone,<br />
+<strong>Eu quero</strong> ver um card resumido do edital com cronograma visual dos prazos e botão para baixar o PDF original,<br />
+<strong>Para que</strong> eu compreenda as datas cruciais sem precisar gastar franquia de internet baixando arquivos pesados.</p>
+</blockquote>
+</li>
+<li>
+<p><strong>Critérios de Aceitação:</strong></p>
+</li>
+<li>[ ] O card deve apresentar de forma limpa: Título simplificado, Tipo, Campus, Período de Inscrição, Valor da Bolsa (se aplicável), e Dias Restantes para o encerramento.</li>
+<li>[ ] Deve conter uma linha do tempo das etapas (Inscrição -&gt; Homologação -&gt; Resultado).</li>
+<li>[ ] Link direto e seguro para o PDF oficial no servidor da UnB.</li>
+</ul>
+<hr />
+<h3 id="epico-03-ep03-notificacoes-e-alertas-personalizados">Épico 03 [EP03] - Notificações e Alertas Personalizados</h3>
+<p><strong>Objetivo:</strong> Manter os estudantes informados ativamente sobre novos editais, proximidade do fim dos prazos e retificações que impactem seus planos.</p>
+<h4 id="us07-configuracao-de-preferencias-de-interesse">[US07] - Configuração de Preferências de Interesse</h4>
+<ul>
+<li><strong>Prioridade:</strong> Should Have</li>
+<li><strong>Persona:</strong> Lucas Alves e Mariana Silveira</li>
+<li>
+<p><strong>Descrição:</strong>  </p>
+<blockquote>
+<p><strong>Como</strong> estudante com interesses acadêmicos bem definidos,<br />
+<strong>Eu quero</strong> cadastrar minhas preferências (meu campus, meu curso e tipos de editais desejados),<br />
+<strong>Para que</strong> o sistema filtre previamente as oportunidades mais relevantes para mim.</p>
+</blockquote>
+</li>
+<li>
+<p><strong>Critérios de Aceitação:</strong></p>
+</li>
+<li>[ ] Tela simples de preferências onde o usuário marca seu campus, curso e áreas de interesse (ex: "Bolsas", "Monitoria").</li>
+<li>[ ] Possibilidade de editar ou desativar as preferências a qualquer momento.</li>
+</ul>
+<hr />
+<h4 id="us08-notificacao-de-novos-editais-e-prazos-a-vencer">[US08] - Notificação de Novos Editais e Prazos a Vencer</h4>
+<ul>
+<li><strong>Prioridade:</strong> Should Have</li>
+<li><strong>Persona:</strong> Lucas Alves e Rafael Mendes</li>
+<li>
+<p><strong>Descrição:</strong>  </p>
+<blockquote>
+<p><strong>Como</strong> estudante atarefado com rotina pesada,<br />
+<strong>Eu quero</strong> receber notificações quando um edital do meu perfil for lançado ou quando faltarem 48h para o fim das inscrições,<br />
+<strong>Para que</strong> eu nunca mais perca a chance de concorrer a uma bolsa ou vaga por esquecimento.</p>
+</blockquote>
+</li>
+<li>
+<p><strong>Critérios de Aceitação:</strong></p>
+</li>
+<li>[ ] Envio de alerta instantâneo quando um edital correspondente aos filtros de interesse do usuário for publicado.</li>
+<li>[ ] Envio de lembrete preventivo (ex: 48h e 24h antes do encerramento da inscrição) para editais favoritados.</li>
+<li>[ ] O usuário pode optar por receber notificações no navegador/app (Push) ou via E-mail.</li>
+</ul>
+<hr />
+<h4 id="us09-alerta-critico-de-retificacao-de-edital">[US09] - Alerta Crítico de Retificação de Edital</h4>
+<ul>
+<li><strong>Prioridade:</strong> Should Have</li>
+<li><strong>Persona:</strong> Rafael Mendes (Troca de curso) e Lucas Alves</li>
+<li>
+<p><strong>Descrição:</strong>  </p>
+<blockquote>
+<p><strong>Como</strong> estudante inscrito em um processo seletivo concorrido (como mudança de curso ou auxílio),<br />
+<strong>Eu quero</strong> ser notificado imediatamente se o edital sofrer uma retificação ou prorrogação de prazo,<br />
+<strong>Para que</strong> eu não seja prejudicado por mudanças inesperadas no cronograma oficial.</p>
+</blockquote>
+</li>
+<li>
+<p><strong>Critérios de Aceitação:</strong></p>
+</li>
+<li>[ ] O sistema deve rastrear alterações e documentos complementares vinculados ao edital pai.</li>
+<li>[ ] Ao detectar retificação, enviar alerta com destaque visual: "ATENÇÃO: Este edital foi retificado em [Data]".</li>
+<li>[ ] Exibir comparação sumária do que foi alterado quando disponível.</li>
+</ul>
+<hr />
+<h3 id="epico-04-ep04-acessibilidade-inclusao-e-experiencia-do-usuario">Épico 04 [EP04] - Acessibilidade, Inclusão e Experiência do Usuário</h3>
+<p><strong>Objetivo:</strong> Assegurar que a plataforma seja plenamente utilizável por qualquer membro da comunidade universitária, em qualquer dispositivo ou condição de conectividade.</p>
+<h4 id="us10-acessibilidade-digital-e-suporte-a-leitores-de-tela-wcag">[US10] - Acessibilidade Digital e Suporte a Leitores de Tela (WCAG)</h4>
+<ul>
+<li><strong>Prioridade:</strong> Must Have</li>
+<li><strong>Persona:</strong> Todas as personas, em especial estudantes com deficiência visual ou motora</li>
+<li>
+<p><strong>Descrição:</strong>  </p>
+<blockquote>
+<p><strong>Como</strong> estudante com baixa visão ou deficiência visual que utiliza leitores de tela,<br />
+<strong>Eu quero</strong> navegar por toda a plataforma, filtros e conteúdos de editais de maneira estruturada e sem barreiras,<br />
+<strong>Para que</strong> eu tenha igualdade de acesso às oportunidades públicas da UnB.</p>
+</blockquote>
+</li>
+<li>
+<p><strong>Critérios de Aceitação:</strong></p>
+</li>
+<li>[ ] Conformidade com as diretrizes WCAG 2.1 nível AA.</li>
+<li>[ ] Todos os botões, links, cards e campos de filtro devem conter rótulos descritivos (<code>aria-label</code>, contraste adequado).</li>
+<li>[ ] Suporte a navegação completa por teclado (Tab, Enter, Espaço).</li>
+<li>[ ] Disponibilização de botão de Alto Contraste e ajuste do tamanho da fonte.</li>
+</ul>
+<hr />
+<h4 id="us11-modo-economico-de-dados-e-responsividade-movel">[US11] - Modo Econômico de Dados e Responsividade Móvel</h4>
+<ul>
+<li><strong>Prioridade:</strong> Should Have</li>
+<li><strong>Persona:</strong> Lucas Alves (Cotista com dados móveis restritos)</li>
+<li>
+<p><strong>Descrição:</strong>  </p>
+<blockquote>
+<p><strong>Como</strong> estudante que utiliza internet 3G/4G no trajeto de ônibus,<br />
+<strong>Eu quero</strong> uma interface leve, rápida de carregar e totalmente adaptada à tela do celular,<br />
+<strong>Para que</strong> meu plano de dados não se esgote ao consultar oportunidades.</p>
+</blockquote>
+</li>
+<li>
+<p><strong>Critérios de Aceitação:</strong></p>
+</li>
+<li>[ ] Layout 100% responsivo (otimizado para telas pequenas de 360px até desktops).</li>
+<li>[ ] Carregamento inicial da página inferior a 2 segundos em rede 3G/4G.</li>
+<li>[ ] Não fazer download de arquivos PDF volumosos de forma automática; apenas sob demanda explícita do usuário.</li>
+</ul>
+<hr />
+<h3 id="epico-05-ep05-acompanhamento-e-gestao-de-editais-favoritos">Épico 05 [EP05] - Acompanhamento e Gestão de Editais Favoritos</h3>
+<p><strong>Objetivo:</strong> Facilitar a gestão pessoal das oportunidades em que o estudante tem interesse.</p>
+<h4 id="us12-favoritar-e-acompanhar-editais">[US12] - Favoritar e Acompanhar Editais</h4>
+<ul>
+<li><strong>Prioridade:</strong> Could Have</li>
+<li><strong>Persona:</strong> Mariana Silveira e Rafael Mendes</li>
+<li>
+<p><strong>Descrição:</strong>  </p>
+<blockquote>
+<p><strong>Como</strong> estudante organizando minhas candidaturas do semestre,<br />
+<strong>Eu quero</strong> marcar editais como "Favoritos" em uma lista pessoal,<br />
+<strong>Para que</strong> eu possa acompanhar facilmente apenas os processos seletivos nos quais pretendo me inscrever.</p>
+</blockquote>
+</li>
+<li>
+<p><strong>Critérios de Aceitação:</strong></p>
+</li>
+<li>[ ] Botão de "Favoritar" (ícone de estrela/coração) em cada card de edital.</li>
+<li>[ ] Aba dedicada "Meus Editais Salvos" na interface principal.</li>
+<li>[ ] Indicador visual se o edital salvo já teve o resultado preliminar/final divulgado.</li>
+</ul>
+<hr />
+<h2 id="4-matriz-de-priorizacao-do-backlog-moscow">4. Matriz de Priorização do Backlog (MoSCoW)</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">ID</th>
+<th style="text-align: left;">História de Usuário (US)</th>
+<th style="text-align: center;">Épico</th>
+<th style="text-align: center;">Prioridade</th>
+<th style="text-align: center;">Complexidade Estimada</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;"><strong>US01</strong></td>
+<td style="text-align: left;">Coleta automatizada de editais do portal DEG (Scraper)</td>
+<td style="text-align: center;">EP01</td>
+<td style="text-align: center;"><strong>Must Have</strong></td>
+<td style="text-align: center;">Alta</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>US02</strong></td>
+<td style="text-align: left;">Extração de metadados, prazos e vagas dos editais</td>
+<td style="text-align: center;">EP01</td>
+<td style="text-align: center;"><strong>Must Have</strong></td>
+<td style="text-align: center;">Muito Alta</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>US03</strong></td>
+<td style="text-align: left;">Classificação automática do tipo de oportunidade</td>
+<td style="text-align: center;">EP01</td>
+<td style="text-align: center;"><strong>Must Have</strong></td>
+<td style="text-align: center;">Média</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>US04</strong></td>
+<td style="text-align: left;">Busca textual por palavra-chave</td>
+<td style="text-align: center;">EP02</td>
+<td style="text-align: center;"><strong>Must Have</strong></td>
+<td style="text-align: center;">Média</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>US05</strong></td>
+<td style="text-align: left;">Filtragem multifacetada (Campus, Tipo, Curso, Prazos)</td>
+<td style="text-align: center;">EP02</td>
+<td style="text-align: center;"><strong>Must Have</strong></td>
+<td style="text-align: center;">Média</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>US06</strong></td>
+<td style="text-align: left;">Visualização de card resumo e cronograma do edital</td>
+<td style="text-align: center;">EP02</td>
+<td style="text-align: center;"><strong>Must Have</strong></td>
+<td style="text-align: center;">Baixa</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>US10</strong></td>
+<td style="text-align: left;">Acessibilidade digital e suporte a leitores de tela</td>
+<td style="text-align: center;">EP04</td>
+<td style="text-align: center;"><strong>Must Have</strong></td>
+<td style="text-align: center;">Média</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>US07</strong></td>
+<td style="text-align: left;">Configuração de preferências e perfil de interesse</td>
+<td style="text-align: center;">EP03</td>
+<td style="text-align: center;"><strong>Should Have</strong></td>
+<td style="text-align: center;">Média</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>US08</strong></td>
+<td style="text-align: left;">Notificação de novos editais e lembrete de prazos</td>
+<td style="text-align: center;">EP03</td>
+<td style="text-align: center;"><strong>Should Have</strong></td>
+<td style="text-align: center;">Alta</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>US09</strong></td>
+<td style="text-align: left;">Alerta de retificação e mudanças de cronograma</td>
+<td style="text-align: center;">EP03</td>
+<td style="text-align: center;"><strong>Should Have</strong></td>
+<td style="text-align: center;">Média</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>US11</strong></td>
+<td style="text-align: left;">Modo econômico de dados móveis e responsividade</td>
+<td style="text-align: center;">EP04</td>
+<td style="text-align: center;"><strong>Should Have</strong></td>
+<td style="text-align: center;">Baixa</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>US12</strong></td>
+<td style="text-align: left;">Favoritar editais e acompanhar inscrições</td>
+<td style="text-align: center;">EP05</td>
+<td style="text-align: center;"><strong>Could Have</strong></td>
+<td style="text-align: center;">Baixa</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="5-rastreabilidade-personas-vs-historias-do-backlog">5. Rastreabilidade: Personas vs. Histórias do Backlog</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Persona</th>
+<th style="text-align: left;">Histórias de Usuário Relacionadas</th>
+<th style="text-align: left;">Necessidade Atendida</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Lucas Alves</strong> (Cotista)</td>
+<td style="text-align: left;">US01, US02, US03, US05, US06, US08, US10, US11</td>
+<td style="text-align: left;">Acesso rápido a bolsas/auxílios, alertas de prazos apertados, economia de dados e total acessibilidade.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Mariana Silveira</strong> (Graduanda)</td>
+<td style="text-align: left;">US01, US03, US04, US05, US06, US07, US08, US12</td>
+<td style="text-align: left;">Filtros por curso/campus Darcy, busca por monitoria e PIBIC, favoritos e acompanhamento do resultado.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Rafael Mendes</strong> (Troca de Curso)</td>
+<td style="text-align: left;">US01, US02, US03, US05, US06, US08, US09, US12</td>
+<td style="text-align: left;">Destaque para vagas ociosas/mudança de curso, aviso imediato de retificações e extração do quadro de vagas.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="historico-de-revisoes">Histórico de Revisões</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Data</th>
+<th style="text-align: center;">Versão</th>
+<th style="text-align: left;">Descrição</th>
+<th style="text-align: left;">Autor</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">10/09/2026</td>
+<td style="text-align: center;">1.0</td>
+<td style="text-align: left;">Elaboração do Backlog do Produto completo com Épicos, USs e Matriz MoSCoW</td>
+<td style="text-align: left;">Grupo 4</td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Voltar para o topo
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.top", "navigation.instant", "navigation.tracking", "search.suggest", "search.highlight", "content.code.copy", "toc.follow"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copiado para \u00e1rea de transfer\u00eancia", "clipboard.copy": "Copiar para \u00e1rea de transfer\u00eancia", "search.result.more.one": "mais 1 nesta p\u00e1gina", "search.result.more.other": "# mais nesta p\u00e1gina", "search.result.none": "Nenhum documento encontrado", "search.result.one": "1 documento encontrado", "search.result.other": "# documentos encontrados", "search.result.placeholder": "Digite para iniciar a busca", "search.result.term.missing": "Ausente", "select.version": "Selecione a vers\u00e3o"}, "version": null}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
