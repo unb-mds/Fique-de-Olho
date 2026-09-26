@@ -522,3 +522,29 @@ button {
     font-size: 30px;
   }
 }
+
+
+/* Botão de favoritar edital */
+.edital-card {
+  position: relative;
+}
+
+.edital-card > button {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+
+  background: transparent;
+  border: none;
+  padding: 6px;
+  cursor: pointer;
+
+  font-size: 20px;
+  line-height: 1;
+
+  transition: transform 0.2s ease;
+}
+
+.edital-card > button:hover {
+  transform: scale(1.15);
+}
