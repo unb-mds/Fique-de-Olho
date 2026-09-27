@@ -28,7 +28,6 @@ Para executar o backend sem Docker, também são necessários Python 3.12 ou sup
 O backend utiliza FastAPI e PostgreSQL. A forma recomendada de executar os serviços é pelo Docker Compose:
 
 ```powershell
-cd Back
 docker compose up --build
 ```
 

@@ -26,7 +26,7 @@ Back/
 │
 ├── tests/                       # Testes automatizados (pytest)
 ├── Dockerfile                   # Imagem do container da API
-├── docker-compose.yml           # Orquestração da API e do banco PostgreSQL
+├── ../docker-compose.yml        # Orquestração da API e do banco PostgreSQL
 └── requirements.txt             # Dependências Python do projeto
 ```
 
@@ -39,7 +39,7 @@ Back/
 O Docker Compose sobe a aplicação FastAPI e o banco de dados PostgreSQL automaticamente configurados:
 
 ```bash
-# Na pasta Back/
+# Na raiz do repositório
 docker compose up --build
 ```
 
@@ -65,10 +65,16 @@ python -m venv venv
 pip install -r requirements.txt
 ```
 
-#### 3. Configurar as variáveis de ambiente:
-Copie o arquivo `.env.example` para `.env`:
+#### 3. Configurar as variáveis de ambiente (opcional):
+O backend usa por padrão o PostgreSQL local do projeto. Para personalizar as configurações, copie `.env.example` para `.env`:
 ```powershell
 Copy-Item .env.example .env
+```
+
+Antes de iniciar a API localmente, suba o banco a partir da raiz do repositório:
+
+```bash
+docker compose up -d db
 ```
 
 #### 4. Iniciar o servidor de desenvolvimento:
@@ -83,6 +89,7 @@ uvicorn app.main:app --reload --port 8000
 Para executar a suíte de testes com o `pytest`:
 
 ```bash
+# Na pasta Back/
 pytest -v
 ```
 

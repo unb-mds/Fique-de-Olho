@@ -18,5 +18,24 @@ services:
       timeout: 5s
       retries: 10
 
+  api:
+    build:
+      context: ./Back
+      dockerfile: Dockerfile
+    container_name: fique-de-olho-api
+    restart: unless-stopped
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./Back:/app
+    environment:
+      PROJECT_NAME: ${PROJECT_NAME:-Fique de Olho API}
+      VERSION: ${VERSION:-0.1.0}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-fique_de_olho}:${POSTGRES_PASSWORD:-fique_de_olho_dev}@db:5432/${POSTGRES_DB:-fique_de_olho}
+    depends_on:
+      db:
+        condition: service_healthy
+
 volumes:
   postgres_data:

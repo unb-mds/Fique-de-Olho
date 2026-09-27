@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
 
     # Conexão com banco de dados
-    DATABASE_URL: str = "postgresql://fiquedeolho:fiquedeolho@localhost:5432/fiquedeolho_db"
+    DATABASE_URL: str = "postgresql://fique_de_olho:fique_de_olho_dev@localhost:5432/fique_de_olho"
 
     model_config = SettingsConfigDict(
         env_file=".env",
