@@ -1,8 +1,10 @@
 from datetime import datetime
 
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.core import database
 from app.core.database import (
     Base,
     Edital,
@@ -12,6 +14,7 @@ from app.core.database import (
     TipoDocumento,
     Usuario,
 )
+from app.main import app
 
 
 def test_database_schema_has_required_tables_and_columns():
@@ -69,3 +72,17 @@ def test_database_models_can_be_created_in_sqlite_memory_db():
         assert session.get(Usuario, usuario.id).email == "ana@teste.com"
         assert session.get(Favorito, (usuario.id, edital.id)) is not None
         assert session.get(EditalDocumento, documento.id).tipo_documento == TipoDocumento.ORIGINAL
+
+
+def test_app_startup_creates_database_schema(monkeypatch):
+    called = {"value": False}
+
+    def fake_init_db():
+        called["value"] = True
+
+    monkeypatch.setattr(database, "init_db", fake_init_db)
+
+    with TestClient(app):
+        pass
+
+    assert called["value"] is True

@@ -78,6 +78,87 @@ uvicorn app.main:app --reload --port 8000
 
 ---
 
+## Banco de Dados
+
+O backend usa PostgreSQL como armazenamento e SQLAlchemy como ORM. O contrato
+do schema está definido em `app/core/database.py`; as entidades, relações e
+decisões estão descritas no [ADR 0003](../docs/adr/0003-database-schema.md).
+
+### O que o banco guarda
+
+- `editais`: título, URL da página de origem, campus e tipo opcionais, data de
+   publicação, status (`aberto` ou `encerrado`) e data de criação. A URL da página
+   é única para impedir duplicatas na coleta incremental.
+- `edital_documentos`: URLs de PDFs associadas a um edital e tipo do documento
+   (`original`, `resultado_provisorio`, `resultado_final` ou `retificacao`).
+- `usuarios`: nome, e-mail único, hash da senha e data de criação. A senha em
+   texto puro não deve ser armazenada.
+- `favoritos`: associa usuários a editais. A chave primária composta pelos IDs
+   impede repetir o mesmo vínculo usuário/edital.
+
+As chaves estrangeiras garantem que documentos e favoritos apontem para
+registros existentes. Um edital pode ter vários documentos e vários favoritos;
+um usuário pode ter vários favoritos. `created_at` usa o horário do servidor do
+banco quando nenhum valor é informado.
+
+### Inicializar com Docker Compose
+
+Na pasta `Back/`, copie o exemplo de ambiente e suba os serviços:
+
+```bash
+cp .env.example .env
+docker compose up --build -d
+docker compose ps
+```
+
+O serviço `db` cria o banco `fiquedeolho_db` com usuário e senha do `.env` (os
+valores do exemplo são apenas para desenvolvimento). A porta publicada no host
+é `5433` no exemplo; a API dentro do Docker conecta ao endereço `db:5432`. Se as
+portas do host estiverem ocupadas, altere `POSTGRES_PORT` ou `API_PORT` no
+`.env`.
+
+No startup, `app/main.py` chama `init_db()` pelo lifespan do FastAPI. A função
+usa `Base.metadata.create_all()` para criar tabelas ausentes. Confira o schema:
+
+```bash
+docker compose exec db psql -U fiquedeolho -d fiquedeolho_db -c '\dt'
+```
+
+Se tiver alterado usuário ou banco, use os valores configurados no `.env`. Para
+verificar mensagens de inicialização:
+
+```bash
+docker compose logs -f db api
+```
+
+### Executar a API localmente contra o Compose
+
+Com o serviço `db` ativo, configure `Back/.env` com a porta publicada no host:
+
+```dotenv
+DATABASE_URL=postgresql+psycopg2://fiquedeolho:fiquedeolho@localhost:5433/fiquedeolho_db
+```
+
+Depois, ative o ambiente virtual e execute:
+
+```bash
+uvicorn app.main:app --reload --port 8000
+```
+
+Se a conexão falhar, `init_db()` registra um aviso e deixa a API continuar.
+Assim, uma resposta saudável de `/health` não prova que o schema foi criado;
+confira os logs e a lista de tabelas. `create_all()` cria tabelas ausentes, mas
+não altera tabelas existentes. O projeto ainda não tem ferramenta de migração;
+alterações futuras em um schema com dados precisam de migração planejada.
+
+### O que a camada de banco entrega ao backend
+
+Os modelos ORM descrevem os registros e seus relacionamentos. `SessionLocal`
+cria sessões SQLAlchemy e `get_db()` fornece uma sessão com fechamento ao fim
+do uso. No estado atual, essa dependência ainda não está conectada às rotas ou
+serviços para consultar e persistir dados; essa integração de negócio é uma
+etapa posterior.
+
 ## 🧪 Como Rodar os Testes
 
 Para executar a suíte de testes com o `pytest`:
@@ -85,6 +166,18 @@ Para executar a suíte de testes com o `pytest`:
 ```bash
 pytest -v
 ```
+
+Para validar especificamente o schema e os modelos:
+
+```bash
+pytest tests/test_database_schema.py -v
+```
+
+Esse teste verifica tabelas, colunas, chave primária composta e relações em
+SQLite em memória. O teste de startup simula `init_db()` e verifica que o
+lifespan a chama; não testa autenticação nem criação de schema em PostgreSQL.
+Para validar PostgreSQL real, suba o Compose e consulte as tabelas com o comando
+`psql` descrito acima.
 
 ### Testando o scraper do portal DEG
 

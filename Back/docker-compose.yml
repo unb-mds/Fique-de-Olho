@@ -1,18 +1,17 @@
 services:
   db:
     image: postgres:16-alpine
-    container_name: fiquedeolho_db
     restart: always
     environment:
-      POSTGRES_USER: fiquedeolho
-      POSTGRES_PASSWORD: fiquedeolho
-      POSTGRES_DB: fiquedeolho_db
+      POSTGRES_USER: ${POSTGRES_USER:-fiquedeolho}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fiquedeolho}
+      POSTGRES_DB: ${POSTGRES_DB:-fiquedeolho_db}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5433}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U fiquedeolho -d fiquedeolho_db"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -21,17 +20,16 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: fiquedeolho_api
     restart: always
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     ports:
-      - "8000:8000"
+      - "${API_PORT:-8000}:8000"
     volumes:
       - .:/app
     environment:
       - PROJECT_NAME=Fique de Olho API
       - VERSION=0.1.0
-      - DATABASE_URL=postgresql+psycopg2://fiquedeolho:fiquedeolho@db:5432/fiquedeolho_db
+      - DATABASE_URL=postgresql+psycopg2://${POSTGRES_USER:-fiquedeolho}:${POSTGRES_PASSWORD:-fiquedeolho}@db:5432/${POSTGRES_DB:-fiquedeolho_db}
     depends_on:
       db:
         condition: service_healthy
