@@ -31,7 +31,7 @@ services:
     environment:
       - PROJECT_NAME=Fique de Olho API
       - VERSION=0.1.0
-      - DATABASE_URL=postgresql://fiquedeolho:fiquedeolho@db:5432/fiquedeolho_db
+      - DATABASE_URL=postgresql+psycopg2://fiquedeolho:fiquedeolho@db:5432/fiquedeolho_db
     depends_on:
       db:
         condition: service_healthy
