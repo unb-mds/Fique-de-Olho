@@ -1,8 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
+from sqlalchemy import text
 
 from app.core.config import settings
+from app.core.database import engine
 from app.modules.editais.router import router as editais_router
 
 # Inicialização da aplicação FastAPI
@@ -33,12 +35,25 @@ def root():
 
 @app.get("/health", tags=["Health"])
 def health_check():
-    """Endpoint de verificação de integridade do serviço (Healthcheck)."""
-    return {
-        "status": "healthy",
+    """Endpoint de verificação de integridade do serviço (Healthcheck) e banco de dados."""
+    db_status = "connected"
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except Exception as e:
+        db_status = f"disconnected: {e}"
+
+    is_healthy = db_status == "connected"
+    content = {
+        "status": "healthy" if is_healthy else "unhealthy",
         "service": settings.PROJECT_NAME,
         "version": settings.VERSION,
+        "database": db_status,
     }
+    return JSONResponse(
+        content=content,
+        status_code=status.HTTP_200_OK if is_healthy else status.HTTP_503_SERVICE_UNAVAILABLE,
+    )
 
 
 # Inclusão dos roteadores modulares
