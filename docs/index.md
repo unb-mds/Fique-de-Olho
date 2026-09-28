@@ -1,6 +1,8 @@
 ---
 title: Fique de Olho - UnB Editais
 description: Documentação do projeto G4 — plataforma que centraliza, filtra e notifica editais da Universidade de Brasília.
+hide:
+	- toc
 ---
 
 <div class="radar-hero" markdown>

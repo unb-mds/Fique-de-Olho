@@ -69,5 +69,8 @@ nav:
       - Backlog do Produto: Requisitos/produto/backlog.md
   - Apresentação:
       - Roteiro dos slides: apresentacao/roteiro-slides.md
+  - Implementação:
+      - Backend: back.md
+      - Frontend: front.md
   - Decisões Arquiteturais:
       - ADR 0001 - Stack do Backend: adr/0001-stack-backend.md

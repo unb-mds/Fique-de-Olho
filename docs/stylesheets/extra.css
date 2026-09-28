@@ -33,6 +33,15 @@
   font-weight: 700;
 }
 
+/* A página usa blocos visuais; o índice lateral ocupa espaço sem ajudar na leitura. */
+.md-sidebar--secondary {
+  display: none;
+}
+
+.md-content {
+  max-width: 100%;
+}
+
 /* ---------- Hero da página inicial ---------- */
 .radar-hero {
   position: relative;
