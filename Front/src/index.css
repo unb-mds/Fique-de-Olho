@@ -16,14 +16,10 @@
   --slate-500: #6b7280;
   --slate-200: #e5e7eb;
 
-  --pill-pibic-bg: #e7f6ec;
-  --pill-pibic-fg: #1c7a34;
   --pill-vestibular-bg: #e6f2fb;
   --pill-vestibular-fg: #1462b0;
   --pill-estagio-bg: #e7f0fe;
   --pill-estagio-fg: #2255c9;
-  --pill-monitoria-bg: #fde8f1;
-  --pill-monitoria-fg: #c22a76;
   --pill-extensao-bg: #fdedd9;
   --pill-extensao-fg: #b3590a;
   --pill-pesquisa-bg: #f0e9fd;
@@ -394,6 +390,10 @@ button {
   color: var(--ink-900);
 }
 
+.edital-card-title a:hover {
+  color: var(--navy-700);
+}
+
 .edital-card-desc {
   font-size: 13px;
   color: var(--slate-500);
@@ -429,6 +429,81 @@ button {
   background: #fdeaea;
   color: #c02626;
   font-weight: 600;
+}
+
+/* ---------- Detalhe do edital ---------- */
+.detail-page {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 40px 32px 80px;
+}
+
+.detail-back-link {
+  color: var(--navy-700);
+  display: inline-block;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 20px;
+}
+
+.detail-back-link:hover {
+  text-decoration: underline;
+}
+
+.detail-card {
+  background: #fff;
+  border: 1px solid var(--slate-200);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  padding: 32px;
+}
+
+.detail-card h1 {
+  font-family: var(--font-display);
+  font-size: 36px;
+  line-height: 1.2;
+  margin: 20px 0 14px;
+}
+
+.detail-description {
+  color: var(--slate-500);
+  line-height: 1.65;
+  margin: 0;
+}
+
+.detail-metadata {
+  border-top: 1px solid var(--slate-200);
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 28px 0;
+  padding-top: 24px;
+}
+
+.detail-metadata dt {
+  color: var(--slate-500);
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.detail-metadata dd {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.detail-document-link {
+  background: var(--navy-950);
+  border-radius: var(--radius-pill);
+  color: #fff;
+  display: inline-block;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 11px 18px;
+}
+
+.detail-document-link:hover {
+  background: var(--navy-700);
 }
 
 /* ---------- Footer ---------- */
@@ -520,6 +595,22 @@ button {
   }
   .hero-heading {
     font-size: 30px;
+  }
+
+  .detail-page {
+    padding: 28px 20px 56px;
+  }
+
+  .detail-card {
+    padding: 22px;
+  }
+
+  .detail-card h1 {
+    font-size: 28px;
+  }
+
+  .detail-metadata {
+    grid-template-columns: 1fr;
   }
 }
 

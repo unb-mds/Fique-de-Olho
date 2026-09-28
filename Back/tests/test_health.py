@@ -15,3 +15,16 @@ def test_list_editais_initial_endpoint(client):
     assert isinstance(data, list)
     assert len(data) >= 1
     assert data[0]["status"] == "aberto"
+
+
+def test_get_edital_by_id(client):
+    response = client.get("/api/v1/editais/1")
+
+    assert response.status_code == 200
+    assert response.json()["id"] == "1"
+
+
+def test_get_missing_edital_returns_404(client):
+    response = client.get("/api/v1/editais/inexistente")
+
+    assert response.status_code == 404

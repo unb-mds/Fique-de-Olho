@@ -1,6 +1,7 @@
 import type { Edital } from '@/services/types';
 import { categoryBadgeStyle, daysUntil, formatDate } from '@/utils/editalDisplay';
-import FavoriteButton from "./FavoriteButton";
+import { Link } from 'react-router-dom';
+import FavoriteButton from './FavoriteButton';
 
 interface EditalCardProps {
   edital: Edital;
@@ -10,8 +11,6 @@ export default function EditalCard({ edital }: EditalCardProps) {
   const restantes = daysUntil(edital.prazoFinal);
   const urgente = restantes !== null && restantes >= 0 && restantes <= 7;
 
-  // Ainda não navega para uma página de detalhe — essa rota/tela fica
-  // para outra pessoa do time implementar quando o backend expuser o endpoint.
   return (
     <article className="edital-card">
       <FavoriteButton />
@@ -26,7 +25,9 @@ export default function EditalCard({ edital }: EditalCardProps) {
         </div>
       </div>
 
-      <h3 className="edital-card-title">{edital.titulo}</h3>
+      <h3 className="edital-card-title">
+        <Link to={`/editais/${edital.id}`}>{edital.titulo}</Link>
+      </h3>
       <p className="edital-card-desc">{edital.descricao}</p>
 
       <div className="edital-card-footer">

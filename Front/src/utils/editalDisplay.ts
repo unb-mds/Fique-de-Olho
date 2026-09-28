@@ -3,10 +3,8 @@ import type { CSSProperties } from 'react';
 // Mapeia cada categoria de edital para as cores de badge usadas no protótipo.
 // Adicione novas categorias aqui conforme o backend passar a retorná-las.
 const CATEGORY_STYLES: Record<string, { bgVar: string; fgVar: string }> = {
-  pibic: { bgVar: '--pill-pibic-bg', fgVar: '--pill-pibic-fg' },
   vestibular: { bgVar: '--pill-vestibular-bg', fgVar: '--pill-vestibular-fg' },
   estagio: { bgVar: '--pill-estagio-bg', fgVar: '--pill-estagio-fg' },
-  monitoria: { bgVar: '--pill-monitoria-bg', fgVar: '--pill-monitoria-fg' },
   extensao: { bgVar: '--pill-extensao-bg', fgVar: '--pill-extensao-fg' },
   pesquisa: { bgVar: '--pill-pesquisa-bg', fgVar: '--pill-pesquisa-fg' },
 };
@@ -36,9 +34,7 @@ export function categoryBadgeStyle(categoria: string | null | undefined): CSSPro
 export const KNOWN_CATEGORIES = [
   'Pesquisa',
   'Estágio',
-  'PIBIC',
   'Extensão',
-  'Monitoria',
   'Vestibular',
 ];
 

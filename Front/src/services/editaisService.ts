@@ -11,7 +11,7 @@ export async function getEditais(): Promise<Edital[]> {
 }
 
 export async function getEditalById(id: string): Promise<Edital> {
-  const response = await fetch(`${API_BASE_URL}/editais/${id}`);
+  const response = await fetch(`${API_BASE_URL}/api/v1/editais/${id}`);
   if (!response.ok) {
     throw new Error(`Erro ao buscar edital ${id}: ${response.status}`);
   }
