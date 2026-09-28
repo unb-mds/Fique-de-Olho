@@ -40,8 +40,14 @@ O Docker Compose sobe a aplicação FastAPI e o banco de dados PostgreSQL automa
 
 ```bash
 # Na pasta Back/
-docker compose up --build
+docker compose up --build -d
+docker compose exec api alembic upgrade head
 ```
+
+O comando de migration cria/atualiza o schema antes de usar os endpoints que
+dependem do banco. Se o volume já contém tabelas criadas pela versão anterior,
+siga primeiro o procedimento **Adotar um banco existente** abaixo; não execute
+`upgrade head` nesse banco.
 
 A API estará disponível em:
 * **Endpoints:** [http://localhost:8000](http://localhost:8000)
@@ -71,12 +77,128 @@ Copie o arquivo `.env.example` para `.env`:
 Copy-Item .env.example .env
 ```
 
-#### 4. Iniciar o servidor de desenvolvimento:
+#### 4. Aplicar as migrations:
+```powershell
+alembic upgrade head
+```
+
+#### 5. Iniciar o servidor de desenvolvimento:
 ```powershell
 uvicorn app.main:app --reload --port 8000
 ```
 
 ---
+
+## Banco de Dados
+
+O backend usa PostgreSQL como armazenamento e SQLAlchemy como ORM. O contrato
+do schema está definido em `app/core/database.py`; as entidades, relações e
+decisões estão descritas no [ADR 0003](../docs/adr/0003-database-schema.md).
+
+### O que o banco guarda
+
+- `editais`: título, URL da página de origem, campus e tipo opcionais, data de
+   publicação, status (`aberto` ou `encerrado`) e data de criação. A URL da página
+   é única para impedir duplicatas na coleta incremental.
+- `edital_documentos`: URLs de PDFs associadas a um edital e tipo do documento
+   (`original`, `resultado_provisorio`, `resultado_final` ou `retificacao`).
+- `usuarios`: nome, e-mail único, hash da senha e data de criação. A senha em
+   texto puro não deve ser armazenada.
+- `favoritos`: associa usuários a editais. A chave primária composta pelos IDs
+   impede repetir o mesmo vínculo usuário/edital.
+
+As chaves estrangeiras garantem que documentos e favoritos apontem para
+registros existentes. Um edital pode ter vários documentos e vários favoritos;
+um usuário pode ter vários favoritos. `created_at` usa o horário do servidor do
+banco quando nenhum valor é informado.
+
+### Inicializar com Docker Compose
+
+Na pasta `Back/`, copie o exemplo de ambiente e suba os serviços:
+
+```bash
+cp .env.example .env
+docker compose up --build -d
+docker compose ps
+```
+
+O serviço `db` cria o banco `fiquedeolho_db` com usuário e senha do `.env` (os
+valores do exemplo são apenas para desenvolvimento). A porta publicada no host
+é `5433` no exemplo; a API dentro do Docker conecta ao endereço `db:5432`. Se as
+portas do host estiverem ocupadas, altere `POSTGRES_PORT` ou `API_PORT` no
+`.env`.
+
+O startup da API não altera o schema. Em um banco vazio, aplique a revisão inicial:
+
+```bash
+docker compose exec api alembic upgrade head
+```
+
+Confira a revisão aplicada e as tabelas:
+
+```bash
+docker compose exec api alembic current
+docker compose exec db psql -U fiquedeolho -d fiquedeolho_db -c '\dt'
+```
+
+Se tiver alterado usuário ou banco, use os valores configurados no `.env`. Para
+verificar mensagens de inicialização:
+
+```bash
+docker compose logs -f db api
+```
+
+### Executar a API localmente contra o Compose
+
+Com o serviço `db` ativo, configure `Back/.env` com a porta publicada no host:
+
+```dotenv
+DATABASE_URL=postgresql+psycopg2://fiquedeolho:fiquedeolho@localhost:5433/fiquedeolho_db
+```
+
+Depois, ative o ambiente virtual, aplique as migrations e execute:
+
+```bash
+alembic upgrade head
+uvicorn app.main:app --reload --port 8000
+```
+
+### Adotar um banco existente
+
+Para um banco criado pela versão anterior do backend, faça um backup e confirme
+que tabelas, colunas, índices, constraints e enums correspondem à revisão inicial
+`0001_initial_schema`. `stamp` não compara nem altera o schema: apenas registra
+que a revisão já está aplicada. Só após essa conferência, execute:
+
+```bash
+docker compose exec api alembic stamp head
+docker compose exec api alembic current
+```
+
+Para execução local, use `alembic stamp head` com `DATABASE_URL` apontando para
+o banco verificado. Se o schema não corresponder à revisão inicial, não use
+`stamp`; avalie uma migration de adoção antes de prosseguir.
+
+### Reverter uma migration
+
+O downgrade da revisão inicial remove todas as tabelas do schema. Teste-o somente
+em um banco descartável, nunca em produção nem em um volume com dados que devam
+ser preservados:
+
+```bash
+docker compose exec api alembic downgrade base
+```
+
+Para alterações futuras, crie revisões com `alembic revision --autogenerate -m
+"descricao"`, revise o arquivo gerado e aplique com `alembic upgrade head`.
+
+### O que a camada de banco entrega ao backend
+
+Os modelos ORM descrevem os registros e seus relacionamentos. `SessionLocal`
+cria sessões SQLAlchemy e `get_db()` fornece uma sessão com fechamento ao fim
+do uso. No estado atual, essa dependência ainda não está conectada às rotas ou
+serviços para consultar e persistir dados; essa integração de negócio é uma
+etapa posterior.
 
 ## 🧪 Como Rodar os Testes
 
@@ -85,6 +207,18 @@ Para executar a suíte de testes com o `pytest`:
 ```bash
 pytest -v
 ```
+
+Para validar especificamente o schema e os modelos:
+
+```bash
+pytest tests/test_database_schema.py -v
+```
+
+Esse teste verifica tabelas, colunas, chave primária composta e relações em
+SQLite em memória. O teste de startup confirma que a API não cria tabelas
+automaticamente. SQLite não valida as migrations PostgreSQL; aplique `upgrade`
+e `downgrade` em um banco descartável via Compose para verificar os tipos enum e
+o schema real.
 
 ### Testando o scraper do portal DEG
 
