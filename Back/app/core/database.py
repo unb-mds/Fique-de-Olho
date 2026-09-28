@@ -1,4 +1,3 @@
-import logging
 from enum import Enum as PyEnum
 from typing import Generator
 
@@ -12,12 +11,9 @@ from sqlalchemy import (
     func,
     create_engine,
 )
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, declarative_base, relationship, sessionmaker
 
 from app.core.config import settings
-
-logger = logging.getLogger(__name__)
 
 
 class StatusEdital(PyEnum):
@@ -94,14 +90,6 @@ class Favorito(Base):
 
     usuario = relationship("Usuario", back_populates="favoritos")
     edital = relationship("Edital", back_populates="favoritos")
-
-
-def init_db() -> None:
-    """Cria as tabelas do schema inicial do projeto, se ainda não existirem."""
-    try:
-        Base.metadata.create_all(bind=engine)
-    except SQLAlchemyError as exc:
-        logger.warning("Banco de dados indisponível no boot da aplicação; schema não foi criado agora: %s", exc)
 
 
 def get_db() -> Generator[Session, None, None]:

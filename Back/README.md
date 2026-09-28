@@ -40,8 +40,14 @@ O Docker Compose sobe a aplicação FastAPI e o banco de dados PostgreSQL automa
 
 ```bash
 # Na pasta Back/
-docker compose up --build
+docker compose up --build -d
+docker compose exec api alembic upgrade head
 ```
+
+O comando de migration cria/atualiza o schema antes de usar os endpoints que
+dependem do banco. Se o volume já contém tabelas criadas pela versão anterior,
+siga primeiro o procedimento **Adotar um banco existente** abaixo; não execute
+`upgrade head` nesse banco.
 
 A API estará disponível em:
 * **Endpoints:** [http://localhost:8000](http://localhost:8000)
@@ -71,7 +77,12 @@ Copie o arquivo `.env.example` para `.env`:
 Copy-Item .env.example .env
 ```
 
-#### 4. Iniciar o servidor de desenvolvimento:
+#### 4. Aplicar as migrations:
+```powershell
+alembic upgrade head
+```
+
+#### 5. Iniciar o servidor de desenvolvimento:
 ```powershell
 uvicorn app.main:app --reload --port 8000
 ```
@@ -117,10 +128,16 @@ valores do exemplo são apenas para desenvolvimento). A porta publicada no host
 portas do host estiverem ocupadas, altere `POSTGRES_PORT` ou `API_PORT` no
 `.env`.
 
-No startup, `app/main.py` chama `init_db()` pelo lifespan do FastAPI. A função
-usa `Base.metadata.create_all()` para criar tabelas ausentes. Confira o schema:
+O startup da API não altera o schema. Em um banco vazio, aplique a revisão inicial:
 
 ```bash
+docker compose exec api alembic upgrade head
+```
+
+Confira a revisão aplicada e as tabelas:
+
+```bash
+docker compose exec api alembic current
 docker compose exec db psql -U fiquedeolho -d fiquedeolho_db -c '\dt'
 ```
 
@@ -139,17 +156,41 @@ Com o serviço `db` ativo, configure `Back/.env` com a porta publicada no host:
 DATABASE_URL=postgresql+psycopg2://fiquedeolho:fiquedeolho@localhost:5433/fiquedeolho_db
 ```
 
-Depois, ative o ambiente virtual e execute:
+Depois, ative o ambiente virtual, aplique as migrations e execute:
 
 ```bash
+alembic upgrade head
 uvicorn app.main:app --reload --port 8000
 ```
 
-Se a conexão falhar, `init_db()` registra um aviso e deixa a API continuar.
-Assim, uma resposta saudável de `/health` não prova que o schema foi criado;
-confira os logs e a lista de tabelas. `create_all()` cria tabelas ausentes, mas
-não altera tabelas existentes. O projeto ainda não tem ferramenta de migração;
-alterações futuras em um schema com dados precisam de migração planejada.
+### Adotar um banco existente
+
+Para um banco criado pela versão anterior do backend, faça um backup e confirme
+que tabelas, colunas, índices, constraints e enums correspondem à revisão inicial
+`0001_initial_schema`. `stamp` não compara nem altera o schema: apenas registra
+que a revisão já está aplicada. Só após essa conferência, execute:
+
+```bash
+docker compose exec api alembic stamp head
+docker compose exec api alembic current
+```
+
+Para execução local, use `alembic stamp head` com `DATABASE_URL` apontando para
+o banco verificado. Se o schema não corresponder à revisão inicial, não use
+`stamp`; avalie uma migration de adoção antes de prosseguir.
+
+### Reverter uma migration
+
+O downgrade da revisão inicial remove todas as tabelas do schema. Teste-o somente
+em um banco descartável, nunca em produção nem em um volume com dados que devam
+ser preservados:
+
+```bash
+docker compose exec api alembic downgrade base
+```
+
+Para alterações futuras, crie revisões com `alembic revision --autogenerate -m
+"descricao"`, revise o arquivo gerado e aplique com `alembic upgrade head`.
 
 ### O que a camada de banco entrega ao backend
 
@@ -174,10 +215,10 @@ pytest tests/test_database_schema.py -v
 ```
 
 Esse teste verifica tabelas, colunas, chave primária composta e relações em
-SQLite em memória. O teste de startup simula `init_db()` e verifica que o
-lifespan a chama; não testa autenticação nem criação de schema em PostgreSQL.
-Para validar PostgreSQL real, suba o Compose e consulte as tabelas com o comando
-`psql` descrito acima.
+SQLite em memória. O teste de startup confirma que a API não cria tabelas
+automaticamente. SQLite não valida as migrations PostgreSQL; aplique `upgrade`
+e `downgrade` em um banco descartável via Compose para verificar os tipos enum e
+o schema real.
 
 ### Testando o scraper do portal DEG
 

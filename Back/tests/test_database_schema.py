@@ -74,15 +74,15 @@ def test_database_models_can_be_created_in_sqlite_memory_db():
         assert session.get(EditalDocumento, documento.id).tipo_documento == TipoDocumento.ORIGINAL
 
 
-def test_app_startup_creates_database_schema(monkeypatch):
+def test_app_startup_does_not_create_database_schema(monkeypatch):
     called = {"value": False}
 
-    def fake_init_db():
+    def fake_create_all(*args, **kwargs):
         called["value"] = True
 
-    monkeypatch.setattr(database, "init_db", fake_init_db)
+    monkeypatch.setattr(database.Base.metadata, "create_all", fake_create_all)
 
     with TestClient(app):
         pass
 
-    assert called["value"] is True
+    assert called["value"] is False
