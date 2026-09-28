@@ -67,7 +67,7 @@ nav:
   - Produto:
       - Personas: Requisitos/produto/personas.md
       - Backlog do Produto: Requisitos/produto/backlog.md
-    - Apresentação:
+  - Apresentação:
       - Roteiro dos slides: apresentacao/roteiro-slides.md
   - Decisões Arquiteturais:
       - ADR 0001 - Stack do Backend: adr/0001-stack-backend.md
