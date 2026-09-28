@@ -56,7 +56,9 @@ uvicorn app.main:app --reload --port 8000
 
 <!-- Cada integrante adiciona seu nome manualmente abaixo -->
 
-- 
--
--
--
+- Arthur Amaral da Silva 24200514
+- Eduardo Henrique Coutinho Gurjão 222006679
+- Felippe Ong Su 242028664
+- Isac Silva Marques 242023846
+- Ryan Kelvyn Fernandes de Carvalho 241025560
+- Wendell Derick Mathias Santana dos Santos 241025739
