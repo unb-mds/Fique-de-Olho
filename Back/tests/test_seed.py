@@ -14,12 +14,16 @@ def test_seed_is_idempotent_and_covers_required_statuses_and_documents():
         with SessionLocal.begin() as session:
             seed_editais(session)
 
-        with SessionLocal.begin() as session:
-            seed_editais(session)
+        with SessionLocal() as session:
             first_counts = (
                 session.scalar(select(func.count()).select_from(Edital)),
                 session.scalar(select(func.count()).select_from(EditalDocumento)),
             )
+
+        with SessionLocal.begin() as session:
+            seed_editais(session)
+
+        with SessionLocal() as session:
             second_counts = (
                 session.scalar(select(func.count()).select_from(Edital)),
                 session.scalar(select(func.count()).select_from(EditalDocumento)),
