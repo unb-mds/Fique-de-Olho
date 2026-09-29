@@ -35,9 +35,6 @@ cd Fique-de-Olho
 
 Se o repositório já estiver clonado, entre na pasta dele e siga para a próxima etapa.
 
-### 2. Iniciar o banco de dados e a API
-
-Em um terminal, na raiz do repositório, execute:
 ## O que existe hoje
 
 - Frontend React com listagem de editais, destaques, filtros por categoria, favoritos visuais e página de detalhe.
@@ -69,7 +66,7 @@ As escolhas estão registradas nos ADRs de [backend](docs/adr/0001-stack-backend
 
 ## Como executar
 
-### Backend com Docker
+### Backend com Docker / Bancos
 
 Pré-requisitos: Git, Docker Desktop e Docker Compose.
 
@@ -87,7 +84,6 @@ O PostgreSQL fica disponível na porta `5433` do computador e a API na porta `80
 Confira os serviços e a API:
 docker compose up --build
 ```
-
 Serviços disponíveis:
 
 - API: [http://localhost:8000](http://localhost:8000)
@@ -96,6 +92,19 @@ Serviços disponíveis:
 - Healthcheck: [http://localhost:8000/health](http://localhost:8000/health)
 
 Para ver os logs dos serviços, ainda na pasta `Back`, use `docker compose logs -f api db`.
+```
+
+### Backend local
+
+```powershell
+cd Back
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+```
+
+O banco local padrão é configurado por `DATABASE_URL`; ajuste essa variável no arquivo `.env` quando necessário.
 
 ### 3. Iniciar o frontend
 
@@ -124,48 +133,6 @@ Esse comando mantém o volume do PostgreSQL e os dados persistidos. **Não use `
 O PostgreSQL e as migrations inicializam o schema da aplicação, mas a rota `GET /api/v1/editais/` ainda retorna dados de demonstração definidos no código, sem consultar o banco. A integração entre os modelos e os endpoints ainda não foi implementada.
 
 Para detalhes sobre migrations, execução local do backend e testes, consulte o [README do backend](Back/README.md).
-### Backend local
-
-```powershell
-cd Back
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
-```
-
-O banco local padrão é configurado por `DATABASE_URL`; ajuste essa variável no arquivo `.env` quando necessário.
-
-### Frontend
-
-Em outro terminal:
-
-```powershell
-cd Front
-npm install
-npm run dev
-```
-
-Acesse [http://localhost:5173](http://localhost:5173). Para apontar para outra API, defina `VITE_API_BASE_URL` no ambiente antes de iniciar o Vite. O valor padrão é `http://localhost:8000`.
-
-## Qualidade e comandos
-
-Backend, na pasta `Back`:
-
-```powershell
-pytest -v
-pytest tests/test_scraper.py -v
-```
-
-Frontend, na pasta `Front`:
-
-```powershell
-npm run lint
-npm run build
-npm run format
-```
-
-O build TypeScript funciona como uma verificação adicional do contrato consumido pela interface. A suíte atual cobre principalmente healthcheck, endpoints iniciais e parsing do scraper; cobertura percentual e pipeline CI/CD ainda devem ser formalizados.
 
 ## Documentação do projeto
 
@@ -178,8 +145,6 @@ O build TypeScript funciona como uma verificação adicional do contrato consumi
 - [Guia detalhado do backend](Back/README.md)
 - [Guia detalhado do frontend](Front/README.md)
 
-
-
 ```
 
 ## Organização do repositório
@@ -190,13 +155,6 @@ Front/      aplicação React, páginas, componentes e serviços HTTP
 docs/       documentação MkDocs, requisitos, estudos e ADRs
 CONTEXT.md  linguagem e conceitos do domínio
 ```
-
-## Próximos passos
-
-1. Persistir editais e documentos no PostgreSQL.
-2. Integrar a coleta periódica ao fluxo da API.
-3. Implementar busca textual, autenticação, favoritos persistidos e notificações.
-
 ## Equipe
 
 <!-- Cada integrante adiciona seu nome manualmente abaixo. -->
