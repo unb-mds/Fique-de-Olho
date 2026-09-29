@@ -22,17 +22,30 @@ class EditalResponse(BaseModel):
 EDITAIS = [
     EditalResponse(
         id="1",
-        titulo="Edital de extensão DEG 01/2026",
+        titulo="Edital de Estágio DEG 01/2026",
         unidade="DEG",
-        categoria="Monitoria",
+        categoria="Estágio",
         dataPublicacao="2026-01-15",
         prazoFinal="2026-12-20",
         status="aberto",
         descricao=(
-            "Oportunidade acadêmica com inscrições abertas nos departamentos da UnB."
+            "Seleção de estudantes de graduação para vagas de estágio nos departamentos da UnB."
         ),
         urlDocumento="https://deg.unb.br/",
-    )
+    ),
+    EditalResponse(
+        id="2",
+        titulo="Edital de Extensão DEX 02/2026",
+        unidade="DEX",
+        categoria="Extensão",
+        dataPublicacao="2026-02-01",
+        prazoFinal="2026-11-30",
+        status="aberto",
+        descricao=(
+            "Chamada pública para projetos e bolsas de extensão universitária com inscrições abertas."
+        ),
+        urlDocumento="https://deg.unb.br/",
+    ),
 ]
 
 

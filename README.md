@@ -178,14 +178,8 @@ O build TypeScript funciona como uma verificação adicional do contrato consumi
 - [Guia detalhado do backend](Back/README.md)
 - [Guia detalhado do frontend](Front/README.md)
 
-## Apresentação
 
-- [Slides da apresentação no Canva](https://www.canva.com/design/DAHWfQx1cco/ReCF1bStwi7TDEWdPc42Ew/edit)
 
-O roteiro específico do projeto está em [docs/apresentacao/roteiro-slides.md](docs/apresentacao/roteiro-slides.md). Depois de finalizar os slides, salve também o PDF em `docs/apresentacao/` e adicione aqui um link direto para o arquivo, por exemplo:
-
-```md
-- [Slides finais - Release 1](docs/apresentacao/slides-release-1.pdf)
 ```
 
 ## Organização do repositório
@@ -202,7 +196,6 @@ CONTEXT.md  linguagem e conceitos do domínio
 1. Persistir editais e documentos no PostgreSQL.
 2. Integrar a coleta periódica ao fluxo da API.
 3. Implementar busca textual, autenticação, favoritos persistidos e notificações.
-4. Adicionar pipeline CI/CD, cobertura de testes e release notes.
 
 ## Equipe
 
