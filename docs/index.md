@@ -14,7 +14,7 @@ hide:
 
 <p class="radar-hero__subtitle">
 Centralizamos, filtramos e notificamos os editais 
-da UnB — para que nenhum prazo de bolsa, monitoria, PIBIC ou transferência passe despercebido.
+da UnB — para que nenhum prazo passe despercebido.
 </p>
 
 <div class="radar-hero__actions" markdown>
