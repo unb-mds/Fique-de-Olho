@@ -18,28 +18,63 @@ bolsas, monitorias, PIBIC e transferências.
 
 Para executar o projeto, instale:
 
-- Git
-- Docker Desktop, com o Docker Compose habilitado
+- **Git**
+- **Docker Desktop**, com o Docker Compose habilitado
+- **Node.js 18+** e **npm** (para execução e build do frontend)
 
-Para executar o backend sem Docker, também são necessários Python 3.12 ou superior e `pip`.
+Para executar o backend localmente sem Docker, também são necessários **Python 3.12+** e `pip`.
 
-## 🚀 Executando o backend
+## 🚀 Executando o projeto
 
-O backend utiliza FastAPI e PostgreSQL. A forma recomendada de executar os serviços é pelo Docker Compose:
+### 1. Iniciar Banco de Dados (PostgreSQL) e Backend (FastAPI) via Docker Compose
+
+A forma recomendada de executar os serviços de dados e API é pelo Docker Compose na raiz do repositório:
 
 ```powershell
-docker compose up --build
+docker compose up -d
 ```
 
 Quando os containers estiverem em execução, acesse:
 
-- Swagger: [http://localhost:8000/docs](http://localhost:8000/docs)
-- ReDoc: [http://localhost:8000/redoc](http://localhost:8000/redoc)
-- Healthcheck: [http://localhost:8000/health](http://localhost:8000/health)
+- **Documentação Swagger (OpenAPI):** [http://localhost:8000/docs](http://localhost:8000/docs)
+- **Documentação ReDoc:** [http://localhost:8000/redoc](http://localhost:8000/redoc)
+- **Healthcheck:** [http://localhost:8000/health](http://localhost:8000/health)
 
-Para executar os serviços em segundo plano, use `docker compose up -d --build`. Para mais detalhes sobre a arquitetura, dependências e testes do backend, consulte o [README do backend](Back/README.md).
+### 2. Iniciar o Frontend (React + TypeScript + Vite)
 
-### Execução local do backend
+Em outro terminal, navegue até a pasta `Front/`, instale as dependências e inicie o servidor de desenvolvimento:
+
+```powershell
+cd Front
+npm install
+npm run dev
+```
+
+A interface web estará disponível em:
+- **Aplicação Web:** [http://localhost:5173](http://localhost:5173)
+
+---
+
+## 🧪 Como Rodar os Testes Automatizados
+
+### Testes do Backend (Pytest)
+Com os containers do Docker ativos:
+
+```powershell
+docker exec -it fique-de-olho-api pytest -v
+```
+
+### Testes e Validação do Frontend (Lint e Build)
+Na pasta `Front/`:
+
+```powershell
+npm run lint
+npm run build
+```
+
+---
+
+### Execução local do backend sem Docker (Opcional)
 
 Na pasta `Back`, crie um ambiente virtual, instale as dependências e inicie o servidor:
 

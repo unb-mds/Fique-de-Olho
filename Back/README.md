@@ -47,7 +47,10 @@ A API estará disponível em:
 * **Endpoints:** [http://localhost:8000](http://localhost:8000)
 * **Documentação Swagger (OpenAPI):** [http://localhost:8000/docs](http://localhost:8000/docs)
 * **Documentação ReDoc:** [http://localhost:8000/redoc](http://localhost:8000/redoc)
-* **Healthcheck:** [http://localhost:8000/health](http://localhost:8000/health)
+* **Healthcheck:** [http://localhost:8000/health](http://localhost:8000/health) *(Valida conexão em tempo real com o PostgreSQL)*
+* **Listagem de Editais:** [http://localhost:8000/api/v1/editais/](http://localhost:8000/api/v1/editais/) *(Filtros: `?status=aberto&categoria=Monitoria&campus=Darcy+Ribeiro&busca=termo`)*
+* **Detalhe de Edital:** `GET /api/v1/editais/{id}` ou `GET /editais/{id}`
+* **Sincronização com DEG:** `POST /api/v1/editais/sync?max_itens=20` *(Dispara raspagem e persistência no PostgreSQL)*
 
 ---
 
@@ -86,12 +89,23 @@ uvicorn app.main:app --reload --port 8000
 
 ## 🧪 Como Rodar os Testes
 
-Para executar a suíte de testes com o `pytest`:
+A suíte de testes automatizados cobre a conectividade com o banco de dados PostgreSQL, a filtragem e serialização de editais e a raspagem/parsing de documentos do DEG.
+
+### Opção 1: Via Docker (Recomendado)
+Com os containers em execução a partir da raiz do repositório:
 
 ```bash
-# Na pasta Back/
+docker exec -it fique-de-olho-api pytest -v
+```
+
+### Opção 2: Localmente com Ambiente Virtual
+Na pasta `Back/`, com o ambiente virtual ativado:
+
+```powershell
 pytest -v
 ```
+
+---
 
 ### Testando o scraper do portal DEG
 
@@ -109,7 +123,7 @@ https://deg.unb.br/editais-2025/
 https://deg.unb.br/editais-2024/
 ```
 
-#### 1. Rodar os testes automatizados
+#### 1. Rodar os testes automatizados do scraper
 
 Na pasta `Back/`, com o ambiente virtual ativado:
 
@@ -125,7 +139,7 @@ Se o ambiente virtual não estiver ativado, execute pelo caminho direto do Pytho
 
 Esses testes não dependem da internet. Eles simulam o HTML do portal para 2026 e 2025 e verificam também se uma falha de rede retorna uma lista vazia sem interromper a execução.
 
-#### 2. Consultar o portal real
+#### 2. Consultar o portal real e persistência no banco
 
 Para executar o scraper contra as páginas reais do DEG:
 
@@ -135,7 +149,8 @@ python -c "from app.modules.scraper.deg import fetch_editais; atual = fetch_edit
 
 O resultado deve mostrar a quantidade encontrada e o primeiro edital de cada ano. A função `fetch_editais()` retorna `[]` quando ocorre uma falha de comunicação com o portal.
 
-> **Nota:** nesta etapa o scraper ainda é uma função de coleta independente. A integração com o endpoint de listagem da API e a persistência no PostgreSQL serão feitas nas próximas etapas do backend.
+> **Persistência no PostgreSQL:** O scraper está integrado ao banco de dados pelo serviço `app.modules.scraper.service.sync_deg_editais()`. A cada sincronização, um registro de auditoria é salvo na tabela `coletas` e os novos editais são persistidos na tabela `editais` vinculados aos seus respectivos campi e tipos. Você também pode disparar a coleta via API com `POST /api/v1/editais/sync`.
+
 
 ### Scraper nível 2: documentos PDF
 
