@@ -150,3 +150,4 @@ def sync_deg_editais(db: Session, max_items: int = 30) -> Dict[str, Any]:
         coleta.finalizada_em = func.now()
         db.commit()
         raise e
+

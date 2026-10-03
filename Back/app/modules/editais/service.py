@@ -183,3 +183,4 @@ def get_edital_by_id(db: Session, edital_id: int) -> Optional[Dict[str, Any]]:
     if not edital:
         return None
     return serialize_edital(edital, detail=True)
+

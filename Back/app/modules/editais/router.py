@@ -53,3 +53,4 @@ def trigger_sync_editais(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erro ao sincronizar editais: {str(e)}",
         )
+

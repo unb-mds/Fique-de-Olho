@@ -46,3 +46,4 @@ INSERT INTO edital_tipos (edital_id, tipo_edital_id)
 SELECT e.id, t.id FROM editais e, tipos_editais t
 WHERE e.identificador_origem = 'pibic-2026-2027' AND t.nome = 'PIBIC'
 ON CONFLICT DO NOTHING;
+

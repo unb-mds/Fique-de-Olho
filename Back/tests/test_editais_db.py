@@ -74,3 +74,4 @@ def test_sync_editais_service(client):
         data = response.json()
         assert data["status"] == "success"
         assert "coleta_id" in data
+
