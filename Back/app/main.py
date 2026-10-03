@@ -58,3 +58,4 @@ def health_check():
 
 # Inclusão dos roteadores modulares
 app.include_router(editais_router, prefix=settings.API_V1_STR)
+app.include_router(editais_router, include_in_schema=False)
