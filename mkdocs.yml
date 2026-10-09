@@ -49,6 +49,7 @@ extra_css:
 
 nav:
   - Início: index.md
+  - Arquitetura: Arquitetura.md
   - Estudos:
       - Agentes de IA: Estudos/sprint00/agentes_IA.md
       - Arquitetura: Estudos/sprint00/arquitetura.md
