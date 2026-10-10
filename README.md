@@ -18,6 +18,17 @@ bolsas, monitorias, PIBIC e transferências.
 
 Para executar o projeto, instale:
 
+- **Git**
+- **Docker Desktop**, com o Docker Compose habilitado
+- **Node.js 18+** e **npm** (para execução e build do frontend)
+
+Para executar o backend localmente sem Docker, também são necessários **Python 3.12+** e `pip`.
+
+## 🚀 Executando o projeto
+
+### 1. Iniciar Banco de Dados (PostgreSQL) e Backend (FastAPI) via Docker Compose
+
+A forma recomendada de executar os serviços de dados e API é pelo Docker Compose na raiz do repositório:
 - Git
 - Docker com Docker Compose v2 (Docker Desktop no Windows/macOS ou Docker Engine no Linux)
 - Node.js 18 ou superior e npm
@@ -39,6 +50,11 @@ Se o repositório já estiver clonado, entre na pasta dele e siga para a próxim
 
 Em um terminal, na raiz do repositório, execute:
 
+```powershell
+docker compose up -d
+```
+
+Quando os containers estiverem em execução, acesse:
 ```bash
 cd Back
 docker compose up --build -d
@@ -52,10 +68,43 @@ O PostgreSQL fica disponível na porta `5433` do computador e a API na porta `80
 
 Confira os serviços e a API:
 
-- Swagger: [http://localhost:8000/docs](http://localhost:8000/docs)
-- ReDoc: [http://localhost:8000/redoc](http://localhost:8000/redoc)
-- Healthcheck: [http://localhost:8000/health](http://localhost:8000/health)
+- **Documentação Swagger (OpenAPI):** [http://localhost:8000/docs](http://localhost:8000/docs)
+- **Documentação ReDoc:** [http://localhost:8000/redoc](http://localhost:8000/redoc)
+- **Healthcheck:** [http://localhost:8000/health](http://localhost:8000/health)
 
+### 2. Iniciar o Frontend (React + TypeScript + Vite)
+
+Em outro terminal, navegue até a pasta `Front/`, instale as dependências e inicie o servidor de desenvolvimento:
+
+```powershell
+cd Front
+npm install
+npm run dev
+```
+
+A interface web estará disponível em:
+- **Aplicação Web:** [http://localhost:5173](http://localhost:5173)
+
+---
+
+## 🧪 Como Rodar os Testes Automatizados
+
+### Testes do Backend (Pytest)
+Com os containers do Docker ativos:
+
+```powershell
+docker exec -it fique-de-olho-api pytest -v
+```
+
+### Testes e Validação do Frontend (Lint e Build)
+Na pasta `Front/`:
+
+```powershell
+npm run lint
+npm run build
+```
+
+---
 Para ver os logs dos serviços, ainda na pasta `Back`, use `docker compose logs -f api db`.
 
 ### 3. Iniciar o frontend
@@ -70,6 +119,17 @@ npm run dev
 
 Abra o endereço exibido pelo Vite, normalmente [http://localhost:5173](http://localhost:5173). Por padrão, o frontend já se conecta à API em `http://localhost:8000`; não é necessário criar um arquivo `.env` para a configuração padrão.
 
+### Execução local do backend sem Docker (Opcional)
+
+Na pasta `Back`, crie um ambiente virtual, instale as dependências e inicie o servidor:
+
+```powershell
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+Copy-Item .env.example .env
+uvicorn app.main:app --reload --port 8000
+```
 ### Parar os serviços
 
 No terminal da pasta `Back`, execute:

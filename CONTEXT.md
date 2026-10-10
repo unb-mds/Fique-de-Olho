@@ -24,3 +24,15 @@ _Avoid_: Curtida, item salvo, bookmark genérico
 Modalidade de pesquisa baseada em similaridade vetorial (significado e contexto da intenção do usuário), indo além da correspondência exata de palavras-chave.
 _Avoid_: Busca por texto exato, filtro textual simples
 
+**Prazo de inscrição**:
+Intervalo formado pela data inicial e pela data final em que uma pessoa pode se inscrever em um Edital.
+_Avoid_: Cronograma completo, prazo genérico
+
+**Catálogo controlado**:
+Conjunto de valores previamente definidos e mantidos pelo sistema para classificar Editais, como tipos, campi e cursos. No escopo atual, os tipos são `Extensões` e `Bolsas / Auxílios`.
+_Avoid_: Texto livre, tag improvisada
+
+**Texto extraído**:
+Conteúdo textual obtido pelo backend a partir do PDF oficial durante a coleta automatizada, para permitir busca e consulta na plataforma, mantendo o link do documento original.
+_Avoid_: Cópia integral do PDF armazenada localmente, resumo manual
+
