@@ -1,5 +1,15 @@
 """Módulo de Scraper: responsável pela coleta (BeautifulSoup) e extração de PDFs (pdfplumber)."""
 
+from app.modules.scraper.parser import (
+    CAMPUS_UNB,
+    ORGAOS_UNB,
+    CronogramaEtapa,
+    EditalMetadados,
+    detect_campus,
+    detect_orgao_emissor,
+    parse_data_interval,
+    parse_edital_metadados,
+)
 from app.modules.scraper.pdf import (
     PDFCorruptedError,
     PDFDocumentExtraction,
@@ -29,4 +39,12 @@ __all__ = [
     "PDFCorruptedError",
     "PDFDocumentExtraction",
     "PDFPageExtraction",
+    "EditalMetadados",
+    "CronogramaEtapa",
+    "parse_edital_metadados",
+    "parse_data_interval",
+    "detect_orgao_emissor",
+    "detect_campus",
+    "ORGAOS_UNB",
+    "CAMPUS_UNB",
 ]
