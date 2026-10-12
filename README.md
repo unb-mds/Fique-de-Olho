@@ -8,11 +8,38 @@ Editais da UnB ficam distribuídos em páginas institucionais e documentos exten
 
 O produto foi pensado para a comunidade discente da UnB, especialmente pessoas que acessam o serviço pelo celular, possuem pouco tempo para acompanhar publicações ou precisam de uma visão resumida antes de abrir o documento oficial.
 
+## 📚 Documentação
+
+- [Pages](https://unb-mds.github.io/Fique-de-Olho/)
+- [Figma](https://www.figma.com/board/Sw1R44AAXzZrW5eBolJybw/Template-MDS--c%C3%B3pia-limpa---c%C3%B3pia-?node-id=1-291)
+- [protótipo de alta fidelidade](https://www.figma.com/make/yqHT0b3mk0T3EkHD2aUgns/UnB-Editais-Aggregator-Site?fullscreen=1)
+
+## ⚙️ Pré-requisitos
+
+Para executar o projeto, instale:
+
+- Git
+- Docker com Docker Compose v2 (Docker Desktop no Windows/macOS ou Docker Engine no Linux)
+- Node.js 18 ou superior e npm
+
+## 🚀 Executando o projeto
+
+### 1. Obter o código
+
+Se ainda não clonou o repositório:
+
+```bash
+git clone https://github.com/unb-mds/Fique-de-Olho.git
+cd Fique-de-Olho
+```
+
+Se o repositório já estiver clonado, entre na pasta dele e siga para a próxima etapa.
+
 ## O que existe hoje
 
 - Frontend React com listagem de editais, destaques, filtros por categoria, favoritos visuais e página de detalhe.
 - API FastAPI com documentação OpenAPI, healthcheck e endpoints de listagem e consulta por identificador.
-- Scraper do portal do DEG para listagens de editais e documentos PDF, com tratamento de falha de rede.
+- Scrapers dos portais institucionais selecionados na ADR 0004 para listagens de editais e documentos PDF, com tratamento de falha de rede.
 - Testes automatizados do healthcheck, endpoints e scraper, usando respostas HTML simuladas.
 - Documentação de domínio, requisitos, personas, backlog, arquitetura e decisões técnicas em `docs/`.
 
@@ -39,14 +66,25 @@ As escolhas estão registradas nos ADRs de [backend](docs/adr/0001-stack-backend
 
 ## Como executar
 
-### Backend com Docker
+### Backend com Docker / Bancos
 
 Pré-requisitos: Git, Docker Desktop e Docker Compose.
 
-```powershell
+```bash
 cd Back
+docker compose up --build -d
+docker compose exec api alembic upgrade head
+docker compose ps
+```
+
+O Compose inicia o PostgreSQL e aguarda o banco ficar saudável antes de iniciar a API. A migration `alembic upgrade head` cria ou atualiza as tabelas no banco. Execute-a após iniciar os serviços e sempre que uma nova migration for adicionada.
+
+O PostgreSQL fica disponível na porta `5433` do computador e a API na porta `8000`. Para alterar essas portas, configure `POSTGRES_PORT` e `API_PORT` no arquivo `Back/.env` (pode ser criado a partir de `Back/.env.example`) antes de iniciar os serviços. Se mudar `API_PORT`, configure também `VITE_API_BASE_URL` em `Front/.env` (veja `Front/.env.example`) com a mesma porta e reinicie o Vite.
+
+Confira os serviços e a API:
 docker compose up --build
 ```
+Serviços disponíveis:
 
 Serviços disponíveis:
 
@@ -137,10 +175,11 @@ CONTEXT.md  linguagem e conceitos do domínio
 
 ## Equipe
 
-<!-- Cada integrante adiciona seu nome manualmente abaixo. -->
+<!-- Cada integrante adiciona seu nome manualmente abaixo -->
 
-- Arthur Amaral
-- Felipe Su
-- Wendell Derick
-- Eduardo Henrique
-- Isac Silva
+- Arthur Amaral da Silva 24200514
+- Eduardo Henrique Coutinho Gurjão 222006679
+- Felippe Ong Su 242028664
+- Isac Silva Marques 242023846
+- Ryan Kelvyn Fernandes de Carvalho 241025560
+- Wendell Derick Mathias Santana dos Santos 241025739

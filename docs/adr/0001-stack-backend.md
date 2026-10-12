@@ -31,7 +31,7 @@ Essa combinação garante uma arquitetura leve, moderna e orientada a APIs assí
 * **Extração de Texto e Tabelas de PDF:**
   * *pdfplumber (Escolhida)*: Oferece inspeção detalhada de layout e extração confiável de tabelas estruturadas (essenciais para cronogramas e vagas de editais), superando leitores de texto plano.
   * *PyPDF / pypdf2*: Rápido para texto corrido, mas frágil para extrair tabelas e layouts de editais diagramados.
-  * *Tesseract / OCR*: Desnecessário inicialmente, já que a maioria dos editais publicados pelo DEG/UnB possui camada nativa de texto pesquisável.
+  * *Tesseract / OCR*: Desnecessário inicialmente, já que a maioria dos editais publicados pelos portais selecionados da UnB possui camada nativa de texto pesquisável.
 
 * **Mecanismo de Busca Semântica (Entrega 2):**
   * *sentence-transformers local (Escolhida)*: Permite busca baseada no significado da consulta (ex.: "auxílio para moradia no Gama") sem depender de casamento exato de termos ou custos por requisição de APIs externas.
@@ -47,4 +47,3 @@ Essa combinação garante uma arquitetura leve, moderna e orientada a APIs assí
 * **Trade-offs / Riscos identificados:**
   * O carregamento do modelo de `sentence-transformers` na memória durante a entrega 2 exigirá atenção ao dimensionamento do servidor (consumo de RAM e CPU na inferência de embeddings).
   * Mudanças na estrutura HTML dos portais da UnB exigirão manutenção e testes nos seletores do BeautifulSoup.
-
