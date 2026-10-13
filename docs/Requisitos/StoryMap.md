@@ -21,6 +21,20 @@ Abaixo encontram-se o link do figma onde encontrasse o SroryMap detalhado.
 
 ## 📊 Visão Geral da Estrutura (Diagrama)
 
+### Registro visual do Story Map
+
+As imagens abaixo registram as partes do Story Map construídas pelo grupo:
+
+![Story Map - parte 1](imagens/storymap_parte1.png)
+
+![Story Map - parte 2](imagens/storymap_parte2.png)
+
+![Story Map - épico 1](imagens/storymap_epico1.png)
+
+![Story Map - épico 2](imagens/storymap_epico2.png)
+
+![Story Map - épico 3](imagens/storymap_epico3.png)
+
 ```mermaid
 flowchart TD
     subgraph Projeto["FIQUE DE OLHO (UnB Editais)"]
