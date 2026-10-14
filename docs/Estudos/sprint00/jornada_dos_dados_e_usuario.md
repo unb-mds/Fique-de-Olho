@@ -8,7 +8,7 @@ A Jornada dos Dados representa o caminho percorrido pelas informações dos edit
 
 ### 1. Origem dos dados
 
-Os dados utilizados pelo sistema são provenientes do portal de editais do DEG (Decanato de Ensino de Graduação) da Universidade de Brasília.
+Os dados utilizados pelo sistema são provenientes de diferentes portais e fontes de editais, incluindo o portal de editais do DEG (Decanato de Ensino de Graduação) da Universidade de Brasília.
 
 ### 2. Coleta dos dados
 
@@ -46,23 +46,23 @@ O frontend recebe as informações disponibilizadas pelo backend e apresenta os 
 ### Fluxo visual da Jornada dos Dados
 
 ```text
-Portal de Editais do DEG
-          ↓
-        Scraper
-          ↓
+Diferentes fontes de editais
+        ↓
+Scraper
+        ↓
 Coleta das informações
-          ↓
+        ↓
 Processamento dos dados
-          ↓
-   Banco de Dados
-      PostgreSQL
-          ↓
-     Backend / API
-        FastAPI
-          ↓
-       Frontend
-          ↓
-        Usuário
+        ↓
+Banco de Dados
+PostgreSQL
+        ↓
+Backend / API
+FastAPI
+        ↓
+Frontend
+        ↓
+Usuário
 ```
 
 **Fluxo resumido:**
