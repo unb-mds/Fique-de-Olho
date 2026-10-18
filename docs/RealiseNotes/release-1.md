@@ -23,7 +23,7 @@ A **Release 1** teve como foco principal **eliminar incertezas técnicas e de pr
 ```mermaid
 flowchart LR
     subgraph Coleta["1. Coleta de Dados"]
-        UnB["Portais institucionais da UnB<br>(HTML institucional)"]
+        UnB["Portal DEG / UnB<br>(HTML Institucional)"]
         Scraper["Scraper HTTPX + bs4<br>(Coleta & Parsing)"]
         UnB --> Scraper
     end
@@ -81,8 +81,8 @@ Construído sob uma **arquitetura modular**, garantindo que cada domínio de neg
   * `Dockerfile` otimizado para o FastAPI.
   * `docker-compose.yml` orquestrando a API e o banco de dados **PostgreSQL 16**.
 
-### 🕷️ 2.3. Scraper dos Portais Institucionais (BeautifulSoup + HTTPX)
-* Coleta automatizada de editais recentes a partir dos portais institucionais selecionados na ADR 0004. Na R1, o DEG é a fonte implementada e validada; as demais fontes compõem a expansão de escopo decidida para as próximas entregas.
+### 🕷️ 2.3. Scraper do Portal DEG (BeautifulSoup + HTTPX)
+* Coleta automatizada de editais recentes a partir do portal oficial do DEG/UnB.
 * Extração e higienização de títulos, links de documentos em PDF e identificação de retificações.
 * Tratamento robusto de timeouts e falhas de rede.
 
