@@ -119,6 +119,7 @@ def sync_deg_editais(db: Session, max_items: int = 30) -> Dict[str, Any]:
                     titulo=titulo,
                     resumo=f"Edital publicado pelo DEG em {item.get('data_publicacao', 'data não informada')}.",
                     url_pdf=link,
+                    url_pagina=link,
                     data_publicacao=pub_date,
                     status_processamento="processado",
                 )
