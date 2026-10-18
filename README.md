@@ -35,11 +35,38 @@ cd Fique-de-Olho
 
 Se o repositório já estiver clonado, entre na pasta dele e siga para a próxima etapa.
 
+## 📚 Documentação
+
+- [Pages](https://unb-mds.github.io/Fique-de-Olho/)
+- [Figma](https://www.figma.com/board/Sw1R44AAXzZrW5eBolJybw/Template-MDS--c%C3%B3pia-limpa---c%C3%B3pia-?node-id=1-291)
+- [protótipo de alta fidelidade](https://www.figma.com/make/yqHT0b3mk0T3EkHD2aUgns/UnB-Editais-Aggregator-Site?fullscreen=1)
+
+## ⚙️ Pré-requisitos
+
+Para executar o projeto, instale:
+
+- Git
+- Docker com Docker Compose v2 (Docker Desktop no Windows/macOS ou Docker Engine no Linux)
+- Node.js 18 ou superior e npm
+
+## 🚀 Executando o projeto
+
+### 1. Obter o código
+
+Se ainda não clonou o repositório:
+
+```bash
+git clone https://github.com/unb-mds/Fique-de-Olho.git
+cd Fique-de-Olho
+```
+
+Se o repositório já estiver clonado, entre na pasta dele e siga para a próxima etapa.
+
 ## O que existe hoje
 
 - Frontend React com listagem de editais, destaques, filtros por categoria, favoritos visuais e página de detalhe.
 - API FastAPI com documentação OpenAPI, healthcheck e endpoints de listagem e consulta por identificador.
-- Scraper do portal do DEG para listagens de editais e documentos PDF, com tratamento de falha de rede.
+- Scrapers dos portais institucionais selecionados na ADR 0004 para listagens de editais e documentos PDF, com tratamento de falha de rede.
 - Testes automatizados do healthcheck, endpoints e scraper, usando respostas HTML simuladas.
 - Documentação de domínio, requisitos, personas, backlog, arquitetura e decisões técnicas em `docs/`.
 
@@ -91,9 +118,6 @@ Serviços disponíveis:
 - ReDoc: [http://localhost:8000/redoc](http://localhost:8000/redoc)
 - Healthcheck: [http://localhost:8000/health](http://localhost:8000/health)
 
-Para ver os logs dos serviços, ainda na pasta `Back`, use `docker compose logs -f api db`.
-```
-
 ### Backend local
 
 ```powershell
@@ -106,33 +130,36 @@ uvicorn app.main:app --reload --port 8000
 
 O banco local padrão é configurado por `DATABASE_URL`; ajuste essa variável no arquivo `.env` quando necessário.
 
-### 3. Iniciar o frontend
+### Frontend
 
-Abra outro terminal na raiz do repositório e execute:
+Em outro terminal:
 
-```bash
+```powershell
 cd Front
 npm install
 npm run dev
 ```
 
-Abra o endereço exibido pelo Vite, normalmente [http://localhost:5173](http://localhost:5173). Por padrão, o frontend já se conecta à API em `http://localhost:8000`; não é necessário criar um arquivo `.env` para a configuração padrão.
+Acesse [http://localhost:5173](http://localhost:5173). Para apontar para outra API, defina `VITE_API_BASE_URL` no ambiente antes de iniciar o Vite. O valor padrão é `http://localhost:8000`.
 
-### Parar os serviços
+## Qualidade e comandos
 
-No terminal da pasta `Back`, execute:
+Backend, na pasta `Back`:
 
-```bash
-docker compose down
+```powershell
+pytest -v
+pytest tests/test_scraper.py -v
 ```
 
-Esse comando mantém o volume do PostgreSQL e os dados persistidos. **Não use `docker compose down -v`**, a menos que queira apagar permanentemente o banco local.
+Frontend, na pasta `Front`:
 
-### Estado atual da integração
+```powershell
+npm run lint
+npm run build
+npm run format
+```
 
-O PostgreSQL e as migrations inicializam o schema da aplicação, mas a rota `GET /api/v1/editais/` ainda retorna dados de demonstração definidos no código, sem consultar o banco. A integração entre os modelos e os endpoints ainda não foi implementada.
-
-Para detalhes sobre migrations, execução local do backend e testes, consulte o [README do backend](Back/README.md).
+O build TypeScript funciona como uma verificação adicional do contrato consumido pela interface. A suíte atual cobre principalmente healthcheck, endpoints iniciais e parsing do scraper; cobertura percentual e pipeline CI/CD ainda devem ser formalizados.
 
 ## Documentação do projeto
 
@@ -156,9 +183,6 @@ docs/       documentação MkDocs, requisitos, estudos e ADRs
 CONTEXT.md  linguagem e conceitos do domínio
 ```
 ## Equipe
-
-<!-- Cada integrante adiciona seu nome manualmente abaixo. -->
-
 - Arthur Amaral da Silva 24200514
 - Eduardo Henrique Coutinho Gurjão 222006679
 - Felippe Ong Su 242028664
