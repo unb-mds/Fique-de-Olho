@@ -56,6 +56,9 @@ def health_check():
     )
 
 
-# Inclusão dos roteadores modulares
+# Inclusão dos roteadores modulares:
+# 1. Rota canônica com prefixo da API (/api/v1/editais)
 app.include_router(editais_router, prefix=settings.API_V1_STR)
+
+# 2. Rota de compatibilidade direta (/editais) para frontend e testes
 app.include_router(editais_router, include_in_schema=False)
