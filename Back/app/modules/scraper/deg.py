@@ -1,10 +1,12 @@
 import re
 import unicodedata
-from typing import Any
+from typing import Any, Dict, List, Optional
 from urllib.parse import urljoin
 
 import httpx
 from bs4 import BeautifulSoup
+
+from app.modules.scraper.base import BaseScraper
 
 DEG_BASE_URL = "https://deg.unb.br"
 DEFAULT_TIMEOUT = 10.0
@@ -137,3 +139,27 @@ def edital_to_dict(edital: Any) -> dict[str, str]:
         "link": str(edital["link"]),
         "data_publicacao": str(edital["data_publicacao"]),
     }
+
+
+class DEGScraper(BaseScraper):
+    """Scraper para o Decanato de Ensino de Graduação da UnB (DEG).
+
+    Implementa a interface canônica `BaseScraper`.
+    """
+
+    @property
+    def orgao_origem(self) -> str:
+        """Identificador do órgão emissor."""
+        return "DEG"
+
+    def fetch_editais(self, year: Optional[int] = None) -> List[Dict[str, Any]]:
+        """Extrai a listagem de editais do portal DEG para o ano informado."""
+        return fetch_editais(year=year)
+
+    def fetch_documentos(self, edital_url: str) -> List[Dict[str, Any]]:
+        """Extrai os documentos/anexos vinculados ao edital especificado."""
+        return fetch_documentos(url=edital_url)
+
+
+# Instância canônica singleton para uso direto nos serviços e pipelines
+deg_scraper = DEGScraper()
