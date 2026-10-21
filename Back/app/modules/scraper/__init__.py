@@ -1,5 +1,7 @@
 """Módulo de Scraper: responsável pela coleta (BeautifulSoup) e extração de PDFs (pdfplumber)."""
 
+from app.modules.scraper.base import BaseScraper
+from app.modules.scraper.deg import DEGScraper, deg_scraper
 from app.modules.scraper.parser import (
     CAMPUS_UNB,
     ORGAOS_UNB,
@@ -26,6 +28,9 @@ from app.modules.scraper.pdf import (
 from app.modules.scraper.pipeline import run_pipeline, upsert_edital
 
 __all__ = [
+    "BaseScraper",
+    "DEGScraper",
+    "deg_scraper",
     "run_pipeline",
     "upsert_edital",
     "extract_pdf",

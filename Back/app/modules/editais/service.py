@@ -1,11 +1,11 @@
 """Camada de serviço para operações de banco de dados do módulo de Editais."""
 
-from datetime import date
-from typing import List, Optional, Dict, Any
+from datetime import date, datetime
+from typing import Any, Dict, List, Optional
+from sqlalchemy import and_, extract, or_
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
 
-from app.modules.editais.models import Edital, Campus, TipoEdital
+from app.core.database import Campus, Edital, StatusEdital, TipoEdital
 
 
 def serialize_edital(edital: Edital, detail: bool = False) -> Dict[str, Any]:
@@ -13,16 +13,51 @@ def serialize_edital(edital: Edital, detail: bool = False) -> Dict[str, Any]:
     today = date.today()
 
     if edital.fim_inscricao:
-        status_edital = "aberto" if edital.fim_inscricao >= today else "fechado"
+        fim_d = edital.fim_inscricao.date() if isinstance(edital.fim_inscricao, datetime) else edital.fim_inscricao
+        status_edital = "aberto" if fim_d >= today else "fechado"
+    elif edital.status:
+        status_edital = edital.status.value if hasattr(edital.status, "value") else str(edital.status)
     else:
         status_edital = "aberto"
 
-    campus_nome = edital.campi[0].nome if edital.campi else "Geral"
-    tipo_nome = edital.tipos[0].nome if edital.tipos else "Geral"
+    campi_list = getattr(edital, "campi", []) or []
+    tipos_list = getattr(edital, "tipos", []) or []
+    docs_list = getattr(edital, "documentos", []) or []
 
-    dt_pub_iso = edital.data_publicacao.isoformat() if edital.data_publicacao else None
-    dt_fim_iso = edital.fim_inscricao.isoformat() if edital.fim_inscricao else None
+    campus_nome = edital.campus or (campi_list[0].nome if campi_list else "Geral")
+    tipo_nome = edital.tipo or (tipos_list[0].nome if tipos_list else "Geral")
 
+    data_pub = edital.data_publicacao
+    if isinstance(data_pub, datetime):
+        data_pub_val = data_pub.date()
+        dt_pub_iso = data_pub.isoformat()
+    elif isinstance(data_pub, date):
+        data_pub_val = data_pub
+        dt_pub_iso = data_pub.isoformat()
+    else:
+        data_pub_val = None
+        dt_pub_iso = None
+
+    fim_insc = edital.fim_inscricao
+    if isinstance(fim_insc, datetime):
+        dt_fim_iso = fim_insc.isoformat()
+        fim_insc_val = fim_insc.date()
+    elif isinstance(fim_insc, date):
+        dt_fim_iso = fim_insc.isoformat()
+        fim_insc_val = fim_insc
+    else:
+        dt_fim_iso = None
+        fim_insc_val = None
+
+    inicio_insc = edital.inicio_inscricao
+    if isinstance(inicio_insc, datetime):
+        inicio_insc_val = inicio_insc.date()
+    elif isinstance(inicio_insc, date):
+        inicio_insc_val = inicio_insc
+    else:
+        inicio_insc_val = None
+
+    url_doc = edital.url_pdf or (docs_list[0].url_pdf if docs_list else "") or edital.url_pagina or ""
     resumo_texto = edital.resumo or "Processo seletivo publicado pela Universidade de Brasília."
 
     data: Dict[str, Any] = {
@@ -34,18 +69,28 @@ def serialize_edital(edital: Edital, detail: bool = False) -> Dict[str, Any]:
         "campus": campus_nome,
         "unidade": campus_nome,
         "categoria": tipo_nome,
-        "data_publicacao": edital.data_publicacao,
+        "tipo": tipo_nome,
+        "url_pagina": edital.url_pagina,
+        "url_pdf": url_doc,
+        "urlDocumento": url_doc,
+        "data_publicacao": data_pub_val,
         "dataPublicacao": dt_pub_iso,
-        "inicio_inscricao": edital.inicio_inscricao,
-        "fim_inscricao": edital.fim_inscricao,
+        "inicio_inscricao": inicio_insc_val,
+        "fim_inscricao": fim_insc_val,
         "prazoFinal": dt_fim_iso,
-        "url_pdf": edital.url_pdf,
-        "urlDocumento": edital.url_pdf,
         "status_processamento": edital.status_processamento or "processado",
         "vagas": None,
         "valor": None,
-        "campi": [{"id": c.id, "nome": c.nome} for c in edital.campi],
-        "tipos": [{"id": t.id, "nome": t.nome} for t in edital.tipos],
+        "campi": [{"id": c.id, "nome": c.nome} for c in campi_list],
+        "tipos": [{"id": t.id, "nome": t.nome} for t in tipos_list],
+        "documentos": [
+            {
+                "id": doc.id,
+                "url_pdf": doc.url_pdf,
+                "tipo_documento": doc.tipo_documento.value if hasattr(doc.tipo_documento, "value") else str(doc.tipo_documento),
+            }
+            for doc in docs_list
+        ],
     }
 
     if detail:
@@ -53,7 +98,7 @@ def serialize_edital(edital: Edital, detail: bool = False) -> Dict[str, Any]:
             "identificador_origem": edital.identificador_origem,
             "texto_extraido": edital.texto_extraido,
             "hash_conteudo": edital.hash_conteudo,
-            "criado_em": edital.criado_em,
+            "criado_em": edital.criado_em or edital.created_at,
             "atualizado_em": edital.atualizado_em,
         })
 
@@ -129,10 +174,12 @@ def seed_initial_editais(db: Session) -> None:
                 titulo=item["titulo"],
                 resumo=item["resumo"],
                 url_pdf=item["url_pdf"],
+                url_pagina=item["url_pdf"],
                 data_publicacao=item["data_publicacao"],
                 inicio_inscricao=item["inicio_inscricao"],
                 fim_inscricao=item["fim_inscricao"],
                 status_processamento="processado",
+                status=StatusEdital.ABERTO,
             )
             novo.campi.append(campi_map[item["campus"]])
             novo.tipos.append(tipos_map[item["tipo"]])
@@ -141,46 +188,101 @@ def seed_initial_editais(db: Session) -> None:
     db.commit()
 
 
+def list_editais_com_filtros(
+    db: Session,
+    ano: Optional[int] = None,
+    q: Optional[str] = None,
+    busca: Optional[str] = None,
+    status: Optional[str] = None,
+    categoria: Optional[str] = None,
+    campus: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 100,
+) -> List[Edital]:
+    """Constrói dinamicamente a consulta SQLAlchemy aplicando filtros por ano, busca e categorias."""
+    # Se a tabela estiver vazia e for conexão real com postgresql, realiza seed inicial
+    if db.bind and db.bind.dialect.name == "postgresql" and db.query(Edital).count() == 0:
+        seed_initial_editais(db)
+
+    query = db.query(Edital)
+    today = date.today()
+
+    termo_busca = busca or q
+    if termo_busca and termo_busca.strip():
+        search_pattern = f"%{termo_busca.strip()}%"
+        query = query.filter(
+            or_(
+                Edital.titulo.ilike(search_pattern),
+                Edital.resumo.ilike(search_pattern),
+            )
+        )
+
+    if ano is not None:
+        query = query.filter(extract("year", Edital.data_publicacao) == ano)
+
+    if status == "aberto":
+        query = query.filter(
+            or_(
+                Edital.status == StatusEdital.ABERTO,
+                Edital.fim_inscricao.is_(None),
+                Edital.fim_inscricao >= today,
+            )
+        )
+    elif status == "fechado":
+        query = query.filter(
+            or_(
+                Edital.status == StatusEdital.ENCERRADO,
+                and_(Edital.fim_inscricao.is_not(None), Edital.fim_inscricao < today),
+            )
+        )
+
+    if categoria and categoria.strip():
+        cat_pattern = f"%{categoria.strip()}%"
+        query = query.filter(
+            or_(
+                Edital.tipo.ilike(cat_pattern),
+                Edital.tipos.any(TipoEdital.nome.ilike(cat_pattern)),
+            )
+        )
+
+    if campus and campus.strip():
+        campus_pattern = f"%{campus.strip()}%"
+        query = query.filter(
+            or_(
+                Edital.campus.ilike(campus_pattern),
+                Edital.campi.any(Campus.nome.ilike(campus_pattern)),
+            )
+        )
+
+    return query.order_by(Edital.data_publicacao.desc().nullslast()).offset(skip).limit(limit).all()
+
+
 def get_editais(
     db: Session,
     status: Optional[str] = None,
     categoria: Optional[str] = None,
     campus: Optional[str] = None,
     busca: Optional[str] = None,
+    ano: Optional[int] = None,
+    q: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 100,
 ) -> List[Dict[str, Any]]:
-    """Consulta editais no PostgreSQL aplicando filtros opcionais."""
-    # Se a tabela estiver vazia, efetua o seed inicial
-    if db.query(Edital).count() == 0:
-        seed_initial_editais(db)
-
-    query = db.query(Edital)
-    today = date.today()
-
-    if status == "aberto":
-        query = query.filter(or_(Edital.fim_inscricao.is_(None), Edital.fim_inscricao >= today))
-    elif status == "fechado":
-        query = query.filter(Edital.fim_inscricao.is_not(None), Edital.fim_inscricao < today)
-
-    if categoria:
-        query = query.filter(Edital.tipos.any(TipoEdital.nome.ilike(f"%{categoria}%")))
-
-    if campus:
-        query = query.filter(Edital.campi.any(Campus.nome.ilike(f"%{campus}%")))
-
-    if busca:
-        busca_term = f"%{busca}%"
-        query = query.filter(or_(Edital.titulo.ilike(busca_term), Edital.resumo.ilike(busca_term)))
-
-    query = query.order_by(Edital.data_publicacao.desc().nullslast())
-    editais = query.all()
-
+    """Consulta editais no PostgreSQL aplicando filtros opcionais e retornando lista serializada."""
+    editais = list_editais_com_filtros(
+        db=db,
+        ano=ano,
+        q=q,
+        busca=busca,
+        status=status,
+        categoria=categoria,
+        campus=campus,
+        skip=skip,
+        limit=limit,
+    )
     return [serialize_edital(e) for e in editais]
 
 
-def get_edital_by_id(db: Session, edital_id: int) -> Optional[Dict[str, Any]]:
+def get_edital_by_id(db: Session, edital_id: int) -> Optional[Edital]:
     """Busca um edital específico pelo ID no PostgreSQL."""
-    edital = db.query(Edital).filter(Edital.id == edital_id).first()
-    if not edital:
-        return None
-    return serialize_edital(edital, detail=True)
-
+    return db.query(Edital).filter(Edital.id == edital_id).first()
