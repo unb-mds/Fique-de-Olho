@@ -7,13 +7,16 @@ class Settings(BaseSettings):
     VERSION: str = "0.1.0"
     API_V1_STR: str = "/api/v1"
 
-    # Conexão com banco de dados
-    DATABASE_URL: str = "postgresql+psycopg2://fique_de_olho:fique_de_olho_dev@localhost:5433/fique_de_olho"
+    # Conexão de desenvolvimento com o PostgreSQL do Compose da raiz.
+    DATABASE_URL: str = (
+        "postgresql+psycopg2://fique_de_olho:fique_de_olho_dev"
+        "@localhost:5432/fique_de_olho"
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
-        extra="ignore"
+        extra="ignore",
     )
 
 
