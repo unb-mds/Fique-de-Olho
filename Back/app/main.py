@@ -6,6 +6,7 @@ from sqlalchemy import text
 from app.core.config import settings
 from app.core.database import engine
 from app.modules.editais.router import router as editais_router
+from app.modules.usuarios.router import router as usuarios_router
 
 # Inicialização da aplicação FastAPI
 app = FastAPI(
@@ -62,3 +63,4 @@ app.include_router(editais_router, prefix=settings.API_V1_STR)
 
 # 2. Rota de compatibilidade direta (/editais) para frontend e testes
 app.include_router(editais_router, include_in_schema=False)
+app.include_router(usuarios_router, prefix=settings.API_V1_STR)
