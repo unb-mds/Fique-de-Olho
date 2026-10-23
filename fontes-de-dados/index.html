@@ -1,0 +1,2362 @@
+
+<!doctype html>
+<html lang="pt" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentação do projeto G4 — plataforma que centraliza, filtra e notifica editais UnB.">
+      
+      
+      
+        <link rel="canonical" href="https://unb-mds.github.io/G4-2026-2/fontes-de-dados/">
+      
+      
+        <link rel="prev" href="..">
+      
+      
+        <link rel="next" href="../Estudos/sprint00/agentes_IA/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Fontes de Dados - Fique de Olho - UnB editais</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#mapeamento-e-proveniencia-de-fontes-de-dados" class="md-skip">
+          Pular para conteúdo
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Cabeçalho">
+    <a href=".." title="Fique de Olho - UnB editais" class="md-header__button md-logo" aria-label="Fique de Olho - UnB editais" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Fique de Olho - UnB editais
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Fontes de Dados
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Mudar para modo escuro"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Mudar para modo escuro" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Mudar para modo claro"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Mudar para modo claro" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Buscar" placeholder="Buscar" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Pesquisar">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Limpar" aria-label="Limpar" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Inicializando busca
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/unb-mds/G4-2026-2" title="Ir para repositório" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    unb-mds/G4-2026-2
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Abas" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Início
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../Arquitetura.md" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Arquitetura
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="./" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Fontes de Dados
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../Estudos/sprint00/agentes_IA/" class="md-tabs__link">
+          
+  
+  
+  Estudos
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../Requisitos/Requisitos/" class="md-tabs__link">
+          
+  
+  
+  Requisitos
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../Requisitos/produto/personas/" class="md-tabs__link">
+          
+  
+  
+  Produto
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../RealiseNotes/release-1/" class="md-tabs__link">
+          
+  
+  
+  Apresentação & Releases
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../back/" class="md-tabs__link">
+          
+  
+  
+  Implementação
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../adr/0001-stack-backend/" class="md-tabs__link">
+          
+  
+  
+  Decisões Arquiteturais
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navegação" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Fique de Olho - UnB editais" class="md-nav__button md-logo" aria-label="Fique de Olho - UnB editais" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Fique de Olho - UnB editais
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/unb-mds/G4-2026-2" title="Ir para repositório" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    unb-mds/G4-2026-2
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Início
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Arquitetura.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Arquitetura
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fontes de Dados
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fontes de Dados
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Índice">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Índice
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-visao-geral-do-pipeline-de-dados" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Visão Geral do Pipeline de Dados
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-catalogo-de-fontes-de-dados" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Catálogo de Fontes de Dados
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Catálogo de Fontes de Dados">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-fonte-ativa-decanato-de-ensino-de-graduacao-deg" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1. Fonte Ativa: Decanato de Ensino de Graduação (DEG)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-fontes-planejadas-para-expansao-conforme-adr-0004" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2. Fontes Planejadas para Expansão (Conforme ADR 0004)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-mapeamento-de-atributos-e-linhagem-de-dados-lineage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Mapeamento de Atributos e Linhagem de Dados (Lineage)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Mapeamento de Atributos e Linhagem de Dados (Lineage)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-tabela-principal-editais" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1. Tabela Principal: editais
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-classificacao-de-documentos-e-retificacoes-edital_documentos" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2. Classificação de Documentos e Retificações: edital_documentos
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-associacao-com-catalogos-controlados" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.3. Associação com Catálogos Controlados
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-politica-de-ingestao-e-resiliencia" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Política de Ingestão e Resiliência
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Política de Ingestão e Resiliência">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-gatilho-de-execucao-da-coleta" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1. Gatilho de Execução da Coleta
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-auditoria-e-rastreabilidade-coletas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2. Auditoria e Rastreabilidade (coletas)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43-resiliencia-e-tratamento-de-falhas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3. Resiliência e Tratamento de Falhas
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-aspectos-legais-lgpd-e-governanca-de-dados" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Aspectos Legais, LGPD e Governança de Dados
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Aspectos Legais, LGPD e Governança de Dados">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51-natureza-publica-dos-dados" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1. Natureza Pública dos Dados
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52-conformidade-com-a-lgpd-lei-no-137092018" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.2. Conformidade com a LGPD (Lei nº 13.709/2018)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#53-politica-de-bom-cidadao-na-web-etiqueta-de-scraping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.3. Política de "Bom Cidadão" na Web (Etiqueta de Scraping)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-pontos-em-aberto-backlog-de-decisoes-da-equipe" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Pontos em Aberto (Backlog de Decisões da Equipe)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Estudos
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Estudos
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Estudos/sprint00/agentes_IA/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agentes de IA
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Estudos/sprint00/arquitetura/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Arquitetura
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Estudos/sprint00/Cyber_Security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cyber Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Estudos/sprint00/docker/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docker
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Estudos/sprint00/estudo_GitGtHub/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Git e GitHub
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Estudos/sprint00/Requisitos_software/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Requisitos de software
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Estudos/sprint00/Scrun/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scrum
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Requisitos
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Requisitos
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Requisitos/Requisitos/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Requisitos
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Requisitos/Vis%C3%A3o%20de%20produto/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visão de produto
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Requisitos/Criterios%20de%20aceitacao/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Critérios de aceitação
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Requisitos/StoryMap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Story Map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Requisitos/Wireframe/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Wireframe
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Requisitos/Prot%C3%B3tipo%20de%20altafidelidade/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Protótipo de alta fidelidade
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Produto
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Produto
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Requisitos/produto/personas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Personas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Requisitos/produto/backlog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backlog do Produto
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Apresentação & Releases
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Apresentação & Releases
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../RealiseNotes/release-1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release Notes (R1)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementação
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Implementação
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../back/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backend
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../front/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Frontend
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decisões Arquiteturais
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Decisões Arquiteturais
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/0001-stack-backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR 0001 - Stack do Backend
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/0002-stack-frontend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR 0002 - Stack do Frontend
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Índice">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Índice
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-visao-geral-do-pipeline-de-dados" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Visão Geral do Pipeline de Dados
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-catalogo-de-fontes-de-dados" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Catálogo de Fontes de Dados
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Catálogo de Fontes de Dados">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-fonte-ativa-decanato-de-ensino-de-graduacao-deg" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1. Fonte Ativa: Decanato de Ensino de Graduação (DEG)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-fontes-planejadas-para-expansao-conforme-adr-0004" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2. Fontes Planejadas para Expansão (Conforme ADR 0004)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-mapeamento-de-atributos-e-linhagem-de-dados-lineage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Mapeamento de Atributos e Linhagem de Dados (Lineage)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Mapeamento de Atributos e Linhagem de Dados (Lineage)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-tabela-principal-editais" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1. Tabela Principal: editais
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-classificacao-de-documentos-e-retificacoes-edital_documentos" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2. Classificação de Documentos e Retificações: edital_documentos
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-associacao-com-catalogos-controlados" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.3. Associação com Catálogos Controlados
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-politica-de-ingestao-e-resiliencia" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Política de Ingestão e Resiliência
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Política de Ingestão e Resiliência">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-gatilho-de-execucao-da-coleta" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1. Gatilho de Execução da Coleta
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-auditoria-e-rastreabilidade-coletas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2. Auditoria e Rastreabilidade (coletas)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43-resiliencia-e-tratamento-de-falhas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3. Resiliência e Tratamento de Falhas
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-aspectos-legais-lgpd-e-governanca-de-dados" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Aspectos Legais, LGPD e Governança de Dados
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Aspectos Legais, LGPD e Governança de Dados">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51-natureza-publica-dos-dados" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1. Natureza Pública dos Dados
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52-conformidade-com-a-lgpd-lei-no-137092018" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.2. Conformidade com a LGPD (Lei nº 13.709/2018)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#53-politica-de-bom-cidadao-na-web-etiqueta-de-scraping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.3. Política de "Bom Cidadão" na Web (Etiqueta de Scraping)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-pontos-em-aberto-backlog-de-decisoes-da-equipe" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Pontos em Aberto (Backlog de Decisões da Equipe)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="mapeamento-e-proveniencia-de-fontes-de-dados">Mapeamento e Proveniência de Fontes de Dados</h1>
+<p>Este documento descreve detalhadamente a origem dos dados manipulados pela plataforma <strong>Fique de Olho - UnB Editais</strong> (MDS - UnB 2026/2), os mecanismos de coleta/ingestão, o pipeline de extração e transformação, o mapeamento para o modelo de dados relacional e as políticas de governança, resiliência e conformidade legal.</p>
+<hr />
+<h2 id="1-visao-geral-do-pipeline-de-dados">1. Visão Geral do Pipeline de Dados</h2>
+<p>O fluxo a seguir ilustra a jornada do dado desde a publicação nos portais oficiais da Universidade de Brasília até a disponibilização para os estudantes na interface web:</p>
+<div class="highlight"><pre><span></span><code>flowchart TD
+    subgraph S1["Fontes Externas (Portais UnB)"]
+        DEG["Portal DEG (deg.unb.br)"]
+        DPG["Portal DPG (dpg.unb.br)"]
+        DEX["Portal DEX (dex.unb.br)"]
+        OUTROS["Demais Decanatos (ADR 0004)"]
+    end
+
+    subgraph S2["Módulo de Coleta e Ingestão (Back/app/modules/scraper)"]
+        HTTP["HTTP Client (httpx)\nUser-Agent: Fique-de-Olho/1.0"]
+        HTML["Parser HTML (BeautifulSoup)\nExtração de Título, URL e Data"]
+        PDF_DL["Extrator de Anexos PDF\n(pdfplumber / pdf.py)"]
+        RULES["Motor de Classificação e Metadados\n(parser.py - Regex e Tabelas)"]
+    end
+
+    subgraph S3["Persistência e Armazenamento (PostgreSQL)"]
+        AUDIT["Auditoria de Coletas (tabela: coletas)"]
+        DB_EDITAIS["Tabela: editais\n(status, datas, bolsa, vagas, campus)"]
+        DB_DOCS["Tabela: edital_documentos\n(anexos e retificações)"]
+        CATALOG["Catálogos Controlados\n(campi, cursos, tipos_editais)"]
+    end
+
+    subgraph S4["Disponibilização e Consumo"]
+        API["FastAPI REST (/api/v1/editais)"]
+        FRONT["Interface Web (React / TypeScript / Vite)"]
+    end
+
+    DEG &amp; DPG &amp; DEX &amp; OUTROS --&gt;|Requisições HTTP GET| HTTP
+    HTTP --&gt; HTML
+    HTML --&gt; PDF_DL
+    PDF_DL --&gt; RULES
+    RULES --&gt; AUDIT &amp; DB_EDITAIS &amp; DB_DOCS &amp; CATALOG
+    DB_EDITAIS &amp; DB_DOCS &amp; CATALOG --&gt; API
+    API --&gt; FRONT
+</code></pre></div>
+<hr />
+<h2 id="2-catalogo-de-fontes-de-dados">2. Catálogo de Fontes de Dados</h2>
+<h3 id="21-fonte-ativa-decanato-de-ensino-de-graduacao-deg">2.1. Fonte Ativa: Decanato de Ensino de Graduação (DEG)</h3>
+<p>Esta é a principal fonte implementada e ativa no serviço de coleta atual (<code>Back/app/modules/scraper/deg.py</code>).</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Propriedade</th>
+<th style="text-align: left;">Especificação Técnica</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Identificador</strong></td>
+<td style="text-align: left;"><code>SRC-UNB-DEG</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Órgão Responsável</strong></td>
+<td style="text-align: left;">Decanato de Ensino de Graduação - Universidade de Brasília</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>URL Base de Listagem</strong></td>
+<td style="text-align: left;"><code>https://deg.unb.br/editais/</code> (ou <code>https://deg.unb.br/editais-{ano}/</code>)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Tipo de Interface</strong></td>
+<td style="text-align: left;">Web Scraping (HTML estático renderizado no servidor WordPress)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Mecanismo de Requisição</strong></td>
+<td style="text-align: left;"><code>httpx.get</code> com <code>follow_redirects=True</code>, timeout padrão de 10.0s</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>User-Agent Utilizado</strong></td>
+<td style="text-align: left;"><code>Fique-de-Olho/1.0</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Seletores HTML Principais</strong></td>
+<td style="text-align: left;">Cabeçalhos <code>&lt;h6&gt;</code> contendo tags <code>&lt;a&gt;</code> para os editais; <code>.entry-content</code> para links de PDFs</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Padrão de Data Identificado</strong></td>
+<td style="text-align: left;">Regex para formato por extenso (<code>DD de Mês de YYYY</code>) ou numérico (<code>DD/MM/YYYY</code>)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Tipos de Oportunidades</strong></td>
+<td style="text-align: left;">Transferência facultativa, portador de diploma, monitoria, bolsas de graduação</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Status da Integração</strong></td>
+<td style="text-align: left;"><strong>Ativo / Implementado</strong></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="22-fontes-planejadas-para-expansao-conforme-adr-0004">2.2. Fontes Planejadas para Expansão (Conforme ADR 0004)</h3>
+<p>Conforme deliberado na <a href="adr/0004-escopo-Editais.md">ADR 0004</a>, o sistema prevê a integração progressiva dos seguintes portais institucionais. O cronograma de implementação e a priorização de cada fonte estão em aberto e serão decididos pela equipe nas próximas sprints:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">ID Fonte</th>
+<th style="text-align: left;">Portal / Órgão</th>
+<th style="text-align: left;">Categoria do Edital</th>
+<th style="text-align: left;">URL Oficial de Origem</th>
+<th style="text-align: left;">Status da Coleta</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>SRC-UNB-DPG</code></td>
+<td style="text-align: left;">Decanato de Pós-Graduação (DPG)</td>
+<td style="text-align: left;">Pós-graduação, mestrado, doutorado e pesquisa</td>
+<td style="text-align: left;"><code>https://dpg.unb.br/editais-abertos/</code></td>
+<td style="text-align: left;">A definir (Planejado)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>SRC-UNB-INT</code></td>
+<td style="text-align: left;">Secretaria de Assuntos Internacionais (INT)</td>
+<td style="text-align: left;">Intercâmbio acadêmico e internacionalização</td>
+<td style="text-align: left;"><code>https://int.unb.br/selecoes-abertas/</code></td>
+<td style="text-align: left;">A definir (Planejado)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>SRC-UNB-DEX</code></td>
+<td style="text-align: left;">Decanato de Extensão (DEX)</td>
+<td style="text-align: left;">Ações, projetos e bolsas de extensão</td>
+<td style="text-align: left;"><code>https://dex.unb.br/editais</code></td>
+<td style="text-align: left;">A definir (Planejado)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>SRC-UNB-DPI</code></td>
+<td style="text-align: left;">Decanato de Pesquisa e Inovação (DPI)</td>
+<td style="text-align: left;">Projetos de pesquisa e fomento à inovação</td>
+<td style="text-align: left;"><code>https://dpi.unb.br/editais/editais2026</code></td>
+<td style="text-align: left;">A definir (Planejado)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>SRC-UNB-DAC</code></td>
+<td style="text-align: left;">Decanato de Assuntos Comunitários (DAC / DDS)</td>
+<td style="text-align: left;">Assistência estudantil, auxílio moradia e alimentação</td>
+<td style="text-align: left;"><code>https://dds.dac.unb.br/editais/</code></td>
+<td style="text-align: left;">A definir (Planejado)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>SRC-UNB-PROIC</code></td>
+<td style="text-align: left;">Programa de Iniciação Científica (ProIC)</td>
+<td style="text-align: left;">Bolsas PIBIC, PIBITI e iniciação científica</td>
+<td style="text-align: left;"><code>https://proic.unb.br/editais/</code></td>
+<td style="text-align: left;">A definir (Planejado)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>SRC-UNB-DACES</code></td>
+<td style="text-align: left;">Diretoria de Acessibilidade (DACES)</td>
+<td style="text-align: left;">Acessibilidade e apoio pedagógico especializado</td>
+<td style="text-align: left;"><code>https://acessibilidade.unb.br/editais-2/</code></td>
+<td style="text-align: left;">A definir (Planejado)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>SRC-UNB-BCE</code></td>
+<td style="text-align: left;">Biblioteca Central (BCE)</td>
+<td style="text-align: left;">Normativos, seleções e capacitações da biblioteca</td>
+<td style="text-align: left;"><code>https://bce.unb.br/sacc/editais-e-normativos/</code></td>
+<td style="text-align: left;">A definir (Planejado)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-mapeamento-de-atributos-e-linhagem-de-dados-lineage">3. Mapeamento de Atributos e Linhagem de Dados (<em>Lineage</em>)</h2>
+<p>Abaixo está discriminada a transformação dos dados brutos obtidos no HTML/PDF dos portais da UnB para a estrutura de entidades do banco de dados relacional (<code>Back/app/modules/editais/models.py</code>).</p>
+<h3 id="31-tabela-principal-editais">3.1. Tabela Principal: <code>editais</code></h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Campo no Modelo (<code>Edital</code>)</th>
+<th style="text-align: left;">Tipo no Banco</th>
+<th style="text-align: left;">Origem no Scraper / Parser</th>
+<th style="text-align: left;">Regra de Transformação / Limpeza</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>id</code></td>
+<td style="text-align: left;"><code>BIGINT</code> (PK)</td>
+<td style="text-align: left;">Gerado automaticamente</td>
+<td style="text-align: left;">Auto-incremento sequencial do PostgreSQL</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>identificador_origem</code></td>
+<td style="text-align: left;"><code>VARCHAR(200)</code></td>
+<td style="text-align: left;">Slug ou Hash do link de origem</td>
+<td style="text-align: left;">Normalização alfanumérica para garantir idempotência</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>titulo</code></td>
+<td style="text-align: left;"><code>VARCHAR(500)</code></td>
+<td style="text-align: left;">Texto do link no cabeçalho <code>&lt;h6&gt;</code> da listagem</td>
+<td style="text-align: left;">Remoção de espaços duplos e quebras de linha (<code>strip()</code>)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>resumo</code></td>
+<td style="text-align: left;"><code>TEXT</code></td>
+<td style="text-align: left;"><em>[A definir]</em></td>
+<td style="text-align: left;"><em>[A definir]</em> (extração automática via NLP ou seleção de parágrafos do PDF)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>url_pdf</code></td>
+<td style="text-align: left;"><code>TEXT</code> (Unique)</td>
+<td style="text-align: left;">Primeiro link de PDF associado à página (<code>.entry-content a[href]</code>)</td>
+<td style="text-align: left;">Resolução de caminho absoluto com <code>urllib.parse.urljoin</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>texto_extraido</code></td>
+<td style="text-align: left;"><code>TEXT</code></td>
+<td style="text-align: left;"><code>pdfplumber</code> no conteúdo do arquivo baixado</td>
+<td style="text-align: left;">Extração textual pura de todas as páginas do PDF oficial</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>data_publicacao</code></td>
+<td style="text-align: left;"><code>DATE</code></td>
+<td style="text-align: left;">String adjacente ao título na listagem</td>
+<td style="text-align: left;">Conversão de nomes de meses em PT-BR para <code>datetime.date</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>inicio_inscricao</code></td>
+<td style="text-align: left;"><code>DATE</code></td>
+<td style="text-align: left;">Parser de datas / cronograma (<code>parser.py</code>)</td>
+<td style="text-align: left;">Regex em intervalos de datas (ex.: <em>"23 de setembro a 14 de outubro"</em>)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>fim_inscricao</code></td>
+<td style="text-align: left;"><code>DATE</code></td>
+<td style="text-align: left;">Parser de datas / cronograma (<code>parser.py</code>)</td>
+<td style="text-align: left;">Data final do intervalo de inscrições identificado</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>status_processamento</code></td>
+<td style="text-align: left;"><code>VARCHAR(30)</code></td>
+<td style="text-align: left;">Ciclo de vida interno</td>
+<td style="text-align: left;"><code>pendente</code> $\rightarrow$ <code>processado</code> / <code>parcialmente_processado</code> / <code>erro</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>hash_conteudo</code></td>
+<td style="text-align: left;"><code>VARCHAR(64)</code></td>
+<td style="text-align: left;">Hash SHA-256 do arquivo PDF</td>
+<td style="text-align: left;">Permite detectar se a UnB atualizou silenciosamente o PDF</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>criado_em</code> / <code>atualizado_em</code></td>
+<td style="text-align: left;"><code>TIMESTAMP(tz)</code></td>
+<td style="text-align: left;"><code>func.now()</code> do servidor</td>
+<td style="text-align: left;">Data/hora de inserção e atualização no banco</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="32-classificacao-de-documentos-e-retificacoes-edital_documentos">3.2. Classificação de Documentos e Retificações: <code>edital_documentos</code></h3>
+<p>Os documentos anexos vinculados a cada página de edital são classificados com base no nome do arquivo e texto âncora:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Tipo (<code>TipoDocumento</code>)</th>
+<th style="text-align: left;">Palavras-Chave de Origem</th>
+<th style="text-align: left;">Regra de Negócio Associada</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>ORIGINAL</code></td>
+<td style="text-align: left;">Padrão default quando não há qualificadores</td>
+<td style="text-align: left;">Primeiro documento convocatório do processo seletivo</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>RETIFICACAO</code></td>
+<td style="text-align: left;"><code>retificacao</code>, <code>errata</code>, <code>alteracao</code></td>
+<td style="text-align: left;">Altera itens de um edital existente mantendo o mesmo vínculo</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>RESULTADO_PROVISORIO</code></td>
+<td style="text-align: left;"><code>resultado provisorio</code>, <code>preliminar</code>, <code>parcial</code></td>
+<td style="text-align: left;">Notifica usuários que favoritaram sobre a primeira lista</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>RESULTADO_FINAL</code></td>
+<td style="text-align: left;"><code>resultado final</code>, <code>homologacao</code></td>
+<td style="text-align: left;"><strong>Encerra o edital</strong>, alterando seu status para <code>encerrado</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="33-associacao-com-catalogos-controlados">3.3. Associação com Catálogos Controlados</h3>
+<p>O sistema categoriza os editais utilizando tabelas auxiliares M:N:</p>
+<ol>
+<li><strong>Campi (<code>campi</code>)</strong>:</li>
+<li>Detectado via regex fonético em <code>parser.py</code>: Darcy Ribeiro (Plano Piloto), FGA (Gama), FCE (Ceilândia), FUP (Planaltina) ou Geral.</li>
+<li><strong>Tipos de Edital (<code>tipos_editais</code>)</strong>:</li>
+<li>Classificação controlada: <code>Extensões</code>, <code>Bolsas / Auxílios</code>, <code>Pós-Graduação</code>, <code>Graduação</code>.</li>
+<li><strong>Cursos (<code>cursos</code>)</strong>:</li>
+<li><em>[A definir]</em>: Critério de vinculação automática de cursos a partir do texto do edital pendente de definição pela equipe.</li>
+</ol>
+<hr />
+<h2 id="4-politica-de-ingestao-e-resiliencia">4. Política de Ingestão e Resiliência</h2>
+<h3 id="41-gatilho-de-execucao-da-coleta">4.1. Gatilho de Execução da Coleta</h3>
+<ul>
+<li><strong>Modo Atual (Manual / API)</strong>:</li>
+<li>Disparado via requisição autenticada: <code>POST /api/v1/editais/sync?ano=2026&amp;limite=50</code>.</li>
+<li>Execução direta via CLI para manutenção: <code>python -m app.modules.scraper.pipeline</code>.</li>
+<li><strong>Modo Planejado (Agendado)</strong>:</li>
+<li><em>[A definir]</em>: Ferramenta e frequência de execução automatizada (ex.: Cron job, Celery Beat ou GitHub Actions) a serem decididas em sprints futuras.</li>
+</ul>
+<h3 id="42-auditoria-e-rastreabilidade-coletas">4.2. Auditoria e Rastreabilidade (<code>coletas</code>)</h3>
+<p>Cada ciclo de coleta gera um registro na tabela <code>coletas</code> com:
+- <code>fonte</code>: Nome do órgão consultado (ex.: <code>"DEG"</code>).
+- <code>iniciada_em</code> / <code>finalizada_em</code>: Duração e timestamp do processo.
+- <code>status</code>: <code>'executando'</code>, <code>'concluida'</code>, <code>'falhou'</code>.
+- <code>editais_encontrados</code>: Quantidade de registros identificados.
+- <code>mensagem_erro</code>: Stack trace ou mensagem de erro em caso de exceção de rede/parsing.</p>
+<h3 id="43-resiliencia-e-tratamento-de-falhas">4.3. Resiliência e Tratamento de Falhas</h3>
+<ul>
+<li><strong>Falha de Conectividade com o Portal</strong>: Erros de HTTP (<code>httpx.HTTPError</code>) são capturados sem derrubar a aplicação, retornando lista vazia e registrando log com status <code>falhou</code> na tabela de auditoria.</li>
+<li><strong>Idempotência de Ingestão</strong>: Novos editais são inseridos com base na unicidade de <code>url_pagina</code> e <code>url_pdf</code>. Registros existentes sofrem <code>UPSERT</code> (atualização de datas, título e inclusão de novos anexos/retificações sem duplicação).</li>
+<li><strong>Alteração de Layout HTML</strong>: Caso os seletores deixem de encontrar dados, a coleta finaliza com 0 itens e log de aviso para investigação manual.</li>
+</ul>
+<hr />
+<h2 id="5-aspectos-legais-lgpd-e-governanca-de-dados">5. Aspectos Legais, LGPD e Governança de Dados</h2>
+<h3 id="51-natureza-publica-dos-dados">5.1. Natureza Pública dos Dados</h3>
+<ul>
+<li>Os editais e comunicados coletados são <strong>documentos públicos oficiais</strong>, disponibilizados abertamente pelos portais institucionais da Universidade de Brasília em atendimento à <strong>Lei de Acesso à Informação (Lei Federal nº 12.527/2011)</strong> e ao princípio da publicidade administrativa (Art. 37 da Constituição Federal).</li>
+</ul>
+<h3 id="52-conformidade-com-a-lgpd-lei-no-137092018">5.2. Conformidade com a LGPD (Lei nº 13.709/2018)</h3>
+<ul>
+<li><strong>Tratamento de Dados Pessoais em Listas de Resultados</strong>:</li>
+<li>Editais e resultados homologados podem conter nomes e matrículas de estudantes aprovados.</li>
+<li>O sistema armazena preferencialmente metadados estruturais (prazos, bolsas, vagas, regras).</li>
+<li><em>[A definir]</em>: A política de anonimização ou ofuscação de dados pessoais em arquivos de resultado/homologação está sob análise da equipe.</li>
+<li><strong>Link para a Fonte Original</strong>:</li>
+<li>O sistema sempre mantém e destaca o link canônico do documento oficial no site da UnB (<code>url_pdf</code> e <code>url_pagina</code>), garantindo que o usuário consulte a versão legalmente válida.</li>
+</ul>
+<h3 id="53-politica-de-bom-cidadao-na-web-etiqueta-de-scraping">5.3. Política de "Bom Cidadão" na Web (<em>Etiqueta de Scraping</em>)</h3>
+<ul>
+<li>Identificação explícita do agente via cabeçalho <code>User-Agent: Fique-de-Olho/1.0</code>.</li>
+<li>Intervalos de espera adequados entre requisições para evitar sobrecarga dos servidores da UnB.</li>
+<li>Download condicional de PDFs baseado em verificação prévia de links já armazenados.</li>
+</ul>
+<hr />
+<h2 id="6-pontos-em-aberto-backlog-de-decisoes-da-equipe">6. Pontos em Aberto (Backlog de Decisões da Equipe)</h2>
+<p>Os seguintes tópicos permanecem em aberto e serão deliberados pelo time conforme o projeto avançar:</p>
+<ul>
+<li>[ ] <strong>Definição do Agendamento</strong>: Escolher a infraestrutura e periodicidade para a execução contínua da ingestão.</li>
+<li>[ ] <strong>Priorização de Fontes</strong>: Estabelecer a ordem de implementação dos novos decanatos e secretarias da UnB (ADR 0004).</li>
+<li>[ ] <strong>Diretriz de Privacidade / LGPD</strong>: Definir se o texto extraído de listas de resultados passará por mascaramento de dados de estudantes.</li>
+<li>[ ] <strong>Mapeamento de Cursos e Resumo</strong>: Definir se haverá enriquecimento textual (resumo gerado) e regras para associação automática aos cursos.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Voltar para o topo
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.top", "navigation.instant", "navigation.tracking", "search.suggest", "search.highlight", "content.code.copy", "toc.follow"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copiado para \u00e1rea de transfer\u00eancia", "clipboard.copy": "Copiar para \u00e1rea de transfer\u00eancia", "search.result.more.one": "mais 1 nesta p\u00e1gina", "search.result.more.other": "# mais nesta p\u00e1gina", "search.result.none": "Nenhum documento encontrado", "search.result.one": "1 documento encontrado", "search.result.other": "# documentos encontrados", "search.result.placeholder": "Digite para iniciar a busca", "search.result.term.missing": "Ausente", "select.version": "Selecione a vers\u00e3o"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
