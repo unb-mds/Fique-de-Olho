@@ -19,7 +19,7 @@ Back/
 ├── app/main.py                  # Entrada da API e registro das rotas
 ├── app/core/                    # Configuração e banco
 ├── app/modules/editais/         # Endpoints de editais
-├── app/modules/scraper/         # Coleta e parsing do portal DEG
+├── app/modules/scraper/         # Coleta e parsing dos portais da ADR 0004
 └── tests/                       # Testes automatizados
 ```
 

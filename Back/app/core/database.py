@@ -3,11 +3,13 @@ from typing import Generator
 
 from sqlalchemy import (
     Column,
+    Date,
     DateTime,
     Enum,
     ForeignKey,
     Integer,
     String,
+    Text,
     func,
     create_engine,
 )
@@ -41,20 +43,60 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 
+class TipoEdital(Base):
+    __tablename__ = "tipos_editais"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    nome = Column(String(100), nullable=False, unique=True)
+    criado_em = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class Campus(Base):
+    __tablename__ = "campi"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    nome = Column(String(100), nullable=False, unique=True)
+    criado_em = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class Curso(Base):
+    __tablename__ = "cursos"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    nome = Column(String(200), nullable=False, unique=True)
+    criado_em = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
 class Edital(Base):
     __tablename__ = "editais"
 
     id = Column(Integer, primary_key=True, index=True)
-    titulo = Column(String(255), nullable=False)
-    url_pagina = Column(String(500), unique=True, nullable=False, index=True)
+    titulo = Column(String(500), nullable=False)
+    url_pagina = Column(String(500), unique=True, nullable=True, index=True)
     campus = Column(String(255), nullable=True)
     tipo = Column(String(100), nullable=True)
-    data_publicacao = Column(DateTime(timezone=True), nullable=False)
-    status = Column(Enum(StatusEdital, name="status_edital", create_type=True), nullable=False)
+    data_publicacao = Column(DateTime(timezone=True), nullable=True)
+    status = Column(Enum(StatusEdital, name="status_edital", create_type=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
+    # Campos complementares para suportar metadados detalhados, scraper e catálogo
+    identificador_origem = Column(String(200), unique=True, nullable=True)
+    resumo = Column(Text, nullable=True)
+    url_pdf = Column(String(500), unique=True, nullable=True)
+    texto_extraido = Column(Text, nullable=True)
+    inicio_inscricao = Column(Date, nullable=True)
+    fim_inscricao = Column(Date, nullable=True)
+    status_processamento = Column(String(30), nullable=False, server_default="processado")
+    hash_conteudo = Column(String(64), nullable=True)
+    criado_em = Column(DateTime(timezone=True), server_default=func.now(), nullable=True)
+    atualizado_em = Column(DateTime(timezone=True), server_default=func.now(), nullable=True)
+
+    # Relacionamentos com documentos, favoritos e catálogos M:N
     documentos = relationship("EditalDocumento", back_populates="edital", cascade="all, delete-orphan")
     favoritos = relationship("Favorito", back_populates="edital", cascade="all, delete-orphan")
+    tipos = relationship("TipoEdital", secondary="edital_tipos", lazy="selectin")
+    campi = relationship("Campus", secondary="edital_campi", lazy="selectin")
+    cursos = relationship("Curso", secondary="edital_cursos", lazy="selectin")
 
 
 class EditalDocumento(Base):
@@ -67,6 +109,27 @@ class EditalDocumento(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     edital = relationship("Edital", back_populates="documentos")
+
+
+class EditalTipo(Base):
+    __tablename__ = "edital_tipos"
+
+    edital_id = Column(Integer, ForeignKey("editais.id", ondelete="CASCADE"), primary_key=True)
+    tipo_edital_id = Column(Integer, ForeignKey("tipos_editais.id", ondelete="RESTRICT"), primary_key=True)
+
+
+class EditalCampus(Base):
+    __tablename__ = "edital_campi"
+
+    edital_id = Column(Integer, ForeignKey("editais.id", ondelete="CASCADE"), primary_key=True)
+    campus_id = Column(Integer, ForeignKey("campi.id", ondelete="RESTRICT"), primary_key=True)
+
+
+class EditalCurso(Base):
+    __tablename__ = "edital_cursos"
+
+    edital_id = Column(Integer, ForeignKey("editais.id", ondelete="CASCADE"), primary_key=True)
+    curso_id = Column(Integer, ForeignKey("cursos.id", ondelete="RESTRICT"), primary_key=True)
 
 
 class Usuario(Base):
@@ -90,6 +153,18 @@ class Favorito(Base):
 
     usuario = relationship("Usuario", back_populates="favoritos")
     edital = relationship("Edital", back_populates="favoritos")
+
+
+class Coleta(Base):
+    __tablename__ = "coletas"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    fonte = Column(String(100), nullable=False, server_default="DEG")
+    iniciada_em = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    finalizada_em = Column(DateTime(timezone=True), nullable=True)
+    status = Column(String(20), nullable=False, server_default="executando")
+    editais_encontrados = Column(Integer, nullable=False, server_default="0")
+    mensagem_erro = Column(Text, nullable=True)
 
 
 def get_db() -> Generator[Session, None, None]:
