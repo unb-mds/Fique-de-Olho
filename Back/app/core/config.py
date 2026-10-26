@@ -13,6 +13,11 @@ class Settings(BaseSettings):
         "@localhost:5432/fique_de_olho"
     )
 
+    # Configurações de Autenticação JWT (Issue #63)
+    JWT_SECRET_KEY: str = "insecure-secret-key-change-in-production-mds-2026"
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 horas
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
