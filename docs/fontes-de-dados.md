@@ -10,16 +10,22 @@ O fluxo a seguir ilustra a jornada do dado desde a publicação nos portais ofic
 
 ```mermaid
 flowchart TD
-    subgraph S1["Fontes Externas (Portais UnB)"]
-        DEG["Portal DEG (deg.unb.br)"]
-        DPG["Portal DPG (dpg.unb.br)"]
-        DEX["Portal DEX (dex.unb.br)"]
-        OUTROS["Demais Decanatos (ADR 0004)"]
+    subgraph S1["Fontes Externas (9 Portais Oficiais UnB - ADR 0004)"]
+        DEG["DEG (deg.unb.br)"]
+        DPG["DPG (dpg.unb.br)"]
+        INT["INT (int.unb.br)"]
+        DEX["DEX (dex.unb.br)"]
+        DPI["DPI (dpi.unb.br)"]
+        DAC["DAC / DDS (dds.dac.unb.br)"]
+        PROIC["ProIC (proic.unb.br)"]
+        DACES["DACES (acessibilidade.unb.br)"]
+        BCE["BCE (bce.unb.br)"]
     end
 
     subgraph S2["Módulo de Coleta e Ingestão (Back/app/modules/scraper)"]
+        REGISTRY["Registro Central (SCRAPERS_REGISTRY)\n9 Scrapers Especializados (BaseScraper)"]
         HTTP["HTTP Client (httpx)\nUser-Agent: Fique-de-Olho/1.0"]
-        HTML["Parser HTML (BeautifulSoup)\nExtração de Título, URL e Data"]
+        PARSER["Parsers HTML (BeautifulSoup)\nExtração de Título, URL e Data"]
         PDF_DL["Extrator de Anexos PDF\n(pdfplumber / pdf.py)"]
         RULES["Motor de Classificação e Metadados\n(parser.py - Regex e Tabelas)"]
     end
@@ -36,9 +42,10 @@ flowchart TD
         FRONT["Interface Web (React / TypeScript / Vite)"]
     end
 
-    DEG & DPG & DEX & OUTROS -->|Requisições HTTP GET| HTTP
-    HTTP --> HTML
-    HTML --> PDF_DL
+    DEG & DPG & INT & DEX & DPI & DAC & PROIC & DACES & BCE -->|Requisições HTTP GET| HTTP
+    HTTP --> REGISTRY
+    REGISTRY --> PARSER
+    PARSER --> PDF_DL
     PDF_DL --> RULES
     RULES --> AUDIT & DB_EDITAIS & DB_DOCS & CATALOG
     DB_EDITAIS & DB_DOCS & CATALOG --> API
@@ -49,39 +56,63 @@ flowchart TD
 
 ## 2. Catálogo de Fontes de Dados
 
-### 2.1. Fonte Ativa: Decanato de Ensino de Graduação (DEG)
+### 2.1. Arquitetura Modular e Padronização (`BaseScraper`)
 
-Esta é a principal fonte implementada e ativa no serviço de coleta atual (`Back/app/modules/scraper/deg.py`).
+Com a evolução trazida pelo **PR #76** (`feat/scrapers-8-orgaos-unb`), todos os scrapers do projeto implementam a classe abstrata [`BaseScraper`](file:///c:/Users/user/Desktop/Projetos%20de%20programacao/MDS/G4-2026-2/Back/app/modules/scraper/base.py), estabelecendo um contrato único para todos os portais:
+
+- `orgao_origem`: Propriedade abstrata indicando a sigla oficial (ex: `"DEG"`, `"DPG"`, `"DEX"`, etc.).
+- `fetch_editais(year=None)`: Busca e extrai a listagem de editais em formato estruturado (`titulo`, `link`, `data_publicacao`).
+- `fetch_documentos(edital_url)`: Extrai os anexos e PDFs associados a um edital específico (`titulo`, `link`, `tipo`).
+- `download_documento(url)`: Download padronizado de documentos com tratamento de streaming e timeout.
+
+Todos os coletores estão unificados e centralizados no dicionário `SCRAPERS_REGISTRY` em [`Back/app/modules/scraper/__init__.py`](file:///c:/Users/user/Desktop/Projetos%20de%20programacao/MDS/G4-2026-2/Back/app/modules/scraper/__init__.py), permitindo resolução direta via `get_scraper(sigla)`.
+
+---
+
+### 2.2. Fonte Ativa e Integrada: Decanato de Ensino de Graduação (DEG)
+
+Primeira fonte implementada e atualmente conectada ao pipeline de persistência direta (`Back/app/modules/scraper/deg.py`).
 
 | Propriedade | Especificação Técnica |
 | :--- | :--- |
 | **Identificador** | `SRC-UNB-DEG` |
-| **Órgão Responsável** | Decanato de Ensino de Graduação - Universidade de Brasília |
+| **Classe / Módulo** | `DEGScraper` (`deg_scraper`) em `app.modules.scraper.deg` |
+| **Órgão Responsável** | Decanato de Ensino de Graduação (DEG) - Universidade de Brasília |
 | **URL Base de Listagem** | `https://deg.unb.br/editais/` (ou `https://deg.unb.br/editais-{ano}/`) |
 | **Tipo de Interface** | Web Scraping (HTML estático renderizado no servidor WordPress) |
 | **Mecanismo de Requisição** | `httpx.get` com `follow_redirects=True`, timeout padrão de 10.0s |
 | **User-Agent Utilizado** | `Fique-de-Olho/1.0` |
 | **Seletores HTML Principais** | Cabeçalhos `<h6>` contendo tags `<a>` para os editais; `.entry-content` para links de PDFs |
 | **Padrão de Data Identificado** | Regex para formato por extenso (`DD de Mês de YYYY`) ou numérico (`DD/MM/YYYY`) |
-| **Tipos de Oportunidades** | Transferência facultativa, portador de diploma, monitoria, bolsas de graduação |
-| **Status da Integração** | **Ativo / Implementado** |
+| **Tipos de Oportunidades** | Monitoria, transferência facultativa, portador de diploma, prêmios e bolsas de graduação |
+| **Status da Integração** | **Scraper Ativo e Integrado ao Pipeline de Banco** |
 
 ---
 
-### 2.2. Fontes Planejadas para Expansão (Conforme ADR 0004)
+### 2.3. Scrapers dos 8 Órgãos Institucionais (ADR 0004 & PR #76)
 
-Conforme deliberado na [ADR 0004](adr/0004-escopo-Editais.md), o sistema prevê a integração progressiva dos seguintes portais institucionais. O cronograma de implementação e a priorização de cada fonte estão em aberto e serão decididos pela equipe nas próximas sprints:
+Conforme deliberado na [ADR 0004](adr/0004-escopo-Editais.md) e implementado via **PR #76**, os 8 novos portais institucionais contam com módulos dedicados, classes concretas derivadas de `BaseScraper` e testes unitários automatizados em [`Back/tests/test_novos_scrapers.py`](file:///c:/Users/user/Desktop/Projetos%20de%20programacao/MDS/G4-2026-2/Back/tests/test_novos_scrapers.py):
 
-| ID Fonte | Portal / Órgão | Categoria do Edital | URL Oficial de Origem | Status da Coleta |
-| :--- | :--- | :--- | :--- | :--- |
-| `SRC-UNB-DPG` | Decanato de Pós-Graduação (DPG) | Pós-graduação, mestrado, doutorado e pesquisa | `https://dpg.unb.br/editais-abertos/` | A definir (Planejado) |
-| `SRC-UNB-INT` | Secretaria de Assuntos Internacionais (INT) | Intercâmbio acadêmico e internacionalização | `https://int.unb.br/selecoes-abertas/` | A definir (Planejado) |
-| `SRC-UNB-DEX` | Decanato de Extensão (DEX) | Ações, projetos e bolsas de extensão | `https://dex.unb.br/editais` | A definir (Planejado) |
-| `SRC-UNB-DPI` | Decanato de Pesquisa e Inovação (DPI) | Projetos de pesquisa e fomento à inovação | `https://dpi.unb.br/editais/editais2026` | A definir (Planejado) |
-| `SRC-UNB-DAC` | Decanato de Assuntos Comunitários (DAC / DDS) | Assistência estudantil, auxílio moradia e alimentação | `https://dds.dac.unb.br/editais/` | A definir (Planejado) |
-| `SRC-UNB-PROIC`| Programa de Iniciação Científica (ProIC) | Bolsas PIBIC, PIBITI e iniciação científica | `https://proic.unb.br/editais/` | A definir (Planejado) |
-| `SRC-UNB-DACES`| Diretoria de Acessibilidade (DACES) | Acessibilidade e apoio pedagógico especializado | `https://acessibilidade.unb.br/editais-2/` | A definir (Planejado) |
-| `SRC-UNB-BCE` | Biblioteca Central (BCE) | Normativos, seleções e capacitações da biblioteca | `https://bce.unb.br/sacc/editais-e-normativos/` | A definir (Planejado) |
+| ID Fonte | Órgão / Portal | Módulo & Classe | Categoria do Edital | URL Oficial de Origem | Status Atual |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `SRC-UNB-DPG` | **DPG** (Decanato de Pós-Graduação) | `dpg.py`<br>`DPGScraper` | Pós-graduação, mestrado, doutorado e pesquisa | `https://dpg.unb.br/editais-abertos/` | **Scraper Pronto & Testado** (Aguardando unificação no pipeline) |
+| `SRC-UNB-INT` | **INT** (Secretaria de Assuntos Internacionais) | `int_scraper.py`<br>`INTScraper` | Intercâmbio acadêmico e internacionalização | `https://int.unb.br/selecoes-abertas/` | **Scraper Pronto & Testado** (Aguardando unificação no pipeline) |
+| `SRC-UNB-DEX` | **DEX** (Decanato de Extensão) | `dex.py`<br>`DEXScraper` | Ações, projetos e bolsas de extensão | `https://dex.unb.br/editais` | **Scraper Pronto & Testado** (Aguardando unificação no pipeline) |
+| `SRC-UNB-DPI` | **DPI** (Decanato de Pesquisa e Inovação) | `dpi.py`<br>`DPIScraper` | Projetos de pesquisa e fomento à inovação | `https://dpi.unb.br/editais/editais2026` | **Scraper Pronto & Testado** (Aguardando unificação no pipeline) |
+| `SRC-UNB-DAC` | **DAC / DDS** (Decanato de Assuntos Comunitários) | `dac.py`<br>`DACScraper` | Assistência estudantil, auxílio moradia e alimentação | `https://dds.dac.unb.br/editais/` | **Scraper Pronto & Testado** (Aguardando unificação no pipeline) |
+| `SRC-UNB-PROIC`| **ProIC** (Programa de Iniciação Científica) | `proic.py`<br>`PROICScraper` | Bolsas PIBIC, PIBITI e iniciação científica | `https://proic.unb.br/editais/` | **Scraper Pronto & Testado** (Aguardando unificação no pipeline) |
+| `SRC-UNB-DACES`| **DACES** (Diretoria de Acessibilidade) | `daces.py`<br>`DACESScraper` | Acessibilidade e apoio pedagógico especializado | `https://acessibilidade.unb.br/editais-2/` | **Scraper Pronto & Testado** (Aguardando unificação no pipeline) |
+| `SRC-UNB-BCE` | **BCE** (Biblioteca Central) | `bce.py`<br>`BCEScraper` | Normativos, seleções e capacitações da biblioteca | `https://bce.unb.br/sacc/editais-e-normativos/` | **Scraper Pronto & Testado** (Aguardando unificação no pipeline) |
+
+#### Detalhes Técnicos dos Novos Scrapers:
+- **DPG (`dpg.py`)**: Realiza busca estruturada em blocos de editais abertos e links diretos em PDF, com filtros que descartam links de rodapé/governo.
+- **INT (`int_scraper.py`)**: Mapeia páginas de chamadas internacionais abertas em `.entry-content` e seus cronogramas anexos.
+- **DEX (`dex.py`)**: Coleta editais de bolsas de extensão e chamadas públicas de projetos comunitários.
+- **DPI (`dpi.py`)**: Extrai editais de inovação e pesquisa categorizados por exercício anual.
+- **DAC / DDS (`dac.py`)**: Focado no portal da Diretoria de Desenvolvimento Social (DDS), capturando editais de assistência socioeconômica e alimentação.
+- **ProIC (`proic.py`)**: Extrai as chamadas dos programas de iniciação científica (PIBIC/PIBITI/PIBIC-AF).
+- **DACES (`daces.py`)**: Raspa editais e comunicados de apoio e bolsas a estudantes com deficiência.
+- **BCE (`bce.py`)**: Coleta seleções para bolsistas da biblioteca e editais normativos.
 
 ---
 
@@ -95,13 +126,13 @@ Abaixo está discriminada a transformação dos dados brutos obtidos no HTML/PDF
 | :--- | :--- | :--- | :--- |
 | `id` | `BIGINT` (PK) | Gerado automaticamente | Auto-incremento sequencial do PostgreSQL |
 | `identificador_origem` | `VARCHAR(200)` | Slug ou Hash do link de origem | Normalização alfanumérica para garantir idempotência |
-| `titulo` | `VARCHAR(500)` | Texto do link no cabeçalho `<h6>` da listagem | Remoção de espaços duplos e quebras de linha (`strip()`) |
-| `resumo` | `TEXT` | *[A definir]* | *[A definir]* (extração automática via NLP ou seleção de parágrafos do PDF) |
-| `url_pdf` | `TEXT` (Unique) | Primeiro link de PDF associado à página (`.entry-content a[href]`) | Resolução de caminho absoluto com `urllib.parse.urljoin` |
-| `texto_extraido` | `TEXT` | `pdfplumber` no conteúdo do arquivo baixado | Extração textual pura de todas as páginas do PDF oficial |
+| `titulo` | `VARCHAR(500)` | Texto do link no cabeçalho ou tag `<a>` | Remoção de espaços duplos e quebras de linha (`strip()`) |
+| `resumo` | `TEXT` | `parser.py` / NLP | Extração automática ou seleção dos primeiros parágrafos do edital |
+| `url_pdf` | `TEXT` (Unique) | Primeiro link de PDF associado à página do edital | Resolução de caminho absoluto com `urllib.parse.urljoin` |
+| `texto_extraido` | `TEXT` | `pdfplumber` no binário baixado | Extração textual pura de todas as páginas do PDF oficial |
 | `data_publicacao` | `DATE` | String adjacente ao título na listagem | Conversão de nomes de meses em PT-BR para `datetime.date` |
-| `inicio_inscricao` | `DATE` | Parser de datas / cronograma (`parser.py`) | Regex em intervalos de datas (ex.: *"23 de setembro a 14 de outubro"*) |
-| `fim_inscricao` | `DATE` | Parser de datas / cronograma (`parser.py`) | Data final do intervalo de inscrições identificado |
+| `inicio_inscricao` | `DATE` | Parser de cronograma (`parser.py`) | Regex em intervalos de datas (ex.: *"23 de setembro a 14 de outubro"*) |
+| `fim_inscricao` | `DATE` | Parser de cronograma (`parser.py`) | Data final do intervalo de inscrições identificado |
 | `status_processamento` | `VARCHAR(30)` | Ciclo de vida interno | `pendente` $\rightarrow$ `processado` / `parcialmente_processado` / `erro` |
 | `hash_conteudo` | `VARCHAR(64)` | Hash SHA-256 do arquivo PDF | Permite detectar se a UnB atualizou silenciosamente o PDF |
 | `criado_em` / `atualizado_em`| `TIMESTAMP(tz)` | `func.now()` do servidor | Data/hora de inserção e atualização no banco |
@@ -128,9 +159,9 @@ O sistema categoriza os editais utilizando tabelas auxiliares M:N:
 1. **Campi (`campi`)**:
    - Detectado via regex fonético em `parser.py`: Darcy Ribeiro (Plano Piloto), FGA (Gama), FCE (Ceilândia), FUP (Planaltina) ou Geral.
 2. **Tipos de Edital (`tipos_editais`)**:
-   - Classificação controlada: `Extensões`, `Bolsas / Auxílios`, `Pós-Graduação`, `Graduação`.
+   - Classificação controlada: `Extensões`, `Bolsas / Auxílios`, `Pós-Graduação`, `Graduação`, `Pesquisa`, `Intercâmbio`, `Acessibilidade`.
 3. **Cursos (`cursos`)**:
-   - *[A definir]*: Critério de vinculação automática de cursos a partir do texto do edital pendente de definição pela equipe.
+   - Critério de vinculação textual a partir dos cursos mencionados no corpo do edital.
 
 ---
 
@@ -138,26 +169,28 @@ O sistema categoriza os editais utilizando tabelas auxiliares M:N:
 
 ### 4.1. Gatilho de Execução da Coleta
 
-- **Modo Atual (Manual / API)**:
-  - Disparado via requisição autenticada: `POST /api/v1/editais/sync?ano=2026&limite=50`.
-  - Execução direta via CLI para manutenção: `python -m app.modules.scraper.pipeline`.
-- **Modo Planejado (Agendado)**:
-  - *[A definir]*: Ferramenta e frequência de execução automatizada (ex.: Cron job, Celery Beat ou GitHub Actions) a serem decididas em sprints futuras.
+- **Situação Atual do Pipeline (`Back/app/modules/scraper/pipeline.py`)**:
+  - A função `run_pipeline(db, year, fetch_docs)` atualmente realiza a ingestão automática do scraper do **DEG**.
+  - Os demais 8 scrapers estão prontos para uso em `SCRAPERS_REGISTRY`.
+- **Próximo Passo de Integração (Unificação de Pipeline)**:
+  - Evolução do `run_pipeline()` para iterar sobre `SCRAPERS_REGISTRY.values()`, garantindo a coleta e o upsert de todos os órgãos em uma única execução.
+- **Disparo Manual / Manutenção**:
+  - Execução via CLI: `python -m app.modules.scraper.pipeline [ano]`.
 
 ### 4.2. Auditoria e Rastreabilidade (`coletas`)
 
 Cada ciclo de coleta gera um registro na tabela `coletas` com:
-- `fonte`: Nome do órgão consultado (ex.: `"DEG"`).
+- `fonte`: Nome ou sigla do órgão consultado (ex.: `"DEG"`, `"DPG"`, `"DEX"`).
 - `iniciada_em` / `finalizada_em`: Duração e timestamp do processo.
 - `status`: `'executando'`, `'concluida'`, `'falhou'`.
 - `editais_encontrados`: Quantidade de registros identificados.
-- `mensagem_erro`: Stack trace ou mensagem de erro em caso de exceção de rede/parsing.
+- `mensagem_erro`: Mensagem de erro em caso de exceção de rede/parsing.
 
 ### 4.3. Resiliência e Tratamento de Falhas
 
-- **Falha de Conectividade com o Portal**: Erros de HTTP (`httpx.HTTPError`) são capturados sem derrubar a aplicação, retornando lista vazia e registrando log com status `falhou` na tabela de auditoria.
-- **Idempotência de Ingestão**: Novos editais são inseridos com base na unicidade de `url_pagina` e `url_pdf`. Registros existentes sofrem `UPSERT` (atualização de datas, título e inclusão de novos anexos/retificações sem duplicação).
-- **Alteração de Layout HTML**: Caso os seletores deixem de encontrar dados, a coleta finaliza com 0 itens e log de aviso para investigação manual.
+- **Falha de Conectividade com os Portais**: Erros de HTTP (`httpx.HTTPError`, timeouts, DNS) são capturados e tratados individualmente por órgão, retornando lista vazia sem interromper a execução dos demais scrapers.
+- **Idempotência de Ingestão**: Novos editais são inseridos com base na unicidade de `url_pagina` e `url_pdf`. Registros existentes sofrem `UPSERT` (atualização de datas, título e novos anexos sem duplicação).
+- **Alteração de Layout HTML**: Tratado defensivamente com `.get()` e seletores tolerantes a nós ausentes.
 
 ---
 
@@ -172,23 +205,23 @@ Cada ciclo de coleta gera um registro na tabela `coletas` com:
 - **Tratamento de Dados Pessoais em Listas de Resultados**:
   - Editais e resultados homologados podem conter nomes e matrículas de estudantes aprovados.
   - O sistema armazena preferencialmente metadados estruturais (prazos, bolsas, vagas, regras).
-  - *[A definir]*: A política de anonimização ou ofuscação de dados pessoais em arquivos de resultado/homologação está sob análise da equipe.
 - **Link para a Fonte Original**:
-  - O sistema sempre mantém e destaca o link canônico do documento oficial no site da UnB (`url_pdf` e `url_pagina`), garantindo que o usuário consulte a versão legalmente válida.
+  - O sistema sempre mantém e destaca o link canônico do documento oficial no site da UnB (`url_pdf` e `url_pagina`), garantindo que o estudante consulte a versão legalmente válida.
 
 ### 5.3. Política de "Bom Cidadão" na Web (*Etiqueta de Scraping*)
 
 - Identificação explícita do agente via cabeçalho `User-Agent: Fique-de-Olho/1.0`.
 - Intervalos de espera adequados entre requisições para evitar sobrecarga dos servidores da UnB.
-- Download condicional de PDFs baseado em verificação prévia de links já armazenados.
+- Download condicional de PDFs baseado em verificação prévia de links já armazenados no PostgreSQL.
 
 ---
 
-## 6. Pontos em Aberto (Backlog de Decisões da Equipe)
+## 6. Pontos em Aberto e Próximos Passos (Backlog de Decisões)
 
-Os seguintes tópicos permanecem em aberto e serão deliberados pelo time conforme o projeto avançar:
-
-- [ ] **Definição do Agendamento**: Escolher a infraestrutura e periodicidade para a execução contínua da ingestão.
-- [ ] **Priorização de Fontes**: Estabelecer a ordem de implementação dos novos decanatos e secretarias da UnB (ADR 0004).
+- [x] **Arquitetura Base (`BaseScraper`)**: Criação da interface abstrata para padronizar coleta e extração de documentos.
+- [x] **Implementação dos 8 Novos Scrapers (PR #76 - ADR 0004)**: Coletores implementados e testados para DPG, INT, DEX, DPI, DAC, PROIC, DACES e BCE.
+- [x] **Registro Central (`SCRAPERS_REGISTRY`)**: Centralização das instâncias de todos os 9 órgãos da UnB no pacote `scraper`.
+- [ ] **Unificação do Pipeline de Ingestão**: Atualizar `run_pipeline()` para iterar sobre todos os scrapers de `SCRAPERS_REGISTRY` e persistir os editais no banco de dados.
+- [ ] **Definição do Agendamento**: Escolher a infraestrutura e periodicidade para a execução contínua da ingestão (ex.: Cron job, Celery Beat ou GitHub Actions).
 - [ ] **Diretriz de Privacidade / LGPD**: Definir se o texto extraído de listas de resultados passará por mascaramento de dados de estudantes.
-- [ ] **Mapeamento de Cursos e Resumo**: Definir se haverá enriquecimento textual (resumo gerado) e regras para associação automática aos cursos.
+- [ ] **Mapeamento Automático de Cursos**: Definir regras de associação textual automática aos cursos da UnB.
