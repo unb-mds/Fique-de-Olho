@@ -97,7 +97,7 @@ def get_edital(id: str, db: Session = Depends(get_db)):
     # Fallback para ID 1 caso o banco esteja indisponível/não inicializado
     if edital_id == 1:
         return {
-            "id": "1",
+            "id": 1,
             "titulo": "Edital Monitoria DEG 01/2026",
             "campus": "Darcy Ribeiro",
             "unidade": "Darcy Ribeiro",
