@@ -1,0 +1,114 @@
+"""Scraper para o Programa de Iniciação Científica da UnB (ProIC / PIBIC / PIBITI)."""
+
+import re
+from typing import Any, Dict, List, Optional
+from urllib.parse import urljoin
+
+import httpx
+from bs4 import BeautifulSoup
+
+from app.modules.scraper.base import BaseScraper
+from app.modules.scraper.deg import classify_document
+
+PROIC_BASE_URL = "https://proic.unb.br"
+PROIC_EDITAIS_URL = "https://proic.unb.br/editais/"
+DEFAULT_TIMEOUT = 12.0
+USER_AGENT = "Fique-de-Olho/1.0"
+
+DATE_PATTERN = re.compile(
+    r"\b(\d{1,2}\s+de\s+[A-Za-zÀ-ÿ]+\s+de\s+\d{4}|\d{1,2}/\d{1,2}/\d{4})\b",
+    re.IGNORECASE,
+)
+
+
+def parse_proic_html(html: str, base_url: str = PROIC_BASE_URL) -> List[Dict[str, Any]]:
+    """Extrai os editais de iniciação científica (PIBIC, PIBITI, etc.)."""
+    soup = BeautifulSoup(html, "html.parser")
+    editais: List[Dict[str, Any]] = []
+    seen = set()
+
+    for a in soup.find_all("a", href=True):
+        href = a["href"].strip()
+        text = a.get_text(" ", strip=True)
+
+        if not text or len(text) < 4:
+            continue
+
+        if any(ign in text.lower() for ign in ["pular para", "governo", "regimento", "cookies"]):
+            continue
+
+        full_url = urljoin(base_url, href)
+
+        is_edital = any(k in text.lower() for k in ["edital", "pibic", "pibiti", "chamada", "iniciação", "iniciacao"]) or "edital" in href.lower()
+        if not is_edital:
+            continue
+
+        if full_url in seen:
+            continue
+        seen.add(full_url)
+
+        date_match = DATE_PATTERN.search(text)
+        data_pub = date_match.group(0) if date_match else ""
+
+        editais.append({
+            "titulo": text,
+            "link": full_url,
+            "data_publicacao": data_pub,
+        })
+
+    return editais
+
+
+class PROICScraper(BaseScraper):
+    """Implementação do scraper para o Programa de Iniciação Científica (ProIC)."""
+
+    @property
+    def orgao_origem(self) -> str:
+        return "PROIC"
+
+    def fetch_editais(self, year: Optional[int] = None) -> List[Dict[str, Any]]:
+        """Busca editais no portal do ProIC."""
+        try:
+            resp = httpx.get(
+                PROIC_EDITAIS_URL,
+                headers={"User-Agent": USER_AGENT},
+                follow_redirects=True,
+                timeout=DEFAULT_TIMEOUT,
+            )
+            resp.raise_for_status()
+            return parse_proic_html(resp.text, base_url=str(resp.url))
+        except httpx.HTTPError:
+            return []
+
+    def fetch_documentos(self, edital_url: str) -> List[Dict[str, Any]]:
+        """Extrai os documentos e anexos vinculados a um edital do ProIC."""
+        if edital_url.lower().endswith(".pdf"):
+            return [{"titulo": "Edital Oficial ProIC", "link": edital_url, "tipo": classify_document(edital_url, edital_url)}]
+
+        try:
+            resp = httpx.get(
+                edital_url,
+                headers={"User-Agent": USER_AGENT},
+                follow_redirects=True,
+                timeout=DEFAULT_TIMEOUT,
+            )
+            resp.raise_for_status()
+        except httpx.HTTPError:
+            return []
+
+        soup = BeautifulSoup(resp.text, "html.parser")
+        documentos: List[Dict[str, Any]] = []
+        for a in soup.find_all("a", href=True):
+            h = a["href"].strip()
+            if ".pdf" in h.lower():
+                full_h = urljoin(str(resp.url), h)
+                t = a.get_text(" ", strip=True) or "Arquivo ProIC"
+                documentos.append({
+                    "titulo": t,
+                    "link": full_h,
+                    "tipo": classify_document(t, full_h),
+                })
+        return documentos
+
+
+proic_scraper = PROICScraper()
