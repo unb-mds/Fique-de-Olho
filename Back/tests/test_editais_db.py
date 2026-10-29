@@ -2,6 +2,55 @@
 
 from unittest.mock import patch
 
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+
+from app.core.database import Base, Campus, TipoEdital, get_db
+from app.main import app
+
+
+@pytest.fixture
+def sync_client():
+    """Fornece um banco isolado para testar a sincronização de editais."""
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(bind=engine)
+    testing_session_local = sessionmaker(
+        autocommit=False,
+        autoflush=False,
+        bind=engine,
+    )
+    session = testing_session_local()
+    session.add_all(
+        [
+            Campus(nome="Darcy Ribeiro"),
+            TipoEdital(nome="Extensões"),
+        ]
+    )
+    session.commit()
+
+    def override_get_db():
+        db = testing_session_local()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        with TestClient(app) as test_client:
+            yield test_client
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+        session.close()
+        engine.dispose()
+
 
 def test_list_editais_with_status_filter(client):
     """Testa filtro por status 'aberto'."""
@@ -59,7 +108,7 @@ def test_direct_editais_route_compatibility(client):
     assert detail_resp.json()["id"] == first_id
 
 
-def test_sync_editais_service(client):
+def test_sync_editais_service(sync_client):
     """Testa endpoint de sincronização com dados do portal simulados."""
     fake_scraped = [
         {
@@ -69,9 +118,8 @@ def test_sync_editais_service(client):
         }
     ]
     with patch("app.modules.scraper.service.fetch_editais", return_value=fake_scraped):
-        response = client.post("/api/v1/editais/sync?max_itens=5")
+        response = sync_client.post("/api/v1/editais/sync?max_itens=5")
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "success"
         assert "coleta_id" in data
-
