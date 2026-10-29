@@ -22,7 +22,7 @@ def test_get_edital_by_id(client):
     response = client.get("/api/v1/editais/1")
 
     assert response.status_code == 200
-    assert response.json()["id"] == "1"
+    assert response.json()["id"] == 1
 
 
 def test_get_missing_edital_returns_404(client):
