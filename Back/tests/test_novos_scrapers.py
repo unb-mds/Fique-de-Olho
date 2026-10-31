@@ -30,7 +30,7 @@ from app.modules.scraper import (
 
 def test_scrapers_registry_contains_all_nine_organs():
     """Garante que todos os 9 órgãos (DEG + 8 novos) estão devidamente registrados."""
-    expected_organs = {"DEG", "DPG", "INT", "DEX", "DPI", "DAC", "PROIC", "DACES", "BCE"}
+    expected_organs = {"DEG", "DPG", "INT", "DEX", "DPI", "DAC", "PROIC", "DACES", "BCE", "CEAD"}
     assert set(SCRAPERS_REGISTRY.keys()) == expected_organs
 
     for sigla in expected_organs:
