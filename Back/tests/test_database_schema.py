@@ -3,6 +3,7 @@ from datetime import datetime
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
+from decimal import Decimal
 
 from app.core import database
 from app.core.database import (
@@ -87,16 +88,38 @@ def test_app_startup_does_not_create_database_schema(monkeypatch):
 
     assert called["value"] is False
 
-def test_edital_tem_colunas_de_metadados():
-    colunas = Edital.__table__.c
-    for nome in ("orgao_emissor", "vagas", "valor_bolsa", "inicio_inscricao", "fim_inscricao"):
-        assert nome in colunas
-        assert colunas[nome].nullable is True
+def test_edital_salva_sem_metadados():
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(bind=engine)
+    SessionLocal = sessionmaker(bind=engine)
+
+    with SessionLocal() as session:
+        edital = Edital(titulo="Teste", url_pagina="https://exemplo.unb.br/e1")
+        session.add(edital)
+        session.commit()
+        session.refresh(edital)
+
+        assert edital.orgao_emissor is None
+        assert edital.vagas is None
+        assert edital.valor_bolsa is None
 
 
-def test_edital_salva_sem_metadados(session):
-    edital = Edital(titulo="Teste", url_pagina="https://exemplo.unb.br/e1")
-    session.add(edital)
-    session.commit()
-    assert edital.orgao_emissor is None
-    assert edital.vagas is None
+def test_edital_salva_com_metadados():
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(bind=engine)
+    SessionLocal = sessionmaker(bind=engine)
+
+    with SessionLocal() as session:
+        edital = Edital(
+            titulo="Edital PIBIC",
+            url_pagina="https://exemplo.unb.br/e2",
+            orgao_emissor="DPG",
+            vagas=10,
+            valor_bolsa=Decimal("400.00"),
+        )
+        session.add(edital)
+        session.commit()
+        session.refresh(edital)
+
+        assert edital.orgao_emissor == "DPG"
+        assert edital.vagas == 10

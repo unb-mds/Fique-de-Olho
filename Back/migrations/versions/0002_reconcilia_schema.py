@@ -69,7 +69,6 @@ def upgrade() -> None:
     )
 
     # 3) Ajustes em colunas existentes de editais
-    # (antes de criar busca_documento, que depende de titulo)
     op.alter_column("editais", "titulo",
                     existing_type=sa.String(length=255), type_=sa.String(length=500),
                     existing_nullable=False)
@@ -77,8 +76,12 @@ def upgrade() -> None:
                     existing_type=sa.DateTime(timezone=True), nullable=True)
     op.alter_column("editais", "status",
                     existing_type=STATUS_EDITAL, nullable=True)
+    op.alter_column("editais", "status",
+                    existing_type=STATUS_EDITAL, nullable=True)
+    op.alter_column("editais", "url_pagina",
+                    existing_type=sa.String(length=500), nullable=True)
 
-    # 4) Colunas novas de editais (todas nuláveis ou com default: não quebram linhas antigas)
+    # 4) Colunas novas de editais
     op.add_column("editais", sa.Column("identificador_origem", sa.String(length=200), nullable=True))
     op.add_column("editais", sa.Column("resumo", sa.Text(), nullable=True))
     op.add_column("editais", sa.Column("url_pdf", sa.String(length=500), nullable=True))
@@ -106,7 +109,7 @@ def upgrade() -> None:
         "status_processamento IN ('pendente', 'processado', 'parcialmente_processado', 'erro')",
     )
 
-    # 5) Busca textual (coluna gerada + GIN): o Alembic não modela isso, então vai em SQL
+    # 5) Busca textual
     op.execute(
         """
         ALTER TABLE editais ADD COLUMN busca_documento tsvector
@@ -120,7 +123,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # A coluna gerada depende de titulo/resumo/texto_extraido: sai primeiro
     op.execute("DROP INDEX IF EXISTS editais_busca_documento_gin_idx")
     op.execute("ALTER TABLE editais DROP COLUMN IF EXISTS busca_documento")
 
@@ -135,14 +137,15 @@ def downgrade() -> None:
                    "resumo", "identificador_origem"):
         op.drop_column("editais", coluna)
 
-    # Atenção: estes três falham se já existirem linhas com título > 255
-    # caracteres, data_publicacao nula ou status nulo. Só rode em banco descartável.
     op.alter_column("editais", "status", existing_type=STATUS_EDITAL, nullable=False)
     op.alter_column("editais", "data_publicacao",
                     existing_type=sa.DateTime(timezone=True), nullable=False)
     op.alter_column("editais", "titulo",
                     existing_type=sa.String(length=500), type_=sa.String(length=255),
                     existing_nullable=False)
+    op.alter_column("editais", "url_pagina",
+                    existing_type=sa.String(length=500), nullable=False)
+    op.alter_column("editais", "status", existing_type=STATUS_EDITAL, nullable=False)
 
     op.drop_table("coletas")
     op.drop_table("edital_cursos")

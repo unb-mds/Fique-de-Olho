@@ -1,8 +1,8 @@
 from enum import Enum as PyEnum
 from typing import Generator
 
-    CheckConstraint,
 from sqlalchemy import (
+    CheckConstraint,
     Column,
     Date,
     DateTime,
@@ -71,8 +71,6 @@ class Curso(Base):
 
 class Edital(Base):
     __tablename__ = "editais"
-
-    #Regra de integridade para garantir que o período de inscrição seja válido (inicio <= fim)
     __table_args__ = (
         CheckConstraint(
             "inicio_inscricao IS NULL OR fim_inscricao IS NULL "
@@ -102,7 +100,7 @@ class Edital(Base):
     texto_extraido = Column(Text, nullable=True)
     inicio_inscricao = Column(Date, nullable=True)
     fim_inscricao = Column(Date, nullable=True, index=True)
-    status_processamento = Column(String(30), nullable=False, server_default="pedente")
+    status_processamento = Column(String(30), nullable=False,default="pendente", server_default="pendente")
     hash_conteudo = Column(String(64), nullable=True)
     criado_em = Column(DateTime(timezone=True), server_default=func.now(), nullable=True)
     atualizado_em = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=True)
