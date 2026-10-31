@@ -1,6 +1,7 @@
 from enum import Enum as PyEnum
 from typing import Generator
 
+    CheckConstraint,
 from sqlalchemy import (
     Column,
     Date,

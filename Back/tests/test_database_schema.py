@@ -86,3 +86,17 @@ def test_app_startup_does_not_create_database_schema(monkeypatch):
         pass
 
     assert called["value"] is False
+
+def test_edital_tem_colunas_de_metadados():
+    colunas = Edital.__table__.c
+    for nome in ("orgao_emissor", "vagas", "valor_bolsa", "inicio_inscricao", "fim_inscricao"):
+        assert nome in colunas
+        assert colunas[nome].nullable is True
+
+
+def test_edital_salva_sem_metadados(session):
+    edital = Edital(titulo="Teste", url_pagina="https://exemplo.unb.br/e1")
+    session.add(edital)
+    session.commit()
+    assert edital.orgao_emissor is None
+    assert edital.vagas is None
