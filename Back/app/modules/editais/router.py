@@ -1,8 +1,8 @@
 from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.core.database import get_db
+from app.core.database import Usuario, get_db
 from app.modules.editais.service import (
     get_edital_by_id,
     list_editais_com_filtros,
@@ -11,8 +11,9 @@ from app.modules.editais.service import (
 from app.modules.favoritos.service import (
     desfavoritar_edital,
     favoritar_edital,
-    get_or_create_default_user,
+    listar_favoritos_usuario,
 )
+from app.modules.usuarios import get_current_user
 
 router = APIRouter(prefix="/editais", tags=["Editais"])
 
@@ -77,6 +78,20 @@ def list_editais(
     ]
 
 
+@router.get(
+    "/favoritos",
+    response_model=List[Dict[str, Any]],
+    summary="Listar editais favoritos do usuário autenticado",
+    description="Retorna todos os editais favoritados pelo estudante logado via token Bearer/JWT.",
+)
+def listar_favoritos(
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(get_current_user),
+):
+    editais_db = listar_favoritos_usuario(db=db, usuario_id=usuario_atual.id)
+    return [serialize_edital(e) for e in editais_db]
+
+
 @router.get("/{id}", response_model=Dict[str, Any])
 def get_edital(id: str, db: Session = Depends(get_db)):
     """Retorna os detalhes completos de um edital pelo seu ID."""
@@ -97,7 +112,7 @@ def get_edital(id: str, db: Session = Depends(get_db)):
     # Fallback para ID 1 caso o banco esteja indisponível/não inicializado
     if edital_id == 1:
         return {
-            "id": "1",
+            "id": 1,
             "titulo": "Edital Monitoria DEG 01/2026",
             "campus": "Darcy Ribeiro",
             "unidade": "Darcy Ribeiro",
@@ -135,27 +150,31 @@ def sync_editais(
         )
 
 
-@router.post("/{id}/favoritar", status_code=status.HTTP_200_OK)
+@router.post(
+    "/{id}/favoritar",
+    status_code=status.HTTP_200_OK,
+    summary="Favoritar edital",
+    description="Adiciona um edital aos favoritos do usuário autenticado via Bearer/JWT.",
+)
 def favoritar(
     id: int,
     db: Session = Depends(get_db),
-    usuario_id: Optional[int] = Query(None, description="ID do usuário via query param"),
-    x_user_id: Optional[int] = Header(None, alias="X-User-Id", description="ID do usuário via header"),
+    usuario_atual: Usuario = Depends(get_current_user),
 ):
-    """Marca um edital como favorito para o usuário."""
-    uid = x_user_id or usuario_id
-    user = get_or_create_default_user(db, uid)
-    return favoritar_edital(db=db, edital_id=id, usuario_id=user.id)
+    """Marca um edital como favorito exclusivamente para o usuário autenticado."""
+    return favoritar_edital(db=db, edital_id=id, usuario_id=usuario_atual.id)
 
 
-@router.delete("/{id}/favoritar", status_code=status.HTTP_200_OK)
+@router.delete(
+    "/{id}/favoritar",
+    status_code=status.HTTP_200_OK,
+    summary="Desfavoritar edital",
+    description="Remove um edital dos favoritos do usuário autenticado via Bearer/JWT.",
+)
 def desfavoritar(
     id: int,
     db: Session = Depends(get_db),
-    usuario_id: Optional[int] = Query(None, description="ID do usuário via query param"),
-    x_user_id: Optional[int] = Header(None, alias="X-User-Id", description="ID do usuário via header"),
+    usuario_atual: Usuario = Depends(get_current_user),
 ):
-    """Remove um edital dos favoritos do usuário."""
-    uid = x_user_id or usuario_id
-    user = get_or_create_default_user(db, uid)
-    return desfavoritar_edital(db=db, edital_id=id, usuario_id=user.id)
+    """Remove um edital dos favoritos exclusivamente para o usuário autenticado."""
+    return desfavoritar_edital(db=db, edital_id=id, usuario_id=usuario_atual.id)

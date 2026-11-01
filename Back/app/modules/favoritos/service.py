@@ -1,44 +1,20 @@
-from typing import Optional
+"""Camada de serviço para a gestão de favoritos associados a usuários autenticados (Issue #65)."""
+
+from typing import Any, Dict, List
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.core.database import Edital, Favorito, Usuario
+from app.core.database import Edital, Favorito
 
 
-def get_or_create_default_user(db: Session, user_id: Optional[int] = None) -> Usuario:
-    """Retorna o usuário pelo ID ou obtém/cria um usuário padrão para a sessão."""
-    if user_id is not None:
-        user = db.query(Usuario).filter(Usuario.id == user_id).first()
-        if user:
-            return user
-        # Se um ID específico foi solicitado mas não existe, cria com esse ID
-        user = Usuario(
-            id=user_id,
-            nome=f"Usuário {user_id}",
-            email=f"usuario{user_id}@unb.br",
-            senha_hash="hash_padrao",
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-        return user
+def favoritar_edital(db: Session, edital_id: int, usuario_id: int) -> Dict[str, Any]:
+    """Adiciona um edital à lista de favoritos do usuário autenticado.
 
-    # Usuário padrão
-    user = db.query(Usuario).first()
-    if not user:
-        user = Usuario(
-            nome="Usuário Padrão",
-            email="usuario@unb.br",
-            senha_hash="hash_padrao",
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-    return user
+    Operação idempotente: se já estiver favoritado, confirma sem duplicar.
 
-
-def favoritar_edital(db: Session, edital_id: int, usuario_id: int) -> dict:
-    """Adiciona um edital à lista de favoritos do usuário."""
+    Raises:
+        HTTPException(404): Se o edital não existir.
+    """
     edital = db.query(Edital).filter(Edital.id == edital_id).first()
     if not edital:
         raise HTTPException(
@@ -65,8 +41,12 @@ def favoritar_edital(db: Session, edital_id: int, usuario_id: int) -> dict:
     }
 
 
-def desfavoritar_edital(db: Session, edital_id: int, usuario_id: int) -> dict:
-    """Remove um edital da lista de favoritos do usuário."""
+def desfavoritar_edital(db: Session, edital_id: int, usuario_id: int) -> Dict[str, Any]:
+    """Remove um edital da lista de favoritos do usuário autenticado.
+
+    Raises:
+        HTTPException(404): Se o edital não existir.
+    """
     edital = db.query(Edital).filter(Edital.id == edital_id).first()
     if not edital:
         raise HTTPException(
@@ -90,3 +70,24 @@ def desfavoritar_edital(db: Session, edital_id: int, usuario_id: int) -> dict:
         "usuario_id": usuario_id,
         "favoritado": False,
     }
+
+
+def listar_favoritos_usuario(db: Session, usuario_id: int) -> List[Edital]:
+    """Recupera todos os editais que foram favoritados pelo usuário autenticado."""
+    return (
+        db.query(Edital)
+        .join(Favorito, Favorito.edital_id == Edital.id)
+        .filter(Favorito.usuario_id == usuario_id)
+        .all()
+    )
+
+
+def listar_favoritos_usuario(db: Session, usuario_id: int) -> List[Edital]:
+    """Recupera todos os editais que foram favoritados pelo usuário autenticado."""
+    return (
+        db.query(Edital)
+        .join(Favorito, Favorito.edital_id == Edital.id)
+        .filter(Favorito.usuario_id == usuario_id)
+        .all()
+    )
+

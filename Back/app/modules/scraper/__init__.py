@@ -4,6 +4,7 @@ from typing import Dict, Optional
 
 from app.modules.scraper.base import BaseScraper
 from app.modules.scraper.bce import BCEScraper, bce_scraper
+from app.modules.scraper.cead import CEADScraper, cead_scraper
 from app.modules.scraper.dac import DACScraper, dac_scraper
 from app.modules.scraper.daces import DACESScraper, daces_scraper
 from app.modules.scraper.deg import DEGScraper, deg_scraper
@@ -48,6 +49,7 @@ SCRAPERS_REGISTRY: Dict[str, BaseScraper] = {
     "PROIC": proic_scraper,
     "DACES": daces_scraper,
     "BCE": bce_scraper,
+    "CEAD": cead_scraper,
 }
 
 
@@ -76,6 +78,8 @@ __all__ = [
     "daces_scraper",
     "BCEScraper",
     "bce_scraper",
+    "CEADScraper",
+    "cead_scraper",
     "SCRAPERS_REGISTRY",
     "get_scraper",
     "run_pipeline",
