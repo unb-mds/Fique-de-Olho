@@ -180,36 +180,40 @@ processo `npm run dev` depois de alterar `VITE_API_BASE_URL`.
 ## Arquitetura e tecnologias
 
 ```text
-Front (React + TypeScript + Vite)
+Front (React + TypeScript + Vite) ── [Deploy: Vercel]
               │ HTTP / JSON
-Back (FastAPI + Pydantic)
+Back (FastAPI + Pydantic) ────────── [Deploy: Render]
               │
-Scraper (httpx + BeautifulSoup) ──> fontes institucionais da UnB
+Scraper (httpx + BeautifulSoup) ───> fontes institucionais da UnB
               │
-PostgreSQL
+PostgreSQL ───────────────────────── [Deploy: Neon / Supabase]
 ```
 
-- **Frontend:** React 18, TypeScript, Vite, React Router, ESLint e Prettier.
+- **Frontend:** React 18, TypeScript, Vite, React Router, ESLint e Prettier (Deploy: **Vercel**).
 - **Backend:** Python, FastAPI, Pydantic Settings, Uvicorn, SQLAlchemy e
-  PostgreSQL.
+  PostgreSQL (Deploy: **Render**).
+- **Banco de dados em nuvem:** **Neon** ou **Supabase** (PostgreSQL gerenciado).
 - **Coleta e parsing:** HTTPX, BeautifulSoup e pdfplumber.
-- **Execução:** Docker Compose para API e banco; execução local também
+- **Execução local:** Docker Compose para API e banco; execução local também
   disponível.
+- **Documentação:** MkDocs Material (Deploy: **GitHub Pages**).
 
 ### Como os componentes se relacionam
 
-1. O usuário acessa a interface React pelo navegador.
-2. O frontend envia requisições HTTP em JSON para a API FastAPI.
+1. O usuário acessa a interface React pelo navegador (hospedada na Vercel).
+2. O frontend envia requisições HTTP em JSON para a API FastAPI (hospedada no Render).
 3. A API organiza as rotas por módulos de negócio, como editais e favoritos.
-4. O SQLAlchemy fornece a camada de acesso ao PostgreSQL.
+4. O SQLAlchemy fornece a camada de acesso ao PostgreSQL (instância em nuvem no Neon/Supabase ou local via Docker).
 5. O scraper coleta listagens e documentos PDF das fontes institucionais da
    UnB, enquanto os parsers extraem os dados relevantes.
 6. O Docker Compose executa a API e o PostgreSQL em serviços separados,
-   permitindo que o frontend local ou outros clientes consumam a API.
+   permitindo o desenvolvimento local integrado.
 
 As escolhas de tecnologia estão registradas nos ADRs de
-[backend](docs/adr/0001-stack-backend.md) e
-[frontend](docs/adr/0002-stack-frontend.md).
+[backend](docs/adr/0001-stack-backend.md),
+[frontend](docs/adr/0002-stack-frontend.md),
+[schema do banco](docs/adr/0003-database-schema.md) e
+[hospedagem e deploy](docs/adr/0004-plataformas-de-deploy.md).
 
 ## Qualidade e comandos
 
