@@ -273,18 +273,39 @@ def test_bce_scraper_contract():
     assert bce_scraper.orgao_origem == "BCE"
 
 
-@patch("app.modules.scraper.bce.httpx.get")
-def test_bce_scraper_fetch_editais(mock_get):
+@patch("app.modules.scraper.bce.httpx.Client")
+def test_bce_scraper_fetch_editais(mock_client_cls):
+    mock_client = MagicMock()
+    mock_client_cls.return_value.__enter__.return_value = mock_client
+
     mock_resp = MagicMock()
-    mock_resp.text = """
-    <div>
-        <a href="https://repositorioadm.unb.br/editais/edital-dpi-bce-n-01-2026/">Edital DPI/BCE – n. 01/2026</a>
-        <a href="https://repositorioadm.unb.br/editais/edital-dpi-bce-n-01-2025/">Edital DPI/BCE – n. 01/2025</a>
-    </div>
-    """
-    mock_resp.url = "https://bce.unb.br/sacc/editais-e-normativos/"
-    mock_resp.raise_for_status.return_value = None
-    mock_get.return_value = mock_resp
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {
+        "items": [
+            {
+                "id": 1,
+                "title": "Edital DPI/BCE – n. 01/2026",
+                "url": "https://repositorioadm.unb.br/editais/edital-dpi-bce-n-01-2026/",
+                "metadata": {
+                    "data-de-publicacao": {"value": "2026-01-30", "value_as_string": "30 de janeiro de 2026"},
+                    "assunto-8": {"value_as_string": "Pesquisa"},
+                    "descricao-5": {"value_as_string": "Objeto do edital"},
+                },
+            },
+            {
+                "id": 2,
+                "title": "Edital DPI/BCE – n. 01/2025",
+                "url": "https://repositorioadm.unb.br/editais/edital-dpi-bce-n-01-2025/",
+                "metadata": {
+                    "data-de-publicacao": {"value": "2025-01-21", "value_as_string": "21 de janeiro de 2025"},
+                    "assunto-8": {"value_as_string": "Pesquisa"},
+                    "descricao-5": {"value_as_string": "Objeto do edital"},
+                },
+            },
+        ]
+    }
+    mock_resp.headers = {"x-wp-totalpages": "1"}
+    mock_client.get.return_value = mock_resp
 
     editais = bce_scraper.fetch_editais()
     assert len(editais) == 2
