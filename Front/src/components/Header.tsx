@@ -1,4 +1,9 @@
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 export default function Header() {
+  const { usuario, autenticado, logout } = useAuth();
+  const navigate = useNavigate();
+
   return (
     <header className="site-header">
       <div className="brand">
@@ -15,20 +20,32 @@ export default function Header() {
         <input type="text" placeholder="Buscar editais, áreas, campi..." disabled />
       </label>
 
-      <div className="header-actions">
-        <span className="header-link">Editais</span>
-        <span className="header-avatar" aria-hidden="true">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="2" />
-            <path
-              d="M4 20c0-4 3.6-6 8-6s8 2 8 6"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          </svg>
-        </span>
-      </div>
+     <div className="header-actions">
+  <span className="header-link">Editais</span>
+
+  {autenticado && usuario ? (
+    <>
+      <span className="header-link">{usuario.nome}</span>
+
+      <button
+        type="button"
+        onClick={() => {
+          logout();
+          navigate("/login");
+        }}
+      >
+        Sair
+      </button>
+    </>
+  ) : (
+    <button
+      type="button"
+      onClick={() => navigate("/login")}
+    >
+      Entrar
+    </button>
+  )}
+</div>
     </header>
   );
 }
