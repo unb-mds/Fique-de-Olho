@@ -7,16 +7,18 @@ Frontend do sistema que busca e exibe os editais publicados pela UnB.
 - React 18 + TypeScript
 - Vite (build tool)
 - React Router (rotas)
+- Vitest + Testing Library (testes unitários e de componentes)
 - ESLint + Prettier (lint e formatação)
 
 ## Estrutura de pastas
 
 ```
 src/
-├── components/   # Componentes reutilizáveis (ex: EditalCard)
+├── components/   # Componentes reutilizáveis (ex: EditalCard, FavoriteButton)
 ├── pages/        # Páginas/telas da aplicação (ex: HomePage, EditalDetailPage)
-├── routes/        # Definição das rotas da aplicação
-├── services/      # Comunicação com a API do backend e tipos compartilhados
+├── routes/       # Definição das rotas da aplicação
+├── services/     # Comunicação com a API do backend e tipos compartilhados
+├── test/         # Configurações globais de testes (setup.ts)
 ├── App.tsx
 ├── main.tsx
 └── index.css
@@ -46,17 +48,19 @@ cp .env.example .env
 
 ## Scripts disponíveis
 
-| Comando           | Descrição                                  |
-| ------------------ | ------------------------------------------- |
-| `npm run dev`      | Roda o projeto em modo desenvolvimento      |
-| `npm run build`    | Gera o build de produção                    |
-| `npm run preview`  | Serve o build de produção localmente        |
-| `npm run lint`     | Roda o ESLint                               |
-| `npm run format`   | Formata o código com o Prettier             |
+| Comando              | Descrição                                         |
+| -------------------- | ------------------------------------------------- |
+| `npm run dev`        | Roda o projeto em modo desenvolvimento             |
+| `npm run build`      | Gera o build de produção                           |
+| `npm run preview`    | Serve o build de produção localmente               |
+| `npm run test`       | Executa os testes unitários com Vitest             |
+| `npm run test:watch` | Executa os testes em modo interativo (*watch*)     |
+| `npm run lint`       | Roda o ESLint                                      |
+| `npm run format`     | Formata o código com o Prettier                    |
 
 ## Padrões do time
 
-- Todo componente novo vai em `src/components`.
+- Todo componente novo vai em `src/components` com seus testes em `src/components/__tests__`.
 - Toda página/rota nova vai em `src/pages`, e é registrada em `src/routes/AppRoutes.tsx`.
 - Toda chamada à API do backend fica centralizada em `src/services`.
-- Rodar `npm run lint` e `npm run format` antes de abrir PR.
+- Rodar `npm run lint` e `npm run test` antes de abrir PR.
