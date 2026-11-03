@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 SIGAA_BASE_URL = "https://sigaa.unb.br"
 SIGAA_PROCESSOS_URL = "https://sigaa.unb.br/sigaa/public/processo_seletivo/lista.jsf"
 SIGAA_PPG_LISTA_URL = "https://sigaa.unb.br/sigaa/public/curso/lista.jsf?nivel=S&aba=p-stricto"
+SIGAA_EXTENSAO_URL = "https://sigaa.unb.br/sigaa/public/extensao/paginaListaPeriodosInscricoesAtividadesPublico.jsf?semuni=false&aba=p-extensao"
 
 SIGAA_NIVEIS_URLS = [
     ("S", "https://sigaa.unb.br/sigaa/public/processo_seletivo/lista.jsf?nivel=S&aba=p-stricto"),
@@ -217,6 +218,67 @@ def parse_sigaa_ppg_processos_html(html: str, ppg_nome: str, ppg_id: str) -> Lis
     return editais
 
 
+def parse_sigaa_extensao_html(html: str) -> List[Dict[str, Any]]:
+    """Extrai cursos e eventos de extensão com períodos de inscrição abertos no SIGAA."""
+    soup = BeautifulSoup(html, "html.parser")
+    editais: List[Dict[str, Any]] = []
+    table = soup.find("table", class_=lambda c: c and "listagem" in c)
+    if not table:
+        return editais
+
+    for tr in table.find_all("tr"):
+        tds = tr.find_all("td")
+        if len(tds) < 7:
+            continue
+
+        col0 = tds[0].get_text(" ", strip=True)
+        if "Coordena" not in col0 and "Realiza" not in col0:
+            continue
+
+        tipo = tds[1].get_text(" ", strip=True) or "EXTENSÃO"
+        area = tds[2].get_text(" ", strip=True)
+        unidade = tds[3].get_text(" ", strip=True)
+        campus = tds[4].get_text(" ", strip=True)
+        periodo_insc = tds[5].get_text(" ", strip=True)
+        periodo_atv = tds[6].get_text(" ", strip=True)
+
+        titulo_limpo = col0.split("Coordena")[0].split("Realiza")[0].strip()
+        titulo_limpo = re.sub(r"\s+", " ", titulo_limpo)
+
+        m = re.search(r"(\d{1,2}/\d{1,2}/\d{4})\s*a\s*(\d{1,2}/\d{1,2}/\d{4})", periodo_insc)
+        inicio_inscricao = m.group(1) if m else ""
+        fim_inscricao = m.group(2) if m else ""
+
+        ano: Optional[int] = None
+        if fim_inscricao and len(fim_inscricao) >= 10:
+            try:
+                ano = int(fim_inscricao[-4:])
+            except ValueError:
+                pass
+        elif inicio_inscricao and len(inicio_inscricao) >= 10:
+            try:
+                ano = int(inicio_inscricao[-4:])
+            except ValueError:
+                pass
+
+        editais.append({
+            "titulo": f"[{tipo}] {titulo_limpo}",
+            "link": SIGAA_EXTENSAO_URL,
+            "tipo_edital": "Extensão",
+            "programa": f"{unidade} ({campus})" if campus else unidade,
+            "area_tematica": area,
+            "inicio_inscricao": inicio_inscricao,
+            "fim_inscricao": fim_inscricao,
+            "data_publicacao": inicio_inscricao,
+            "status": "aberto",
+            "ano": ano,
+            "periodo_realizacao": periodo_atv,
+            "documentos": [],
+        })
+
+    return editais
+
+
 class SIGAAScraper(BaseScraper):
     """Implementação do scraper para processos seletivos públicos do SIGAA UnB."""
 
@@ -313,6 +375,21 @@ class SIGAAScraper(BaseScraper):
                                     editais.append(ed)
                     except httpx.HTTPError:
                         continue
+
+                # 3. Consulta cursos e eventos de extensão com inscrições abertas no SIGAA
+                try:
+                    resp_ext = client.get(SIGAA_EXTENSAO_URL)
+                    if resp_ext.status_code == 200:
+                        ext_editais = parse_sigaa_extensao_html(resp_ext.text)
+                        for ed in ext_editais:
+                            key = (ed.get("titulo", ""), ed.get("inicio_inscricao", ""))
+                            if key not in seen_keys:
+                                seen_keys.add(key)
+                                if year is not None and ed.get("ano") is not None and ed["ano"] != year:
+                                    continue
+                                editais.append(ed)
+                except httpx.HTTPError as exc:
+                    logger.warning(f"Erro ao consultar extensão no SIGAA: {exc}")
 
         except Exception as exc:
             logger.error(f"Erro ao conectar ao SIGAA UnB: {exc}")

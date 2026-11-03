@@ -181,6 +181,38 @@ def test_sigaa_network_failure_resilience(mock_client_cls):
     assert scraper.fetch_documentos("https://sigaa.unb.br/teste") == []
 
 
+def test_parse_sigaa_extensao_html():
+    """Garante a extração correta de cursos e eventos de extensão abertos no SIGAA."""
+    from app.modules.scraper.sigaa import parse_sigaa_extensao_html
+
+    sample_html = """
+    <table class="listagem">
+        <tr><th>Título</th><th>Tipo</th><th>Área</th><th>Unidade</th><th>Campus</th><th>Inscrição</th><th>Período</th><th>Vagas</th></tr>
+        <tr><td>Total</td><td>Aprovadas</td><td>Pendentes</td><td>Restantes</td></tr>
+        <tr>
+            <td>Curso de Capacitação em IA e Automação Coordenação: PROFESSOR SILVA</td>
+            <td>CURSO</td>
+            <td>TECNOLOGIA</td>
+            <td>CIC</td>
+            <td>Darcy Ribeiro</td>
+            <td>10/11/2026 a 25/11/2026</td>
+            <td>01/12/2026 a 15/12/2026</td>
+            <td>50</td>
+        </tr>
+    </table>
+    """
+    editais = parse_sigaa_extensao_html(sample_html)
+    assert len(editais) == 1
+    assert editais[0]["titulo"] == "[CURSO] Curso de Capacitação em IA e Automação"
+    assert editais[0]["tipo_edital"] == "Extensão"
+    assert editais[0]["programa"] == "CIC (Darcy Ribeiro)"
+    assert editais[0]["area_tematica"] == "TECNOLOGIA"
+    assert editais[0]["inicio_inscricao"] == "10/11/2026"
+    assert editais[0]["fim_inscricao"] == "25/11/2026"
+    assert editais[0]["ano"] == 2026
+    assert editais[0]["status"] == "aberto"
+
+
 @pytest.mark.live
 def test_sigaa_live_connectivity():
     """Teste de conexão e extração ao vivo com o SIGAA UnB nos PPGs."""
