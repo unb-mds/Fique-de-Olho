@@ -5,6 +5,7 @@ from typing import Dict, Optional
 from app.modules.scraper.base import BaseScraper
 from app.modules.scraper.bce import BCEScraper, bce_scraper
 from app.modules.scraper.cead import CEADScraper, cead_scraper
+from app.modules.scraper.cebraspe import CebraspeScraper, cebraspe_scraper
 from app.modules.scraper.dac import DACScraper, dac_scraper
 from app.modules.scraper.daces import DACESScraper, daces_scraper
 from app.modules.scraper.deg import DEGScraper, deg_scraper
@@ -13,6 +14,8 @@ from app.modules.scraper.dpg import DPGScraper, dpg_scraper
 from app.modules.scraper.dpi import DPIScraper, dpi_scraper
 from app.modules.scraper.int_scraper import INTScraper, int_scraper
 from app.modules.scraper.proic import PROICScraper, proic_scraper
+from app.modules.scraper.sigaa import SIGAAScraper, sigaa_scraper
+from app.modules.scraper.unb_idiomas import UnBIdiomasScraper, unb_idiomas_scraper
 from app.modules.scraper.parser import (
     CAMPUS_UNB,
     ORGAOS_UNB,
@@ -50,6 +53,9 @@ SCRAPERS_REGISTRY: Dict[str, BaseScraper] = {
     "DACES": daces_scraper,
     "BCE": bce_scraper,
     "CEAD": cead_scraper,
+    "SIGAA": sigaa_scraper,
+    "CEBRASPE": cebraspe_scraper,
+    "UNB_IDIOMAS": unb_idiomas_scraper,
 }
 
 
@@ -80,6 +86,12 @@ __all__ = [
     "bce_scraper",
     "CEADScraper",
     "cead_scraper",
+    "SIGAAScraper",
+    "sigaa_scraper",
+    "CebraspeScraper",
+    "cebraspe_scraper",
+    "UnBIdiomasScraper",
+    "unb_idiomas_scraper",
     "SCRAPERS_REGISTRY",
     "get_scraper",
     "run_pipeline",
@@ -98,9 +110,4 @@ __all__ = [
     "EditalMetadados",
     "CronogramaEtapa",
     "parse_edital_metadados",
-    "parse_data_interval",
-    "detect_orgao_emissor",
-    "detect_campus",
-    "ORGAOS_UNB",
-    "CAMPUS_UNB",
 ]
