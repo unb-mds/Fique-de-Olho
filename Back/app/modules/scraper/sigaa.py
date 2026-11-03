@@ -177,6 +177,10 @@ def parse_sigaa_ppg_processos_html(html: str, ppg_nome: str, ppg_id: str) -> Lis
                 else:
                     titulo = text[:100].strip()
 
+            # Limpa ruídos de quebra de linha e sufixos de datas redundantes no título
+            titulo = re.sub(r"\s*\(\s*\d{1,2}/\d{1,2}/\d{4}[\s\S]*?\)", "", titulo)
+            titulo = re.sub(r"\s+", " ", titulo).strip()
+
             # Extração do ID do processo via onclick JSF
             proc_id = ""
             a_elem = row.find("a", onclick=True)
