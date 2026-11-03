@@ -1,8 +1,9 @@
 """Scraper para os processos seletivos públicos do SIGAA UnB (PPGs, Graduação e Extensão)."""
 
+from datetime import datetime, timezone
 import logging
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urljoin
 
 import httpx
@@ -15,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 SIGAA_BASE_URL = "https://sigaa.unb.br"
 SIGAA_PROCESSOS_URL = "https://sigaa.unb.br/sigaa/public/processo_seletivo/lista.jsf"
+SIGAA_PPG_LISTA_URL = "https://sigaa.unb.br/sigaa/public/curso/lista.jsf?nivel=S&aba=p-stricto"
 
 SIGAA_NIVEIS_URLS = [
     ("S", "https://sigaa.unb.br/sigaa/public/processo_seletivo/lista.jsf?nivel=S&aba=p-stricto"),
@@ -24,30 +26,22 @@ SIGAA_NIVEIS_URLS = [
 ]
 
 DEFAULT_TIMEOUT = 15.0
-USER_AGENT = "Fique-de-Olho/1.0 (MD-UnB Academic Scraper)"
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Fique-de-Olho/1.0"
 
 DATE_INTERVAL_PATTERN = re.compile(
-    r"(\d{1,2}/\d{1,2}/\d{4})\s*(?:a|até|-)\s*(\d{1,2}/\d{1,2}/\d{4})",
+    r"(\d{1,2}/\d{1,2}/\d{4})\s*(?:a|à|até|-|–)\s*(\d{1,2}/\d{1,2}/\d{4})",
     re.IGNORECASE,
 )
 DATE_SINGLE_PATTERN = re.compile(r"\b(\d{1,2}/\d{1,2}/\d{4})\b")
 
 
 def parse_sigaa_html(html: str, base_url: str = SIGAA_BASE_URL) -> List[Dict[str, Any]]:
-    """Extrai os editais e processos seletivos contidos nas tabelas do SIGAA.
-
-    Args:
-        html: Código HTML da página do SIGAA.
-        base_url: URL base para resolução de links relativos.
-
-    Returns:
-        Lista de editais estruturados.
-    """
+    """Extrai os editais e processos seletivos contidos nas tabelas públicas do SIGAA."""
     soup = BeautifulSoup(html, "html.parser")
     editais: List[Dict[str, Any]] = []
     seen = set()
 
-    # Localiza tabelas de listagem padrão do SIGAA (listagem ou formulario)
+    # Localiza tabelas de listagem padrão do SIGAA
     tables = soup.find_all("table", class_=lambda c: c and ("listagem" in c or "formulario" in c))
     if not tables:
         tables = soup.find_all("table")
@@ -63,7 +57,6 @@ def parse_sigaa_html(html: str, base_url: str = SIGAA_BASE_URL) -> List[Dict[str
             if "Nenhum processo seletivo" in row_text or "CPF:" in row_text:
                 continue
 
-            # Busca links de editais ou detalhes
             links = row.find_all("a", href=True)
             if not links:
                 continue
@@ -88,7 +81,6 @@ def parse_sigaa_html(html: str, base_url: str = SIGAA_BASE_URL) -> List[Dict[str
             if not titulo or len(titulo) < 3:
                 titulo = row_text[:120].strip()
 
-            # Extração de datas
             inicio_inscricao = ""
             fim_inscricao = ""
             data_pub = ""
@@ -103,14 +95,12 @@ def parse_sigaa_html(html: str, base_url: str = SIGAA_BASE_URL) -> List[Dict[str
                 if single_match:
                     data_pub = single_match.group(1)
 
-            # Extração do ano
             ano: Optional[int] = None
             if fim_inscricao and len(fim_inscricao) >= 10:
                 ano = int(fim_inscricao[-4:])
             elif data_pub and len(data_pub) >= 10:
                 ano = int(data_pub[-4:])
 
-            # Documentos vinculados na própria linha
             documentos: List[Dict[str, Any]] = []
             for a in links:
                 h = a["href"].strip()
@@ -139,20 +129,141 @@ def parse_sigaa_html(html: str, base_url: str = SIGAA_BASE_URL) -> List[Dict[str
     return editais
 
 
+def parse_sigaa_ppg_processos_html(html: str, ppg_nome: str, ppg_id: str) -> List[Dict[str, Any]]:
+    """Extrai os editais de mestrado e doutorado a partir da página pública de processos do PPG.
+
+    URL de origem: https://sigaa.unb.br/sigaa/public/programa/processo_seletivo.jsf?lc=pt_BR&id={ppg_id}
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    editais: List[Dict[str, Any]] = []
+
+    tables = soup.find_all("table")
+    for table in tables:
+        rows = table.find_all("tr")
+        if not rows:
+            continue
+
+        for row in rows:
+            text = row.get_text(" ", strip=True)
+            if not text or "Período" in text or "Processos Seletivos" in text:
+                continue
+
+            # Intervalo de datas
+            interval_match = DATE_INTERVAL_PATTERN.search(text)
+            inicio_inscricao = ""
+            fim_inscricao = ""
+            ano: Optional[int] = None
+
+            if interval_match:
+                inicio_inscricao = interval_match.group(1)
+                fim_inscricao = interval_match.group(2)
+                try:
+                    ano = int(fim_inscricao.split("/")[-1])
+                except (ValueError, IndexError):
+                    pass
+
+            # Extração limpa do título
+            spans = row.find_all("span", class_="destaqueProcessoeletivo")
+            titulo = ""
+            for s in spans:
+                if "data" not in s.get("class", []):
+                    titulo = s.get_text(" ", strip=True)
+                    break
+
+            if not titulo:
+                a_tag = row.find("a")
+                if a_tag:
+                    titulo = a_tag.get_text(" ", strip=True)
+                else:
+                    titulo = text[:100].strip()
+
+            # Extração do ID do processo via onclick JSF
+            proc_id = ""
+            a_elem = row.find("a", onclick=True)
+            if a_elem:
+                m_id = re.search(r"'id'\s*:\s*'(\d+)'", a_elem.get("onclick", ""))
+                if m_id:
+                    proc_id = m_id.group(1)
+
+            # Cálculo de status baseado na data limite de inscrição
+            status = "fechado"
+            if fim_inscricao:
+                try:
+                    d, m, y = map(int, fim_inscricao.split("/"))
+                    dt_fim = datetime(y, m, d, 23, 59, 59, tzinfo=timezone.utc)
+                    if dt_fim >= datetime.now(timezone.utc):
+                        status = "aberto"
+                except Exception:
+                    status = "aberto" if ano and ano >= 2026 else "fechado"
+
+            url_programa = f"https://sigaa.unb.br/sigaa/public/programa/processo_seletivo.jsf?lc=pt_BR&id={ppg_id}"
+
+            editais.append({
+                "titulo": titulo,
+                "link": url_programa,
+                "programa": ppg_nome,
+                "inicio_inscricao": inicio_inscricao,
+                "fim_inscricao": fim_inscricao,
+                "data_publicacao": inicio_inscricao,
+                "status": status,
+                "ano": ano,
+                "processo_id": proc_id,
+            })
+
+    return editais
+
+
 class SIGAAScraper(BaseScraper):
     """Implementação do scraper para processos seletivos públicos do SIGAA UnB."""
 
     def __init__(self, timeout: float = DEFAULT_TIMEOUT):
         self.timeout = timeout
+        self._programas_cache: List[Tuple[str, str]] = []
 
     @property
     def orgao_origem(self) -> str:
         return "SIGAA"
 
-    def fetch_editais(self, year: Optional[int] = None) -> List[Dict[str, Any]]:
-        """Consulta os processos seletivos públicos disponíveis no SIGAA UnB."""
+    def fetch_programas_pos_graduacao(self, client: httpx.Client) -> List[Tuple[str, str]]:
+        """Mapeia os 110 Programas de Pós-Graduação (PPGs) ativos na UnB via SIGAA."""
+        if self._programas_cache:
+            return self._programas_cache
+
+        programas: List[Tuple[str, str]] = []
+        try:
+            resp = client.get(SIGAA_PPG_LISTA_URL)
+            if resp.status_code == 200:
+                soup = BeautifulSoup(resp.text, "html.parser")
+                for a in soup.find_all("a", href=True):
+                    h = a["href"]
+                    m = re.search(r"id=(\d+)", h)
+                    if m and "portal.jsf" in h:
+                        prog_id = m.group(1)
+                        prog_name = a.get_text(" ", strip=True)
+                        programas.append((prog_id, prog_name))
+                if programas:
+                    self._programas_cache = programas
+        except Exception as exc:
+            logger.warning(f"Erro ao mapear programas de pós-graduação no SIGAA: {exc}")
+
+        return programas
+
+    def fetch_editais(
+        self,
+        year: Optional[int] = None,
+        max_programs: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        """Consulta os processos seletivos públicos e os editais de PPGs no SIGAA UnB.
+
+        Args:
+            year: Ano de referência para filtragem (opcional).
+            max_programs: Limite de programas a consultar (None para todos os 110).
+
+        Returns:
+            Lista de editais padronizados com títulos, programas, datas e status.
+        """
         editais: List[Dict[str, Any]] = []
-        seen_urls = set()
+        seen_keys = set()
 
         try:
             with httpx.Client(
@@ -161,23 +272,44 @@ class SIGAAScraper(BaseScraper):
                 timeout=self.timeout,
                 follow_redirects=True,
             ) as client:
+                # 1. Consulta o catálogo geral de processos abertos (Graduação, Técnico e Geral)
                 for nivel, url in SIGAA_NIVEIS_URLS:
                     try:
                         resp = client.get(url)
-                        if resp.status_code != 200:
-                            continue
-                        parsed = parse_sigaa_html(resp.text, base_url=str(resp.url))
-                        for ed in parsed:
-                            ed["nivel"] = nivel
-                            ed_url = ed.get("link", "")
-                            if ed_url and ed_url not in seen_urls:
-                                seen_urls.add(ed_url)
-                                if year is not None and ed.get("ano") is not None and ed["ano"] != year:
-                                    continue
-                                editais.append(ed)
+                        if resp.status_code == 200:
+                            parsed = parse_sigaa_html(resp.text, base_url=str(resp.url))
+                            for ed in parsed:
+                                ed["nivel"] = nivel
+                                key = (ed.get("titulo", ""), ed.get("link", ""))
+                                if key not in seen_keys:
+                                    seen_keys.add(key)
+                                    if year is not None and ed.get("ano") is not None and ed["ano"] != year:
+                                        continue
+                                    editais.append(ed)
                     except httpx.HTTPError as exc:
                         logger.warning(f"Erro ao consultar SIGAA nível {nivel}: {exc}")
                         continue
+
+                # 2. Consulta os editais dos Programas de Pós-Graduação (PPGs da UnB)
+                ppgs = self.fetch_programas_pos_graduacao(client)
+                target_ppgs = ppgs[:max_programs] if max_programs is not None else ppgs
+
+                for prog_id, prog_name in target_ppgs:
+                    url_ps = f"https://sigaa.unb.br/sigaa/public/programa/processo_seletivo.jsf?lc=pt_BR&id={prog_id}"
+                    try:
+                        r = client.get(url_ps)
+                        if r.status_code == 200 and "processo_seletivo.jsf" in str(r.url):
+                            prog_editais = parse_sigaa_ppg_processos_html(r.text, prog_name, prog_id)
+                            for ed in prog_editais:
+                                key = (ed.get("titulo", ""), prog_id, ed.get("processo_id", ""))
+                                if key not in seen_keys:
+                                    seen_keys.add(key)
+                                    if year is not None and ed.get("ano") is not None and ed["ano"] != year:
+                                        continue
+                                    editais.append(ed)
+                    except httpx.HTTPError:
+                        continue
+
         except Exception as exc:
             logger.error(f"Erro ao conectar ao SIGAA UnB: {exc}")
             return editais

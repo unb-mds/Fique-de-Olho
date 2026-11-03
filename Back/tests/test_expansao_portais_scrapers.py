@@ -24,7 +24,7 @@ from app.modules.scraper import (
     CEADScraper,
 )
 from app.modules.scraper.base import BaseScraper
-from app.modules.scraper.sigaa import parse_sigaa_html
+from app.modules.scraper.sigaa import parse_sigaa_html, parse_sigaa_ppg_processos_html
 from app.modules.scraper.cebraspe import is_unb_event, build_cebraspe_document_url
 from app.modules.scraper.unb_idiomas import is_edital_title_or_slug, clean_title
 
@@ -52,6 +52,37 @@ def test_sigaa_scraper_contract():
     assert issubclass(SIGAAScraper, BaseScraper)
     assert sigaa_scraper.orgao_origem == "SIGAA"
     assert get_scraper("SIGAA") == sigaa_scraper
+
+
+def test_sigaa_parse_ppg_processos_html():
+    """Valida a extração de editais de mestrado/doutorado na página pública de processos do PPG."""
+    sample_ppg_html = """
+    <table>
+        <tbody>
+            <tr>
+                <td class="centro" width="120px">Período</td>
+                <td class="esquerda">Processos Seletivos</td>
+            </tr>
+            <tr>
+                <td class="centro" width="120px">03/11/2026 à 27/11/2026</td>
+                <td class="esquerda">
+                    <a href="#" onclick="if(typeof jsfcljs == 'function'){jsfcljs(document.getElementById('form'),{'id':'23223'},'_blank');}return false">
+                        <span class="destaqueProcessoeletivo">Edital 02 - DOUTORADO - PPGCA</span>
+                        <span class="data destaqueProcessoeletivo">(03/11/2026 : 27/11/2026)</span>
+                    </a>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    """
+    editais = parse_sigaa_ppg_processos_html(sample_ppg_html, "Ciências Animais", "909")
+    assert len(editais) == 1
+    assert editais[0]["titulo"] == "Edital 02 - DOUTORADO - PPGCA"
+    assert editais[0]["programa"] == "Ciências Animais"
+    assert editais[0]["inicio_inscricao"] == "03/11/2026"
+    assert editais[0]["fim_inscricao"] == "27/11/2026"
+    assert editais[0]["status"] == "aberto"
+    assert editais[0]["processo_id"] == "23223"
 
 
 def test_sigaa_parse_html_com_tabela_de_editais():
@@ -150,12 +181,17 @@ def test_sigaa_network_failure_resilience(mock_client_cls):
     assert scraper.fetch_documentos("https://sigaa.unb.br/teste") == []
 
 
+@pytest.mark.live
 def test_sigaa_live_connectivity():
-    """Teste de conexão ao vivo com o SIGAA UnB garantindo resposta HTTP 200 ou redirect válido."""
+    """Teste de conexão e extração ao vivo com o SIGAA UnB nos PPGs."""
     scraper = SIGAAScraper(timeout=15.0)
-    # Testa a consulta sem quebrar a execução se não houver processos abertos no dia
-    editais = scraper.fetch_editais()
+    # Consulta os primeiros 5 programas para validar em tempo real
+    editais = scraper.fetch_editais(max_programs=5)
     assert isinstance(editais, list)
+    if editais:
+        assert editais[0]["titulo"]
+        assert editais[0]["programa"]
+        assert editais[0]["link"].startswith("https://sigaa.unb.br/")
 
 
 # ============================================================================
