@@ -1,33 +1,76 @@
-import { describe, it, expect } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
-import FavoriteButton from '../FavoriteButton';
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import FavoriteButton from "../FavoriteButton";
 
-describe('FavoriteButton Component', () => {
-  it('deve renderizar o botão com estado inicial não favoritado', () => {
-    render(<FavoriteButton />);
-    const button = screen.getByRole('button', { name: /favoritar edital/i });
-    expect(button).toBeInTheDocument();
-    expect(button).toHaveTextContent('☆');
+const navigateMock = vi.fn();
+
+vi.mock("react-router-dom", () => ({
+  useNavigate: () => navigateMock,
+}));
+
+const useAuthMock = vi.fn();
+
+vi.mock("../../contexts/AuthContext", () => ({
+  useAuth: () => useAuthMock(),
+}));
+
+const listarFavoritosMock = vi.fn();
+const favoritarEditalMock = vi.fn();
+const desfavoritarEditalMock = vi.fn();
+
+vi.mock("../../services/favoritosService", () => ({
+  listarFavoritos: () => listarFavoritosMock(),
+  favoritarEdital: (id: string | number) => favoritarEditalMock(id),
+  desfavoritarEdital: (id: string | number) => desfavoritarEditalMock(id),
+}));
+
+describe("FavoriteButton Component", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    useAuthMock.mockReturnValue({
+      autenticado: false,
+    });
+
+    listarFavoritosMock.mockResolvedValue([]);
+    favoritarEditalMock.mockResolvedValue(undefined);
+    desfavoritarEditalMock.mockResolvedValue(undefined);
   });
 
-  it('deve exibir aviso de login quando usuário não autenticado tenta favoritar', () => {
-    render(<FavoriteButton />);
-    const button = screen.getByRole('button', { name: /favoritar edital/i });
-    
+  it("deve renderizar o botão com estado inicial não favoritado", () => {
+    render(<FavoriteButton editalId={1} />);
+
+    const button = screen.getByRole("button", {
+      name: /favoritar edital/i,
+    });
+
+    expect(button).toBeInTheDocument();
+    expect(button).toHaveTextContent("☆");
+  });
+
+  it("deve redirecionar para login quando usuário não autenticado tenta favoritar", () => {
+    render(<FavoriteButton editalId={1} />);
+
+    const button = screen.getByRole("button", {
+      name: /favoritar edital/i,
+    });
+
     fireEvent.click(button);
 
-    expect(screen.getByText('Faça login para favoritar este edital.')).toBeInTheDocument();
+    expect(navigateMock).toHaveBeenCalledWith("/login");
   });
 
-  it('deve fechar o aviso de login ao clicar no botão fechar', () => {
-    render(<FavoriteButton />);
-    const favButton = screen.getByRole('button', { name: /favoritar edital/i });
-    fireEvent.click(favButton);
+  it("não deve chamar a API de favoritos quando usuário não está autenticado", () => {
+    render(<FavoriteButton editalId={1} />);
 
-    const closeButton = screen.getByRole('button', { name: /fechar/i });
-    fireEvent.click(closeButton);
+    const button = screen.getByRole("button", {
+      name: /favoritar edital/i,
+    });
 
-    expect(screen.queryByText('Faça login para favoritar este edital.')).not.toBeInTheDocument();
+    fireEvent.click(button);
+
+    expect(favoritarEditalMock).not.toHaveBeenCalled();
+    expect(desfavoritarEditalMock).not.toHaveBeenCalled();
   });
 });
 
