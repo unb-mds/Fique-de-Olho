@@ -193,6 +193,8 @@ class ConcursosScraper(BaseScraper):
 
                 # 1. Mapeia os links dos editais a partir das categorias
                 for cat_url in category_urls:
+                    if max_details is not None and len(edital_targets) >= max_details:
+                        break
                     try:
                         resp = client.get(cat_url)
                         if resp.status_code == 200:

@@ -203,6 +203,8 @@ class DGPScraper(BaseScraper):
                     page_offsets = page_offsets[:max_pages]
 
                 for offset in page_offsets:
+                    if max_details is not None and len(article_targets) >= max_details:
+                        break
                     cat_url = f"{ESTAGIO_PROCESSO_SELETIVO_URL}&limitstart={offset}" if offset > 0 else ESTAGIO_PROCESSO_SELETIVO_URL
                     try:
                         resp = client.get(cat_url)
@@ -217,25 +219,26 @@ class DGPScraper(BaseScraper):
                         logger.warning(f"Erro ao consultar estagio.unb.br página com offset {offset}: {exc}")
                         continue
 
-                # 2. Coleta chamadas e editais do DGP Central (dgp.unb.br)
-                try:
-                    resp_dgp = client.get(DGP_SEARCH_URL)
-                    if resp_dgp.status_code == 200:
-                        soup_dgp = BeautifulSoup(resp_dgp.text, "html.parser")
-                        for dt in soup_dgp.find_all("dt", class_="result-title"):
-                            a = dt.find("a", href=True)
-                            if a:
-                                h = urljoin(str(resp_dgp.url), a["href"])
-                                t = a.get_text(" ", strip=True)
-                                if h not in seen_urls and ("noticias" in h or "edital" in h.lower()):
-                                    seen_urls.add(h)
-                                    article_targets.append({
-                                        "titulo": t,
-                                        "link": h,
-                                        "tipo": "Processo Seletivo Interno / PGD",
-                                    })
-                except httpx.HTTPError as exc:
-                    logger.warning(f"Erro ao consultar busca de editais no dgp.unb.br: {exc}")
+                # 2. Coleta chamadas e editais do DGP Central (dgp.unb.br) se ainda couber dentro do limite
+                if max_details is None or len(article_targets) < max_details:
+                    try:
+                        resp_dgp = client.get(DGP_SEARCH_URL)
+                        if resp_dgp.status_code == 200:
+                            soup_dgp = BeautifulSoup(resp_dgp.text, "html.parser")
+                            for dt in soup_dgp.find_all("dt", class_="result-title"):
+                                a = dt.find("a", href=True)
+                                if a:
+                                    h = urljoin(str(resp_dgp.url), a["href"])
+                                    t = a.get_text(" ", strip=True)
+                                    if h not in seen_urls and ("noticias" in h or "edital" in h.lower()):
+                                        seen_urls.add(h)
+                                        article_targets.append({
+                                            "titulo": t,
+                                            "link": h,
+                                            "tipo": "Processo Seletivo Interno / PGD",
+                                        })
+                    except httpx.HTTPError as exc:
+                        logger.warning(f"Erro ao consultar busca de editais no dgp.unb.br: {exc}")
 
                 # 3. Inspeciona cada artigo para extrair PDFs e datas completas
                 targets_to_inspect = article_targets[:max_details] if max_details is not None else article_targets
