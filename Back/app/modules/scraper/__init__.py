@@ -6,10 +6,12 @@ from app.modules.scraper.base import BaseScraper
 from app.modules.scraper.bce import BCEScraper, bce_scraper
 from app.modules.scraper.cead import CEADScraper, cead_scraper
 from app.modules.scraper.cebraspe import CebraspeScraper, cebraspe_scraper
+from app.modules.scraper.concursos import ConcursosScraper, concursos_scraper
 from app.modules.scraper.dac import DACScraper, dac_scraper
 from app.modules.scraper.daces import DACESScraper, daces_scraper
 from app.modules.scraper.deg import DEGScraper, deg_scraper
 from app.modules.scraper.dex import DEXScraper, dex_scraper
+from app.modules.scraper.dgp import DGPScraper, dgp_scraper
 from app.modules.scraper.dpg import DPGScraper, dpg_scraper
 from app.modules.scraper.dpi import DPIScraper, dpi_scraper
 from app.modules.scraper.int_scraper import INTScraper, int_scraper
@@ -56,6 +58,8 @@ SCRAPERS_REGISTRY: Dict[str, BaseScraper] = {
     "SIGAA": sigaa_scraper,
     "CEBRASPE": cebraspe_scraper,
     "UNB_IDIOMAS": unb_idiomas_scraper,
+    "CONCURSOS": concursos_scraper,
+    "DGP": dgp_scraper,
 }
 
 
@@ -92,6 +96,10 @@ __all__ = [
     "cebraspe_scraper",
     "UnBIdiomasScraper",
     "unb_idiomas_scraper",
+    "ConcursosScraper",
+    "concursos_scraper",
+    "DGPScraper",
+    "dgp_scraper",
     "SCRAPERS_REGISTRY",
     "get_scraper",
     "run_pipeline",
