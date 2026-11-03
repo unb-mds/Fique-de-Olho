@@ -6,8 +6,9 @@ from typing import Optional, Dict, Any, List
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
-from app.modules.editais.models import Edital, Campus, TipoEdital, Coleta
+from app.modules.editais.models import Edital, Coleta
 from app.modules.scraper.deg import fetch_editais
+from app.modules.scraper.pipeline import upsert_edital
 
 MESES_PT = {
     "janeiro": 1,
@@ -91,42 +92,27 @@ def sync_deg_editais(db: Session, max_items: int = 30) -> Dict[str, Any]:
         itens_raspados = fetch_editais()
         itens_para_processar = itens_raspados[:max_items]
 
-        # Cache de catálogos
-        campi_cache: Dict[str, Campus] = {c.nome: c for c in db.query(Campus).all()}
-        tipos_cache: Dict[str, TipoEdital] = {t.nome: t for t in db.query(TipoEdital).all()}
-
-        default_campus = campi_cache.get("Darcy Ribeiro") or db.query(Campus).first()
-
         for item in itens_para_processar:
             titulo = item.get("titulo", "").strip()
             link = item.get("link", "").strip()
             if not titulo or not link:
                 continue
 
-            pub_date = parse_date_pt(item.get("data_publicacao"))
-            cat_nome = inferir_categoria(titulo)
-            tipo_obj = tipos_cache.get(cat_nome)
-            if not tipo_obj:
-                tipo_obj = TipoEdital(nome=cat_nome)
-                db.add(tipo_obj)
-                db.flush()
-                tipos_cache[cat_nome] = tipo_obj
-
-            edital_existente = db.query(Edital).filter(Edital.url_pdf == link).first()
+            edital_existente = (
+                db.query(Edital)
+                .filter((Edital.url_pdf == link) | (Edital.url_pagina == link))
+                .first()
+            )
+            upsert_edital(
+                db,
+                {
+                    **item,
+                    "resumo": f"Edital publicado pelo DEG em {item.get('data_publicacao', 'data não informada')}.",
+                    "campus": "Darcy Ribeiro",
+                    "tipo": inferir_categoria(titulo),
+                },
+            )
             if not edital_existente:
-                novo_edital = Edital(
-                    identificador_origem=link,
-                    titulo=titulo,
-                    resumo=f"Edital publicado pelo DEG em {item.get('data_publicacao', 'data não informada')}.",
-                    url_pdf=link,
-                    url_pagina=link,
-                    data_publicacao=pub_date,
-                    status_processamento="processado",
-                )
-                if default_campus:
-                    novo_edital.campi.append(default_campus)
-                novo_edital.tipos.append(tipo_obj)
-                db.add(novo_edital)
                 novos_count += 1
 
         db.commit()
@@ -151,4 +137,3 @@ def sync_deg_editais(db: Session, max_items: int = 30) -> Dict[str, Any]:
         coleta.finalizada_em = func.now()
         db.commit()
         raise e
-
