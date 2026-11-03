@@ -38,12 +38,14 @@ export default function Header() {
       </button>
     </>
   ) : (
-    <button
-      type="button"
-      onClick={() => navigate("/login")}
-    >
-      Entrar
-    </button>
+    <>
+      <button type="button" onClick={() => navigate("/login")}>
+        Entrar
+      </button>
+      <button type="button" onClick={() => navigate("/register")}>
+        Criar conta
+      </button>
+    </>
   )}
 </div>
     </header>

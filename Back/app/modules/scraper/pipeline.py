@@ -1,6 +1,8 @@
 import logging
 import re
-from datetime import datetime, timezone
+import hashlib
+import json
+from datetime import date, datetime, timezone
 from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 
@@ -12,6 +14,10 @@ from app.core.database import (
     TipoDocumento,
 )
 from app.modules.scraper import deg
+from app.modules.notificacoes.service import (
+    gerar_notificacoes_prazo as _gerar_notificacoes_prazo,
+    notificar_edital_atualizado,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +79,41 @@ def map_tipo_documento(tipo_str: str) -> TipoDocumento:
     return MAPA_TIPOS_DOCUMENTO.get(normalizado, TipoDocumento.ORIGINAL)
 
 
+def _parse_optional_date(value: Any) -> Optional[date]:
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        try:
+            return date.fromisoformat(value.strip())
+        except ValueError:
+            pass
+        parsed = parse_data_publicacao(value)
+        return parsed.date()
+    return None
+
+
+def _hash_edital(edital_data: Dict[str, Any], documentos_data: List[Dict[str, Any]]) -> str:
+    """Calcula um hash estável dos dados observáveis do edital."""
+    payload = {
+        "titulo": edital_data.get("titulo", ""),
+        "resumo": edital_data.get("resumo", ""),
+        "data_publicacao": str(edital_data.get("data_publicacao", "")),
+        "inicio_inscricao": str(edital_data.get("inicio_inscricao", "")),
+        "fim_inscricao": str(edital_data.get("fim_inscricao", "")),
+        "documentos": sorted(
+            (doc.get("link") or doc.get("url_pdf", ""), doc.get("tipo", ""))
+            for doc in documentos_data
+        ),
+    }
+    return hashlib.sha256(
+        json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
+    ).hexdigest()
+
+
 def upsert_edital(
     db: Session,
     edital_data: Dict[str, Any],
@@ -87,6 +128,7 @@ def upsert_edital(
     titulo = edital_data.get("titulo", "Edital sem título")
     data_str = edital_data.get("data_publicacao", "")
     data_pub = parse_data_publicacao(str(data_str))
+    hash_conteudo = edital_data.get("hash_conteudo") or _hash_edital(edital_data, documentos_data)
 
     # Determina se há resultado final nos documentos informados
     tem_resultado_final = any(
@@ -98,21 +140,31 @@ def upsert_edital(
     edital = db.query(Edital).filter(Edital.url_pagina == url_pagina).first()
 
     if edital:
+        hash_anterior = edital.hash_conteudo
         # Atualiza dados existentes
         edital.titulo = titulo
         edital.data_publicacao = data_pub
+        edital.inicio_inscricao = _parse_optional_date(edital_data.get("inicio_inscricao"))
+        edital.fim_inscricao = _parse_optional_date(edital_data.get("fim_inscricao"))
+        edital.hash_conteudo = hash_conteudo
         if tem_resultado_final:
             edital.status = StatusEdital.ENCERRADO
+        if hash_anterior != hash_conteudo:
+            notificar_edital_atualizado(db, edital, hash_conteudo)
     else:
         # Cria novo edital
         status = StatusEdital.ENCERRADO if tem_resultado_final else StatusEdital.ABERTO
         edital = Edital(
             titulo=titulo,
             url_pagina=url_pagina,
+            url_pdf=edital_data.get("url_pdf") or url_pagina,
             data_publicacao=data_pub,
             status=status,
             campus=edital_data.get("campus"),
             tipo=edital_data.get("tipo"),
+            inicio_inscricao=_parse_optional_date(edital_data.get("inicio_inscricao")),
+            fim_inscricao=_parse_optional_date(edital_data.get("fim_inscricao")),
+            hash_conteudo=hash_conteudo,
         )
         db.add(edital)
         db.flush()
@@ -147,6 +199,14 @@ def upsert_edital(
     db.commit()
     db.refresh(edital)
     return edital
+
+
+def gerar_notificacoes_prazo(
+    db: Session,
+    data_referencia: Optional[date] = None,
+) -> int:
+    """Compatibilidade pública para o serviço de notificações de prazo."""
+    return _gerar_notificacoes_prazo(db, data_referencia)
 
 
 def run_pipeline(

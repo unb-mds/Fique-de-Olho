@@ -19,6 +19,9 @@ from app.core.database import (
     TipoDocumento,
     TipoEdital,
     Usuario,
+    Notificacao,
+    StatusNotificacao,
+    TipoNotificacao,
 )
 
 __all__ = [
@@ -36,4 +39,7 @@ __all__ = [
     "TipoDocumento",
     "TipoEdital",
     "Usuario",
+    "Notificacao",
+    "StatusNotificacao",
+    "TipoNotificacao",
 ]

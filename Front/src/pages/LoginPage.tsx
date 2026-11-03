@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { login } from "@/services/authService";
 
 export default function LoginPage() {
@@ -64,6 +65,10 @@ window.location.href = "/";
           {carregando ? "Entrando..." : "Entrar"}
         </button>
       </form>
+
+      <p>
+        Ainda não tem uma conta? <Link to="/register">Cadastre-se</Link>
+      </p>
     </main>
   );
 }
