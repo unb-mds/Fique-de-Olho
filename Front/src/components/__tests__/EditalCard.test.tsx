@@ -1,8 +1,12 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from "vitest";
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import EditalCard from '../EditalCard';
 import type { Edital } from '@/services/types';
+
+vi.mock("../FavoriteButton", () => ({
+  default: () => <button type="button">☆</button>,
+}));
 
 describe('EditalCard Component', () => {
   const mockEdital: Edital = {
