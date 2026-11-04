@@ -1,15 +1,30 @@
+
+export interface EditalDocumento {
+  id: number;
+  url_pdf: string;
+  tipo_documento: string;
+  titulo?: string;
+}
+
 export interface Edital {
   id: string;
   titulo: string;
   unidade: string;
   categoria: string;
-  dataPublicacao: string; // ISO date
-  prazoFinal: string; // ISO date
+  dataPublicacao: string;
+  prazoFinal: string;
   status: 'aberto' | 'fechado';
   descricao: string;
   urlDocumento: string;
-  // Campos opcionais: nem toda resposta da API precisa trazê-los,
-  // os componentes tratam a ausência deles graciosamente.
+
+  // Metadados adicionais
+  orgaoEmissor?: string;
+  assunto?: string;
+  inicioInscricao?: string;
+  documentos?: EditalDocumento[];
+
+  // Campos opcionais existentes
   vagas?: number;
   valor?: string;
 }
+
