@@ -16,11 +16,16 @@ logger = logging.getLogger(__name__)
 
 DGP_BASE_URL = "https://dgp.unb.br"
 ESTAGIO_BASE_URL = "https://estagio.unb.br"
+CAPACITACAO_BASE_URL = "https://www.capacitacao.unb.br"
 ESTAGIO_PROCESSO_SELETIVO_URL = (
     f"{ESTAGIO_BASE_URL}/index.php?option=com_content&view=category&layout=blog&id=214&Itemid=707"
 )
 DGP_SEARCH_URL = (
     f"{DGP_BASE_URL}/?searchword=edital&ordering=newest&searchphrase=all&option=com_search"
+)
+CAPACITACAO_EVENTOS_EXTERNOS_URL = f"{CAPACITACAO_BASE_URL}/eventos-externos-editais"
+CAPACITACAO_SEARCH_URL = (
+    f"{CAPACITACAO_BASE_URL}/?searchword=edital&ordering=newest&searchphrase=all&option=com_search"
 )
 
 DEFAULT_TIMEOUT = 15.0
@@ -158,6 +163,57 @@ def parse_estagio_category_html(html: str, base_url: str = ESTAGIO_BASE_URL) -> 
     return links
 
 
+def parse_capacitacao_eventos_externos_html(
+    html: str, base_url: str = CAPACITACAO_BASE_URL
+) -> List[Dict[str, Any]]:
+    """Extrai os editais de apoio financeiro a eventos externos do portal Procap/DGP Capacitação."""
+    soup = BeautifulSoup(html, "html.parser")
+    content = soup.find("div", class_="item-page") or soup.find("div", id="content") or soup
+    edital_groups: Dict[str, Dict[str, Any]] = {}
+
+    for li in content.find_all("li"):
+        text = li.get_text(" ", strip=True)
+        links = [
+            (a.get_text(" ", strip=True), urljoin(base_url, a["href"]))
+            for a in li.find_all("a", href=True)
+        ]
+        if not links:
+            continue
+
+        m_year = re.search(r"\b(202\d)\b", text)
+        ano = int(m_year.group(1)) if m_year else None
+
+        m_edital = re.search(
+            r"Edital\s+(?:do\s+)?DGP\s+(?:n[º°.]?\s*)?(\d+/\d{4})", text, re.IGNORECASE
+        )
+        edital_num = m_edital.group(1) if m_edital else (str(ano) if ano else "Geral")
+
+        if edital_num not in edital_groups:
+            edital_groups[edital_num] = {
+                "titulo": f"Edital DGP nº {edital_num} - Apoio Financeiro a Ações de Capacitação / Eventos Externos",
+                "tipo_edital": "Capacitação / Eventos Externos",
+                "unidade": "DGP / PROCAP",
+                "link": links[0][1],
+                "data_publicacao": "",
+                "ano": ano,
+                "status": "aberto",
+                "documentos": [],
+            }
+
+        group = edital_groups[edital_num]
+        for at, al in links:
+            doc_titulo = text.replace(at, "").strip(": ").strip() or at
+            if any(k in doc_titulo.lower() for k in ["resultado", "encerramento"]):
+                group["status"] = "fechado"
+            group["documentos"].append({
+                "titulo": doc_titulo,
+                "link": al,
+                "tipo": classify_document(doc_titulo, al),
+            })
+
+    return list(edital_groups.values())
+
+
 class DGPScraper(BaseScraper):
     """Implementação do scraper para o DGP Central e Coordenadoria de Estágio da UnB."""
 
@@ -240,7 +296,78 @@ class DGPScraper(BaseScraper):
                     except httpx.HTTPError as exc:
                         logger.warning(f"Erro ao consultar busca de editais no dgp.unb.br: {exc}")
 
-                # 3. Inspeciona cada artigo para extrair PDFs e datas completas
+                # 3. Coleta editais de Eventos Externos na UnB Capacitação (capacitacao.unb.br)
+                try:
+                    resp_cap = client.get(CAPACITACAO_EVENTOS_EXTERNOS_URL)
+                    if resp_cap.status_code == 200:
+                        cap_editais = parse_capacitacao_eventos_externos_html(
+                            resp_cap.text, base_url=str(resp_cap.url)
+                        )
+                        for ed in cap_editais:
+                            if year is not None and ed.get("ano") is not None and ed["ano"] != year:
+                                continue
+
+                            # Resolve links para páginas internas de destaques buscando o PDF correspondente
+                            resolved_docs = []
+                            for doc in ed.get("documentos", []):
+                                doc_link = doc["link"]
+                                if not doc_link.lower().endswith(".pdf") and "capacitacao.unb.br" in doc_link:
+                                    try:
+                                        r_sub = client.get(doc_link)
+                                        if r_sub.status_code == 200:
+                                            s_sub = BeautifulSoup(r_sub.text, "html.parser")
+                                            sub_content = s_sub.find("div", class_="item-page") or s_sub.find("div", id="content") or s_sub
+                                            found_sub = False
+                                            for sa in sub_content.find_all("a", href=True):
+                                                shref = urljoin(doc_link, sa["href"])
+                                                if shref.lower().endswith(".pdf") or "sei" in shref.lower():
+                                                    stitle = sa.get_text(" ", strip=True) or doc["titulo"]
+                                                    resolved_docs.append({
+                                                        "titulo": doc["titulo"] if stitle.lower() in ["link", "edital", ""] else stitle,
+                                                        "link": shref,
+                                                        "tipo": classify_document(stitle, shref),
+                                                    })
+                                                    found_sub = True
+                                            if not found_sub:
+                                                resolved_docs.append(doc)
+                                        else:
+                                            resolved_docs.append(doc)
+                                    except httpx.HTTPError:
+                                        resolved_docs.append(doc)
+                                else:
+                                    resolved_docs.append(doc)
+
+                            if resolved_docs:
+                                ed["documentos"] = resolved_docs
+
+                            if ed["link"] not in seen_urls:
+                                seen_urls.add(ed["link"])
+                                editais.append(ed)
+                except httpx.HTTPError as exc:
+                    logger.warning(f"Erro ao consultar eventos externos em capacitacao.unb.br: {exc}")
+
+                # 4. Coleta chamadas da busca de capacitação (capacitacao.unb.br) se ainda couber
+                if max_details is None or len(article_targets) < max_details:
+                    try:
+                        resp_cap_search = client.get(CAPACITACAO_SEARCH_URL)
+                        if resp_cap_search.status_code == 200:
+                            soup_cap = BeautifulSoup(resp_cap_search.text, "html.parser")
+                            for dt in soup_cap.find_all("dt", class_="result-title"):
+                                a = dt.find("a", href=True)
+                                if a:
+                                    h = urljoin(str(resp_cap_search.url), a["href"])
+                                    t = a.get_text(" ", strip=True)
+                                    if h not in seen_urls and ("destaques" in h or "article" in h):
+                                        seen_urls.add(h)
+                                        article_targets.append({
+                                            "titulo": t,
+                                            "link": h,
+                                            "tipo": "Capacitação / Procap",
+                                        })
+                    except httpx.HTTPError as exc:
+                        logger.warning(f"Erro ao consultar busca em capacitacao.unb.br: {exc}")
+
+                # 5. Inspeciona cada artigo para extrair PDFs e datas completas
                 targets_to_inspect = article_targets[:max_details] if max_details is not None else article_targets
                 for target in targets_to_inspect:
                     link = target["link"]
@@ -280,6 +407,13 @@ class DGPScraper(BaseScraper):
             ) as client:
                 resp = client.get(edital_url)
                 if resp.status_code == 200:
+                    if "eventos-externos-editais" in edital_url:
+                        parsed_list = parse_capacitacao_eventos_externos_html(resp.text, base_url=str(resp.url))
+                        all_docs = []
+                        for item in parsed_list:
+                            all_docs.extend(item.get("documentos", []))
+                        return all_docs
+
                     parsed = parse_dgp_article_html(resp.text, str(resp.url))
                     return parsed.get("documentos", [])
         except Exception as exc:

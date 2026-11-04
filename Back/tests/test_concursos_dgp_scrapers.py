@@ -14,6 +14,7 @@ from app.modules.scraper.concursos import (
 from app.modules.scraper.dgp import (
     DGPScraper,
     dgp_scraper,
+    parse_capacitacao_eventos_externos_html,
     parse_dgp_article_html,
     parse_estagio_category_html,
 )
@@ -192,6 +193,42 @@ def test_parse_dgp_article_html():
     assert any("Edital_07_2026.pdf" in d["link"] for d in parsed["documentos"])
 
 
+def test_parse_capacitacao_eventos_externos_html():
+    """Garante a extração de editais de eventos externos da UnB Capacitação."""
+    sample_html = """
+    <div class="item-page">
+        <ul>
+            <li>
+                <strong>Edital do DGP nº 1/2026:</strong>
+                <a href="/images/editais/Edital_DGP_01_2026.pdf">Apoio a Eventos Externos</a>
+            </li>
+            <li>
+                <strong>Edital do DGP nº 1/2025:</strong>
+                <a href="/images/editais/Edital_01_2025.pdf">Edital</a>
+                <a href="/images/editais/Resultado_01_2025.pdf">Resultado Final</a>
+            </li>
+        </ul>
+    </div>
+    """
+    editais = parse_capacitacao_eventos_externos_html(
+        sample_html, base_url="https://www.capacitacao.unb.br"
+    )
+    assert len(editais) == 2
+    assert editais[0]["ano"] == 2026
+    assert editais[0]["tipo_edital"] == "Capacitação / Eventos Externos"
+    assert editais[0]["unidade"] == "DGP / PROCAP"
+    assert len(editais[0]["documentos"]) == 1
+    assert (
+        editais[0]["documentos"][0]["link"]
+        == "https://www.capacitacao.unb.br/images/editais/Edital_DGP_01_2026.pdf"
+    )
+
+    # Segundo edital possui resultado final, então status deve ser fechado
+    assert editais[1]["ano"] == 2025
+    assert editais[1]["status"] == "fechado"
+    assert len(editais[1]["documentos"]) == 2
+
+
 @patch("app.modules.scraper.dgp.httpx.Client")
 def test_dgp_fetch_editais_with_mock(mock_client_cls):
     """Testa a coleta de editais do DGP e Estágio com requisições mockadas."""
@@ -224,10 +261,26 @@ def test_dgp_fetch_editais_with_mock(mock_client_cls):
     search_resp.url = "https://dgp.unb.br/?searchword=edital"
     search_resp.text = "<div class='search-results'></div>"
 
+    cap_resp = MagicMock()
+    cap_resp.status_code = 200
+    cap_resp.url = "https://www.capacitacao.unb.br/eventos-externos-editais"
+    cap_resp.text = """
+    <div class="item-page">
+        <ul>
+            <li>
+                <strong>Edital do DGP nº 1/2026:</strong>
+                <a href="/images/editais/Edital_DGP_01_2026.pdf">Apoio a Eventos Externos</a>
+            </li>
+        </ul>
+    </div>
+    """
+
     def mock_get(url, **kwargs):
         if "id=10:" in url:
             return art_resp
-        if "dgp.unb.br" in url:
+        if "eventos-externos-editais" in url:
+            return cap_resp
+        if "dgp.unb.br" in url or "capacitacao.unb.br" in url:
             return search_resp
         return cat_resp
 
@@ -236,11 +289,11 @@ def test_dgp_fetch_editais_with_mock(mock_client_cls):
     scraper = DGPScraper()
     editais = scraper.fetch_editais(max_pages=1, max_details=1)
 
-    assert len(editais) == 1
-    assert editais[0]["titulo"] == "Edital de Abertura nº 01/2026 - VRT"
-    assert editais[0]["ano"] == 2026
-    assert editais[0]["tipo_edital"] == "Estágio"
-    assert len(editais[0]["documentos"]) == 1
+    assert len(editais) == 2
+    # Verifica que coletou tanto o processo de estágio quanto o edital de capacitação
+    titulos = [e["titulo"] for e in editais]
+    assert any("Edital de Abertura nº 01/2026 - VRT" in t for t in titulos)
+    assert any("Edital DGP nº 1/2026" in t for t in titulos)
 
 
 @patch("app.modules.scraper.dgp.httpx.Client")
