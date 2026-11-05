@@ -4,6 +4,7 @@ from typing import Dict, Optional
 
 from app.modules.scraper.base import BaseScraper
 from app.modules.scraper.bce import BCEScraper, bce_scraper
+from app.modules.scraper.cdt import CDTScraper, cdt_scraper
 from app.modules.scraper.cead import CEADScraper, cead_scraper
 from app.modules.scraper.cebraspe import CebraspeScraper, cebraspe_scraper
 from app.modules.scraper.concursos import ConcursosScraper, concursos_scraper
@@ -14,7 +15,9 @@ from app.modules.scraper.dex import DEXScraper, dex_scraper
 from app.modules.scraper.dgp import DGPScraper, dgp_scraper
 from app.modules.scraper.dpg import DPGScraper, dpg_scraper
 from app.modules.scraper.dpi import DPIScraper, dpi_scraper
+from app.modules.scraper.finatec import FinatecScraper, finatec_scraper
 from app.modules.scraper.int_scraper import INTScraper, int_scraper
+from app.modules.scraper.pctec import PCTecScraper, pctec_scraper
 from app.modules.scraper.proic import PROICScraper, proic_scraper
 from app.modules.scraper.sigaa import SIGAAScraper, sigaa_scraper
 from app.modules.scraper.unb_idiomas import UnBIdiomasScraper, unb_idiomas_scraper
@@ -60,6 +63,9 @@ SCRAPERS_REGISTRY: Dict[str, BaseScraper] = {
     "UNB_IDIOMAS": unb_idiomas_scraper,
     "CONCURSOS": concursos_scraper,
     "DGP": dgp_scraper,
+    "FINATEC": finatec_scraper,
+    "CDT": cdt_scraper,
+    "PCTEC": pctec_scraper,
 }
 
 
@@ -100,6 +106,12 @@ __all__ = [
     "concursos_scraper",
     "DGPScraper",
     "dgp_scraper",
+    "FinatecScraper",
+    "finatec_scraper",
+    "CDTScraper",
+    "cdt_scraper",
+    "PCTecScraper",
+    "pctec_scraper",
     "SCRAPERS_REGISTRY",
     "get_scraper",
     "run_pipeline",
