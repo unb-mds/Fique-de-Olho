@@ -118,6 +118,11 @@ def parse_sigaa_html(html: str, base_url: str = SIGAA_BASE_URL) -> List[Dict[str
 
             editais.append({
                 "titulo": titulo,
+                "assunto": f"Processo Seletivo Acadêmico - {titulo}",
+                "tipo": "Processo Seletivo Acadêmico",
+                "tipo_edital": "Processo Seletivo / Pós-Graduação",
+                "descricao": f"Processo seletivo acadêmico publicado no portal SIGAA da Universidade de Brasília: {titulo}.",
+                "resumo": f"Processo seletivo acadêmico publicado no portal SIGAA da Universidade de Brasília: {titulo}.",
                 "link": full_url,
                 "data_publicacao": data_pub,
                 "inicio_inscricao": inicio_inscricao,
@@ -205,6 +210,11 @@ def parse_sigaa_ppg_processos_html(html: str, ppg_nome: str, ppg_id: str) -> Lis
 
             editais.append({
                 "titulo": titulo,
+                "assunto": f"Processo Seletivo de Pós-Graduação (Mestrado/Doutorado) - {ppg_nome}",
+                "tipo": "Pós-Graduação",
+                "tipo_edital": "Pós-Graduação / Mestrado e Doutorado",
+                "descricao": f"Edital de seleção para cursos de pós-graduação stricto sensu (Mestrado/Doutorado) no programa {ppg_nome}.",
+                "resumo": f"Edital de seleção para cursos de pós-graduação stricto sensu no programa {ppg_nome}.",
                 "link": url_programa,
                 "programa": ppg_nome,
                 "inicio_inscricao": inicio_inscricao,
@@ -263,8 +273,13 @@ def parse_sigaa_extensao_html(html: str) -> List[Dict[str, Any]]:
 
         editais.append({
             "titulo": f"[{tipo}] {titulo_limpo}",
-            "link": SIGAA_EXTENSAO_URL,
+            "assunto": f"Ação / Curso de Extensão Comunitária - {titulo_limpo}",
+            "tipo": "Extensão",
             "tipo_edital": "Extensão",
+            "categoria": f"Extensão / {tipo}",
+            "descricao": f"Ação de extensão comunitária ({tipo}) registrada no SIGAA da UnB pela unidade {unidade}. Área: {area}.",
+            "resumo": f"Ação de extensão comunitária ({tipo}) registrada no SIGAA da UnB pela unidade {unidade}.",
+            "link": SIGAA_EXTENSAO_URL,
             "programa": f"{unidade} ({campus})" if campus else unidade,
             "area_tematica": area,
             "inicio_inscricao": inicio_inscricao,

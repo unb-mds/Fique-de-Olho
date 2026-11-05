@@ -139,11 +139,18 @@ def upsert_edital(
     # Busca edital existente pela URL única
     edital = db.query(Edital).filter(Edital.url_pagina == url_pagina).first()
 
+    resumo = edital_data.get("resumo") or edital_data.get("descricao") or edital_data.get("assunto")
+    tipo = edital_data.get("tipo") or edital_data.get("tipo_edital")
+
     if edital:
         hash_anterior = edital.hash_conteudo
         # Atualiza dados existentes
         edital.titulo = titulo
         edital.data_publicacao = data_pub
+        if resumo and not edital.resumo:
+            edital.resumo = resumo
+        if tipo and not edital.tipo:
+            edital.tipo = tipo
         edital.inicio_inscricao = _parse_optional_date(edital_data.get("inicio_inscricao"))
         edital.fim_inscricao = _parse_optional_date(edital_data.get("fim_inscricao"))
         edital.hash_conteudo = hash_conteudo
@@ -161,7 +168,8 @@ def upsert_edital(
             data_publicacao=data_pub,
             status=status,
             campus=edital_data.get("campus"),
-            tipo=edital_data.get("tipo"),
+            tipo=tipo,
+            resumo=resumo,
             inicio_inscricao=_parse_optional_date(edital_data.get("inicio_inscricao")),
             fim_inscricao=_parse_optional_date(edital_data.get("fim_inscricao")),
             hash_conteudo=hash_conteudo,
