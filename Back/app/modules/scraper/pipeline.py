@@ -97,10 +97,17 @@ def upsert_edital(
     # Busca edital existente pela URL única
     edital = db.query(Edital).filter(Edital.url_pagina == url_pagina).first()
 
+    resumo = edital_data.get("resumo") or edital_data.get("descricao") or edital_data.get("assunto")
+    tipo = edital_data.get("tipo") or edital_data.get("tipo_edital")
+
     if edital:
         # Atualiza dados existentes
         edital.titulo = titulo
         edital.data_publicacao = data_pub
+        if resumo and not edital.resumo:
+            edital.resumo = resumo
+        if tipo and not edital.tipo:
+            edital.tipo = tipo
         if tem_resultado_final:
             edital.status = StatusEdital.ENCERRADO
     else:
@@ -112,7 +119,8 @@ def upsert_edital(
             data_publicacao=data_pub,
             status=status,
             campus=edital_data.get("campus"),
-            tipo=edital_data.get("tipo"),
+            tipo=tipo,
+            resumo=resumo,
         )
         db.add(edital)
         db.flush()

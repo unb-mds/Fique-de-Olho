@@ -166,15 +166,25 @@ class CebraspeScraper(BaseScraper):
                             # Mapeamento de status
                             status_normalizado = "aberto" if fase_nome.lower() in ["novos", "inscrições abertas", "inscricoes abertas", "em andamento"] else "fechado"
 
+                            is_vest = "vestibulares" in endpoint
+                            ev_tipo = "Vestibular" if is_vest else "Concurso Público"
+                            ev_assunto = f"Vestibular / Acesso Superior UnB - {titulo}" if is_vest else f"Concurso Público UnB - {titulo}"
+                            ev_desc = f"Processo seletivo / vestibular organizado pelo Cebraspe para a Universidade de Brasília ({titulo}). Vagas: {ev.get('eventoTotalVagas', 'Conforme edital')}."
+
                             edital_dict: Dict[str, Any] = {
                                 "titulo": titulo,
+                                "assunto": ev_assunto,
+                                "tipo": ev_tipo,
+                                "tipo_edital": f"{ev_tipo} / Cebraspe",
+                                "descricao": ev_desc,
+                                "resumo": ev_desc,
                                 "link": url_evento,
                                 "identificador": identificador,
                                 "fase": fase_nome,
                                 "status": status_normalizado,
                                 "vagas": ev.get("eventoTotalVagas"),
                                 "ano": ano_ev,
-                                "tipo_evento": "vestibulares" if "vestibulares" in endpoint else "concursos",
+                                "tipo_evento": "vestibulares" if is_vest else "concursos",
                                 "data_publicacao": f"{ano_ev}-01-01" if ano_ev else "",
                             }
 

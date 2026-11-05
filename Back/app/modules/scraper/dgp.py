@@ -127,9 +127,21 @@ def parse_dgp_article_html(html: str, page_url: str, default_tipo: str = "Estág
 
     status = "fechado" if has_final else "aberto"
 
+    # Assunto e descrição estruturados
+    if default_tipo == "Estágio":
+        assunto = f"Processo Seletivo de Estágio Remunerado - {unidade}" if unidade else "Processo Seletivo de Estágio Remunerado na UnB"
+        descricao = f"Processo seletivo para contratação de estagiários remunerados de nível superior na unidade {unidade}." if unidade else "Processo seletivo de estágio remunerado na Universidade de Brasília."
+    else:
+        assunto = f"Gestão de Pessoas / Desenvolvimento de Servidores ({unidade or 'DGP'})"
+        descricao = f"Edital e atos administrativos de gestão de pessoas e movimentação de servidores da UnB ({unidade or 'DGP'})."
+
     return {
         "titulo": titulo,
+        "assunto": assunto,
+        "tipo": default_tipo,
         "tipo_edital": default_tipo,
+        "descricao": descricao,
+        "resumo": descricao,
         "unidade": unidade,
         "link": page_url,
         "data_publicacao": data_pub,
@@ -188,10 +200,17 @@ def parse_capacitacao_eventos_externos_html(
         )
         edital_num = m_edital.group(1) if m_edital else (str(ano) if ano else "Geral")
 
+        edital_assunto = f"Apoio Financeiro para Ações de Capacitação e Eventos Externos (Edital {edital_num})"
+        edital_desc = f"Edital do Decanato de Gestão de Pessoas (DGP/Procap) para apoio financeiro à participação de servidores da UnB em eventos externos de capacitação no exercício de {ano or 'vigente'}."
+
         if edital_num not in edital_groups:
             edital_groups[edital_num] = {
                 "titulo": f"Edital DGP nº {edital_num} - Apoio Financeiro a Ações de Capacitação / Eventos Externos",
+                "assunto": edital_assunto,
+                "tipo": "Capacitação",
                 "tipo_edital": "Capacitação / Eventos Externos",
+                "descricao": edital_desc,
+                "resumo": edital_desc,
                 "unidade": "DGP / PROCAP",
                 "link": links[0][1],
                 "data_publicacao": "",

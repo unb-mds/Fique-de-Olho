@@ -137,10 +137,14 @@ class UnBIdiomasScraper(BaseScraper):
                                 seen_links.add(link)
                                 editais.append({
                                     "titulo": title,
+                                    "assunto": f"Cursos e Editais de Línguas Estrangeiras - {title}",
+                                    "tipo": "Cursos de Idiomas",
+                                    "tipo_edital": "Cursos de Idiomas",
+                                    "descricao": f"Chamada pública e avisos de cursos de línguas estrangeiras oferecidos pelo UnB Idiomas: {title}.",
+                                    "resumo": f"Chamada pública e avisos de cursos de línguas estrangeiras oferecidos pelo UnB Idiomas: {title}.",
                                     "link": link,
                                     "data_publicacao": date_str,
                                     "ano": ano_edital,
-                                    "tipo": "post_informativo",
                                     "status": "aberto" if (ano_edital and ano_edital >= 2026) else "fechado",
                                 })
                 except httpx.HTTPError as exc:

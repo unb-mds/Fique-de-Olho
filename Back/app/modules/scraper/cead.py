@@ -133,6 +133,9 @@ class CEADScraper(BaseScraper):
 
                         edital_dict: Dict[str, Any] = {
                             "titulo": title,
+                            "assunto": f"Educação a Distância (UAB/CEAD) - {curso or title}",
+                            "tipo": "Educação a Distância",
+                            "tipo_edital": "Educação a Distância / UAB",
                             "link": url_item,
                             "data_publicacao": data_pub or "",
                             "inicio_inscricao": data_pub or "",

@@ -60,6 +60,25 @@ def parse_concursos_edital_page(html: str, page_url: str) -> Dict[str, Any]:
                     snippets.append(t)
         descricao = " | ".join(snippets[:3]) if snippets else ""
 
+    # Extração de campos estruturados (Lotação, Cargo, Área, Vagas)
+    lotacao = ""
+    cargo = ""
+    area = ""
+    vagas = ""
+
+    m_lot = re.search(r"Lota[cç][aã]o:\s*([^.]+?)(?:\.|\s*Cargo:|$)", raw_text, re.IGNORECASE)
+    if m_lot:
+        lotacao = m_lot.group(1).strip()
+    m_car = re.search(r"Cargo:\s*([^.]+?)(?:\.|\s*Área|\s*Area:|$)", raw_text, re.IGNORECASE)
+    if m_car:
+        cargo = m_car.group(1).strip()
+    m_are = re.search(r"Área(?:\s+de\s+Conhecimento)?:\s*([^.]+?)(?:\.|\s*Vaga:|$)", raw_text, re.IGNORECASE)
+    if m_are:
+        area = m_are.group(1).strip()
+    m_vag = re.search(r"Vaga(?:s)?:\s*([^.]+?)(?:\.|$)", raw_text, re.IGNORECASE)
+    if m_vag:
+        vagas = m_vag.group(1).strip()
+
     documentos: List[Dict[str, Any]] = []
     seen_docs = set()
     data_pub = ""
@@ -106,9 +125,24 @@ def parse_concursos_edital_page(html: str, page_url: str) -> Dict[str, Any]:
     # Status
     status = "fechado" if has_final else "aberto"
 
+    # Assunto explícito e padronizado
+    assunto = f"Concurso Público - {cargo or 'Docente/Técnico'}"
+    if area:
+        assunto += f" em {area}"
+    if lotacao:
+        assunto += f" ({lotacao})"
+
     return {
         "titulo": titulo,
-        "descricao": descricao,
+        "assunto": assunto,
+        "tipo": "Concurso Público",
+        "tipo_edital": "Concurso Público / Docente" if "docente" in titulo.lower() or "professor" in titulo.lower() else "Concurso Público",
+        "descricao": descricao or f"Concurso Público da Universidade de Brasília: {titulo}.",
+        "resumo": descricao or f"Concurso Público da Universidade de Brasília: {titulo}.",
+        "unidade": lotacao,
+        "area": area,
+        "cargo": cargo,
+        "vagas": vagas,
         "link": page_url,
         "data_publicacao": data_pub,
         "status": status,
@@ -217,6 +251,15 @@ class ConcursosScraper(BaseScraper):
                             parsed = parse_concursos_edital_page(resp.text, link)
                             if not parsed["titulo"] and target.get("titulo"):
                                 parsed["titulo"] = target["titulo"]
+
+                            if target.get("categoria"):
+                                parsed["categoria"] = target["categoria"]
+                                if target["categoria"] == "Docente Efetivo":
+                                    parsed["tipo_edital"] = "Concurso Público / Docente Efetivo"
+                                elif "Temporário" in target["categoria"]:
+                                    parsed["tipo_edital"] = "Processo Seletivo / Professor Substituto"
+                                elif "Técnico" in target["categoria"]:
+                                    parsed["tipo_edital"] = "Concurso Público / Técnico-Administrativo"
 
                             if year is not None and parsed.get("ano") is not None and parsed["ano"] != year:
                                 continue
