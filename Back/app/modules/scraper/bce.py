@@ -126,6 +126,9 @@ class BCEScraper(BaseScraper):
         Returns:
             Lista de dicionários padronizados com metadados estruturados dos editais.
         """
+        # Renova caches em memória a cada ciclo periódico para refletir atualizações do Tainacan
+        self._url_to_id_cache.clear()
+        self._url_to_item_cache.clear()
         editais: List[Dict[str, Any]] = []
         page = 1
 

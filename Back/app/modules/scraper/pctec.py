@@ -13,10 +13,12 @@ Fontes oficiais:
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import html as html_lib
 import logging
 import re
-from typing import Any, Dict, List, Optional
+import time
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urljoin, urlparse
 
 import httpx
@@ -32,10 +34,16 @@ PCTEC_CHAMADAS_URL = f"{PCTEC_BASE_URL}/chamadas/"
 PCTEC_PAGES_API_URL = f"{PCTEC_BASE_URL}/wp-json/wp/v2/pages"
 
 DEFAULT_TIMEOUT = 20.0
+CACHE_TTL_SECONDS = 300.0
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Fique-de-Olho/1.0"
 
 EDITAL_YEAR_PATTERN = re.compile(r"\b\d{1,4}[./](20\d{2})\b")
 GENERAL_YEAR_PATTERN = re.compile(r"\b(20\d{2})\b")
+
+
+def _current_year() -> int:
+    """Retorna o ano corrente em UTC para execuções periódicas."""
+    return datetime.now(timezone.utc).year
 
 
 def _clean_text(raw: str) -> str:
@@ -104,8 +112,10 @@ def parse_pctec_edital_page_html(
     default_title: str = "",
     default_status: Optional[str] = None,
     data_publicacao: str = "",
+    reference_year: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Extrai metadados, descrição e todos os anexos PDF de uma página de edital do PCTec."""
+    curr_year = reference_year or _current_year()
     soup = BeautifulSoup(html or "", "html.parser")
     for tag in soup.select("header, footer, nav"):
         tag.decompose()
@@ -172,10 +182,12 @@ def parse_pctec_edital_page_html(
         elif data_publicacao and len(data_publicacao) >= 4 and data_publicacao[:4].isdigit():
             ano = int(data_publicacao[:4])
 
-    if default_status in ("aberto", "fechado"):
+    if has_final and "fluxo contínuo" not in titulo.lower() and "fluxo continuo" not in titulo.lower():
+        status = "fechado"
+    elif default_status in ("aberto", "fechado"):
         status = default_status
     else:
-        status = "fechado" if (has_final or (ano is not None and ano < 2024)) else "aberto"
+        status = "fechado" if (has_final or (ano is not None and ano < (curr_year - 2))) else "aberto"
 
     cat_info = classify_pctec_edital(titulo, descricao_texto)
     assunto = f"Chamada Pública PCTec/UnB ({cat_info['programa']}) - {titulo}"
@@ -321,14 +333,29 @@ def parse_pctec_chamadas_overview_html(html: str, base_url: str = PCTEC_BASE_URL
 class PCTecScraper(BaseScraper):
     """Implementação do scraper para o PCTec (Parque Científico e Tecnológico da UnB)."""
 
-    def __init__(self, timeout: float = DEFAULT_TIMEOUT) -> None:
+    def __init__(self, timeout: float = DEFAULT_TIMEOUT, cache_ttl: float = CACHE_TTL_SECONDS) -> None:
         self.timeout = timeout
-        self._url_to_docs_cache: Dict[str, List[Dict[str, Any]]] = {}
+        self.cache_ttl = cache_ttl
+        self._url_to_docs_cache: Dict[str, Tuple[float, List[Dict[str, Any]]]] = {}
 
     @property
     def orgao_origem(self) -> str:
         """Identificador institucional do órgão."""
         return "PCTEC"
+
+    def _cache_set(self, url: str, docs: List[Dict[str, Any]]) -> None:
+        if url:
+            self._url_to_docs_cache[url] = (time.monotonic(), docs)
+
+    def _cache_get(self, url: str) -> Optional[List[Dict[str, Any]]]:
+        entry = self._url_to_docs_cache.get(url)
+        if not entry:
+            return None
+        ts, docs = entry
+        if (time.monotonic() - ts) > self.cache_ttl:
+            self._url_to_docs_cache.pop(url, None)
+            return None
+        return docs
 
     def fetch_editais(
         self,
@@ -344,6 +371,7 @@ class PCTecScraper(BaseScraper):
         Returns:
             Lista de dicionários padronizados de editais do PCTec.
         """
+        self._url_to_docs_cache.clear()
         editais: List[Dict[str, Any]] = []
         seen_links = set()
 
@@ -382,7 +410,7 @@ class PCTecScraper(BaseScraper):
                     link = item["link"]
                     if item.get("is_complete"):
                         item_clean = {k: v for k, v in item.items() if k != "is_complete"}
-                        self._url_to_docs_cache[link] = item_clean["documentos"]
+                        self._cache_set(link, item_clean["documentos"])
                         if year is not None and item_clean.get("ano") is not None and item_clean["ano"] != year:
                             continue
                         if link not in seen_links:
@@ -439,7 +467,7 @@ class PCTecScraper(BaseScraper):
                     if item.get("ano") and not final_item.get("ano"):
                         final_item["ano"] = item["ano"]
 
-                    self._url_to_docs_cache[link] = final_item.get("documentos", [])
+                    self._cache_set(link, final_item.get("documentos", []))
 
                     if year is not None and final_item.get("ano") is not None and final_item["ano"] != year:
                         continue
@@ -460,8 +488,9 @@ class PCTecScraper(BaseScraper):
             return []
 
         norm_url = normalize_pctec_url(edital_url)
-        if norm_url in self._url_to_docs_cache:
-            return self._url_to_docs_cache[norm_url]
+        cached = self._cache_get(norm_url)
+        if cached is not None:
+            return cached
 
         if norm_url.lower().endswith(".pdf"):
             return [{
@@ -487,7 +516,7 @@ class PCTecScraper(BaseScraper):
                                 pg_html = (pg_list[0].get("content") or {}).get("rendered") or ""
                                 parsed = parse_pctec_edital_page_html(pg_html, page_url=norm_url)
                                 docs = parsed.get("documentos", [])
-                                self._url_to_docs_cache[norm_url] = docs
+                                self._cache_set(norm_url, docs)
                                 return docs
                     except (httpx.HTTPError, ValueError):
                         pass
@@ -496,7 +525,7 @@ class PCTecScraper(BaseScraper):
                 if resp.status_code == 200:
                     parsed = parse_pctec_edital_page_html(resp.text, page_url=str(resp.url))
                     docs = parsed.get("documentos", [])
-                    self._url_to_docs_cache[norm_url] = docs
+                    self._cache_set(norm_url, docs)
                     return docs
         except Exception as exc:
             logger.warning(f"Erro ao extrair documentos do PCTec em {edital_url}: {exc}")

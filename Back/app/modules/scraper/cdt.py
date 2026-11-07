@@ -11,9 +11,11 @@ Fontes oficiais:
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import logging
 import re
-from typing import Any, Dict, List, Optional
+import time
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urljoin
 
 import httpx
@@ -32,6 +34,7 @@ CDT_MULTINCUBADORA_URL = (
 )
 
 DEFAULT_TIMEOUT = 20.0
+CACHE_TTL_SECONDS = 300.0
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Fique-de-Olho/1.0"
 
 EDITAL_YEAR_PATTERN = re.compile(r"\b\d{1,4}/(20\d{2})\b")
@@ -45,6 +48,11 @@ DATE_PT_SHORT_PATTERN = re.compile(
     r"\b(\d{1,2}\s+de\s+(?:janeiro|fevereiro|março|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro))\b",
     re.IGNORECASE,
 )
+
+
+def _current_year() -> int:
+    """Retorna o ano corrente em UTC para execuções periódicas."""
+    return datetime.now(timezone.utc).year
 
 
 def classify_cdt_document(title: str, link: str) -> str:
@@ -194,8 +202,13 @@ def _extract_docs_and_meta_from_node(node: Any, base_url: str) -> Dict[str, Any]
     }
 
 
-def parse_cdt_chamadas_html(html: str, base_url: str = CDT_BASE_URL) -> List[Dict[str, Any]]:
+def parse_cdt_chamadas_html(
+    html: str,
+    base_url: str = CDT_BASE_URL,
+    reference_year: Optional[int] = None,
+) -> List[Dict[str, Any]]:
     """Extrai todos os editais e chamadas públicas listados em uma página de /pt-br/chamadas."""
+    curr_year = reference_year or _current_year()
     soup = BeautifulSoup(html or "", "html.parser")
     blog = soup.find("div", class_=lambda c: c and "blog" in c.split()) or soup
     editais: List[Dict[str, Any]] = []
@@ -251,17 +264,17 @@ def parse_cdt_chamadas_html(html: str, base_url: str = CDT_BASE_URL) -> List[Dic
             elif ano:
                 data_pub = f"01/01/{ano}"
             else:
-                data_pub = "01/01/2026"
+                data_pub = f"01/01/{curr_year}"
 
         if ano is None:
-            ano = 2026
+            ano = curr_year
 
         cat_info = classify_cdt_edital(titulo, meta["descricao_texto"])
         is_closed = (
             meta["has_final"]
             or meta["has_suspension"]
             or "resultado final" in titulo.lower()
-            or (ano is not None and ano < 2025 and "fluxo contínuo" not in titulo.lower())
+            or (ano is not None and ano < (curr_year - 1) and "fluxo contínuo" not in titulo.lower())
         )
         status = "fechado" if is_closed else "aberto"
 
@@ -288,8 +301,13 @@ def parse_cdt_chamadas_html(html: str, base_url: str = CDT_BASE_URL) -> List[Dic
     return editais
 
 
-def parse_cdt_article_html(html: str, page_url: str) -> Dict[str, Any]:
+def parse_cdt_article_html(
+    html: str,
+    page_url: str,
+    reference_year: Optional[int] = None,
+) -> Dict[str, Any]:
     """Extrai dados completos e PDFs de uma página individual de edital do CDT."""
+    curr_year = reference_year or _current_year()
     soup = BeautifulSoup(html or "", "html.parser")
     container = (
         soup.find("div", class_="item-page")
@@ -315,16 +333,16 @@ def parse_cdt_article_html(html: str, page_url: str) -> Dict[str, Any]:
         elif ano:
             data_pub = f"01/01/{ano}"
         else:
-            data_pub = "01/01/2026"
+            data_pub = f"01/01/{curr_year}"
 
     if ano is None:
-        ano = 2026
+        ano = curr_year
 
     cat_info = classify_cdt_edital(titulo, meta["descricao_texto"])
     is_closed = (
         meta["has_final"]
         or meta["has_suspension"]
-        or (ano is not None and ano < 2025 and "fluxo contínuo" not in titulo.lower())
+        or (ano is not None and ano < (curr_year - 1) and "fluxo contínuo" not in titulo.lower())
     )
     status = "fechado" if is_closed else "aberto"
 
@@ -352,14 +370,29 @@ def parse_cdt_article_html(html: str, page_url: str) -> Dict[str, Any]:
 class CDTScraper(BaseScraper):
     """Implementação do scraper para o CDT (Centro de Desenvolvimento Tecnológico da UnB)."""
 
-    def __init__(self, timeout: float = DEFAULT_TIMEOUT) -> None:
+    def __init__(self, timeout: float = DEFAULT_TIMEOUT, cache_ttl: float = CACHE_TTL_SECONDS) -> None:
         self.timeout = timeout
-        self._url_to_docs_cache: Dict[str, List[Dict[str, Any]]] = {}
+        self.cache_ttl = cache_ttl
+        self._url_to_docs_cache: Dict[str, Tuple[float, List[Dict[str, Any]]]] = {}
 
     @property
     def orgao_origem(self) -> str:
         """Identificador institucional do órgão."""
         return "CDT"
+
+    def _cache_set(self, url: str, docs: List[Dict[str, Any]]) -> None:
+        if url:
+            self._url_to_docs_cache[url] = (time.monotonic(), docs)
+
+    def _cache_get(self, url: str) -> Optional[List[Dict[str, Any]]]:
+        entry = self._url_to_docs_cache.get(url)
+        if not entry:
+            return None
+        ts, docs = entry
+        if (time.monotonic() - ts) > self.cache_ttl:
+            self._url_to_docs_cache.pop(url, None)
+            return None
+        return docs
 
     def fetch_editais(
         self,
@@ -375,6 +408,7 @@ class CDTScraper(BaseScraper):
         Returns:
             Lista de dicionários padronizados de editais do CDT.
         """
+        self._url_to_docs_cache.clear()
         editais: List[Dict[str, Any]] = []
         seen_links = set()
         seen_title_keys = set()
@@ -410,7 +444,7 @@ class CDTScraper(BaseScraper):
                     page_years: List[int] = []
                     for item in page_items:
                         if item["link"]:
-                            self._url_to_docs_cache[item["link"]] = item["documentos"]
+                            self._cache_set(item["link"], item["documentos"])
                         if item.get("ano"):
                             page_years.append(item["ano"])
 
@@ -436,7 +470,7 @@ class CDTScraper(BaseScraper):
                         if resp_inc.status_code == 200:
                             inc_edital = parse_cdt_article_html(resp_inc.text, str(resp_inc.url))
                             if inc_edital["link"]:
-                                self._url_to_docs_cache[inc_edital["link"]] = inc_edital["documentos"]
+                                self._cache_set(inc_edital["link"], inc_edital["documentos"])
                             inc_title_key = (re.sub(r"\s+", " ", inc_edital["titulo"].lower()).strip(), inc_edital.get("ano"))
                             if (year is None or inc_edital.get("ano") == year) and inc_title_key not in seen_title_keys:
                                 seen_links.add(inc_edital["link"])
@@ -456,8 +490,9 @@ class CDTScraper(BaseScraper):
         if not edital_url:
             return []
 
-        if edital_url in self._url_to_docs_cache:
-            return self._url_to_docs_cache[edital_url]
+        cached = self._cache_get(edital_url)
+        if cached is not None:
+            return cached
 
         if edital_url.lower().endswith(".pdf"):
             return [{
@@ -477,7 +512,7 @@ class CDTScraper(BaseScraper):
                 if resp.status_code == 200:
                     parsed = parse_cdt_article_html(resp.text, str(resp.url))
                     docs = parsed.get("documentos", [])
-                    self._url_to_docs_cache[edital_url] = docs
+                    self._cache_set(edital_url, docs)
                     return docs
         except Exception as exc:
             logger.warning(f"Erro ao extrair documentos do CDT em {edital_url}: {exc}")

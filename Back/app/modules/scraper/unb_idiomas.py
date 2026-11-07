@@ -1,8 +1,9 @@
 """Scraper para os editais, regras de bolsistas e processos seletivos do UnB Idiomas."""
 
+from datetime import datetime, timezone
 import html
 import logging
-import re
+import time
 from typing import Any, Dict, List, Optional
 from urllib.parse import urljoin
 
@@ -19,6 +20,7 @@ UNB_IDIOMAS_MEDIA_API = f"{UNB_IDIOMAS_BASE_URL}/wp-json/wp/v2/media?mime_type=a
 UNB_IDIOMAS_POSTS_API = f"{UNB_IDIOMAS_BASE_URL}/wp-json/wp/v2/posts?search=edital&per_page=50"
 
 DEFAULT_TIMEOUT = 15.0
+CACHE_TTL_SECONDS = 300.0
 USER_AGENT = "Fique-de-Olho/1.0"
 
 EDITAL_KEYWORDS = [
@@ -51,16 +53,36 @@ def clean_title(title_raw: str) -> str:
 class UnBIdiomasScraper(BaseScraper):
     """Implementação do scraper para editais e seleções do UnB Idiomas."""
 
-    def __init__(self, timeout: float = DEFAULT_TIMEOUT):
+    def __init__(self, timeout: float = DEFAULT_TIMEOUT, cache_ttl_seconds: float = CACHE_TTL_SECONDS):
         self.timeout = timeout
+        self.cache_ttl_seconds = cache_ttl_seconds
         self._url_to_docs_cache: Dict[str, List[Dict[str, Any]]] = {}
+        self._cache_timestamps: Dict[str, float] = {}
 
     @property
     def orgao_origem(self) -> str:
         return "UNB_IDIOMAS"
 
+    def _cache_put(self, url: str, docs: List[Dict[str, Any]]) -> None:
+        self._url_to_docs_cache[url] = list(docs)
+        self._cache_timestamps[url] = time.monotonic()
+
+    def _cache_get(self, url: str) -> Optional[List[Dict[str, Any]]]:
+        if url not in self._url_to_docs_cache:
+            return None
+        ts = self._cache_timestamps.get(url)
+        if ts is not None and (time.monotonic() - ts) > self.cache_ttl_seconds:
+            self._url_to_docs_cache.pop(url, None)
+            self._cache_timestamps.pop(url, None)
+            return None
+        return self._url_to_docs_cache[url]
+
     def fetch_editais(self, year: Optional[int] = None) -> List[Dict[str, Any]]:
         """Busca todos os editais e chamadas de bolsistas do UnB Idiomas."""
+        current_year = datetime.now(timezone.utc).year
+        self._url_to_docs_cache.clear()
+        self._cache_timestamps.clear()
+
         editais: List[Dict[str, Any]] = []
         seen_links = set()
 
@@ -97,19 +119,25 @@ class UnBIdiomasScraper(BaseScraper):
                                     continue
 
                                 seen_links.add(source_url)
+                                doc_type = classify_document(title, source_url)
+                                is_open = (
+                                    ano_edital is not None
+                                    and ano_edital >= current_year
+                                    and doc_type != "resultado_final"
+                                )
                                 edital_dict = {
                                     "titulo": title or "Edital UnB Idiomas",
                                     "link": source_url,
                                     "data_publicacao": date_str,
                                     "ano": ano_edital,
                                     "tipo": "documento_pdf",
-                                    "status": "aberto" if (ano_edital and ano_edital >= 2026) else "fechado",
+                                    "status": "aberto" if is_open else "fechado",
                                 }
-                                self._url_to_docs_cache[source_url] = [{
+                                self._cache_put(source_url, [{
                                     "titulo": title or "Edital Oficial UnB Idiomas",
                                     "link": source_url,
-                                    "tipo": classify_document(title, source_url),
-                                }]
+                                    "tipo": doc_type,
+                                }])
                                 editais.append(edital_dict)
                 except httpx.HTTPError as exc:
                     logger.warning(f"Erro ao consultar API de mídia do UnB Idiomas: {exc}")
@@ -135,6 +163,7 @@ class UnBIdiomasScraper(BaseScraper):
                                     continue
 
                                 seen_links.add(link)
+                                is_final_title = classify_document(title, link) == "resultado_final"
                                 editais.append({
                                     "titulo": title,
                                     "assunto": f"Cursos e Editais de Línguas Estrangeiras - {title}",
@@ -145,7 +174,7 @@ class UnBIdiomasScraper(BaseScraper):
                                     "link": link,
                                     "data_publicacao": date_str,
                                     "ano": ano_edital,
-                                    "status": "aberto" if (ano_edital and ano_edital >= 2026) else "fechado",
+                                    "status": "aberto" if (ano_edital and ano_edital >= current_year and not is_final_title) else "fechado",
                                 })
                 except httpx.HTTPError as exc:
                     logger.warning(f"Erro ao consultar API de posts do UnB Idiomas: {exc}")
@@ -158,8 +187,9 @@ class UnBIdiomasScraper(BaseScraper):
 
     def fetch_documentos(self, edital_url: str) -> List[Dict[str, Any]]:
         """Extrai os documentos PDF associados a um edital do UnB Idiomas."""
-        if edital_url in self._url_to_docs_cache:
-            return self._url_to_docs_cache[edital_url]
+        cached = self._cache_get(edital_url)
+        if cached is not None:
+            return cached
 
         if edital_url.lower().endswith(".pdf"):
             return [{
@@ -194,6 +224,7 @@ class UnBIdiomasScraper(BaseScraper):
                                 "link": full_h,
                                 "tipo": classify_document(t, full_h),
                             })
+                    self._cache_put(edital_url, documentos)
         except Exception as exc:
             logger.error(f"Erro ao extrair documentos de {edital_url} no UnB Idiomas: {exc}")
 

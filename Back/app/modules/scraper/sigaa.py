@@ -3,7 +3,9 @@
 from datetime import datetime, timezone
 import logging
 import re
+import time
 from typing import Any, Dict, List, Optional, Tuple
+import unicodedata
 from urllib.parse import urljoin
 
 import httpx
@@ -17,7 +19,10 @@ logger = logging.getLogger(__name__)
 SIGAA_BASE_URL = "https://sigaa.unb.br"
 SIGAA_PROCESSOS_URL = "https://sigaa.unb.br/sigaa/public/processo_seletivo/lista.jsf"
 SIGAA_PPG_LISTA_URL = "https://sigaa.unb.br/sigaa/public/curso/lista.jsf?nivel=S&aba=p-stricto"
-SIGAA_EXTENSAO_URL = "https://sigaa.unb.br/sigaa/public/extensao/paginaListaPeriodosInscricoesAtividadesPublico.jsf?semuni=false&aba=p-extensao"
+SIGAA_EXTENSAO_URL = (
+    "https://sigaa.unb.br/sigaa/public/extensao/"
+    "paginaListaPeriodosInscricoesAtividadesPublico.jsf?semuni=false&aba=p-extensao"
+)
 
 SIGAA_NIVEIS_URLS = [
     ("S", "https://sigaa.unb.br/sigaa/public/processo_seletivo/lista.jsf?nivel=S&aba=p-stricto"),
@@ -27,6 +32,7 @@ SIGAA_NIVEIS_URLS = [
 ]
 
 DEFAULT_TIMEOUT = 15.0
+PROGRAMAS_CACHE_TTL_SECONDS = 3600.0
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Fique-de-Olho/1.0"
 
 DATE_INTERVAL_PATTERN = re.compile(
@@ -34,6 +40,20 @@ DATE_INTERVAL_PATTERN = re.compile(
     re.IGNORECASE,
 )
 DATE_SINGLE_PATTERN = re.compile(r"\b(\d{1,2}/\d{1,2}/\d{4})\b")
+JSESSIONID_PATTERN = re.compile(r";jsessionid=[^?#]*", re.IGNORECASE)
+
+
+def canonicalize_sigaa_url(url: str) -> str:
+    """Remove tokens efêmeros `;jsessionid=...` de URLs JSF do SIGAA para idempotência periódica."""
+    if not url:
+        return ""
+    return JSESSIONID_PATTERN.sub("", url.strip())
+
+
+def _slugify_anchor(value: str) -> str:
+    norm = unicodedata.normalize("NFD", value or "")
+    ascii_only = "".join(ch for ch in norm if unicodedata.category(ch) != "Mn").lower()
+    return re.sub(r"[^a-z0-9]+", "-", ascii_only).strip("-")[:64] or "item"
 
 
 def parse_sigaa_html(html: str, base_url: str = SIGAA_BASE_URL) -> List[Dict[str, Any]]:
@@ -42,7 +62,6 @@ def parse_sigaa_html(html: str, base_url: str = SIGAA_BASE_URL) -> List[Dict[str
     editais: List[Dict[str, Any]] = []
     seen = set()
 
-    # Localiza tabelas de listagem padrão do SIGAA
     tables = soup.find_all("table", class_=lambda c: c and ("listagem" in c or "formulario" in c))
     if not tables:
         tables = soup.find_all("table")
@@ -73,7 +92,7 @@ def parse_sigaa_html(html: str, base_url: str = SIGAA_BASE_URL) -> List[Dict[str
                 target_link = links[0]
 
             href = target_link["href"].strip()
-            full_url = urljoin(base_url, href)
+            full_url = canonicalize_sigaa_url(urljoin(base_url, href))
             if full_url in seen:
                 continue
             seen.add(full_url)
@@ -107,7 +126,7 @@ def parse_sigaa_html(html: str, base_url: str = SIGAA_BASE_URL) -> List[Dict[str
                 h = a["href"].strip()
                 t = a.get_text(" ", strip=True) or "Edital/Arquivo SIGAA"
                 if any(doc_k in h.lower() for doc_k in [".pdf", "verarquivo", "documento"]):
-                    doc_url = urljoin(base_url, h)
+                    doc_url = canonicalize_sigaa_url(urljoin(base_url, h))
                     documentos.append({
                         "titulo": t,
                         "link": doc_url,
@@ -115,6 +134,13 @@ def parse_sigaa_html(html: str, base_url: str = SIGAA_BASE_URL) -> List[Dict[str
                     })
 
             status = "aberto" if ("aberto" in row_text.lower() or "inscreva-se" in row_text.lower()) else "fechado"
+            if fim_inscricao and status == "fechado" and "encerrad" not in row_text.lower():
+                try:
+                    d, m, y = map(int, fim_inscricao.split("/"))
+                    if datetime(y, m, d, 23, 59, 59, tzinfo=timezone.utc) >= datetime.now(timezone.utc):
+                        status = "aberto"
+                except ValueError:
+                    pass
 
             editais.append({
                 "titulo": titulo,
@@ -142,6 +168,7 @@ def parse_sigaa_ppg_processos_html(html: str, ppg_nome: str, ppg_id: str) -> Lis
     """
     soup = BeautifulSoup(html, "html.parser")
     editais: List[Dict[str, Any]] = []
+    now_utc = datetime.now(timezone.utc)
 
     tables = soup.find_all("table")
     for table in tables:
@@ -154,7 +181,6 @@ def parse_sigaa_ppg_processos_html(html: str, ppg_nome: str, ppg_id: str) -> Lis
             if not text or "Período" in text or "Processos Seletivos" in text:
                 continue
 
-            # Intervalo de datas
             interval_match = DATE_INTERVAL_PATTERN.search(text)
             inicio_inscricao = ""
             fim_inscricao = ""
@@ -168,7 +194,6 @@ def parse_sigaa_ppg_processos_html(html: str, ppg_nome: str, ppg_id: str) -> Lis
                 except (ValueError, IndexError):
                     pass
 
-            # Extração limpa do título
             spans = row.find_all("span", class_="destaqueProcessoeletivo")
             titulo = ""
             for s in spans:
@@ -183,11 +208,9 @@ def parse_sigaa_ppg_processos_html(html: str, ppg_nome: str, ppg_id: str) -> Lis
                 else:
                     titulo = text[:100].strip()
 
-            # Limpa ruídos de quebra de linha e sufixos de datas redundantes no título
             titulo = re.sub(r"\s*\(\s*\d{1,2}/\d{1,2}/\d{4}[\s\S]*?\)", "", titulo)
             titulo = re.sub(r"\s+", " ", titulo).strip()
 
-            # Extração do ID do processo via onclick JSF
             proc_id = ""
             a_elem = row.find("a", onclick=True)
             if a_elem:
@@ -195,18 +218,21 @@ def parse_sigaa_ppg_processos_html(html: str, ppg_nome: str, ppg_id: str) -> Lis
                 if m_id:
                     proc_id = m_id.group(1)
 
-            # Cálculo de status baseado na data limite de inscrição
             status = "fechado"
             if fim_inscricao:
                 try:
                     d, m, y = map(int, fim_inscricao.split("/"))
                     dt_fim = datetime(y, m, d, 23, 59, 59, tzinfo=timezone.utc)
-                    if dt_fim >= datetime.now(timezone.utc):
+                    if dt_fim >= now_utc:
                         status = "aberto"
                 except Exception:
-                    status = "aberto" if ano and ano >= 2026 else "fechado"
+                    status = "aberto" if ano and ano >= now_utc.year else "fechado"
 
-            url_programa = f"https://sigaa.unb.br/sigaa/public/programa/processo_seletivo.jsf?lc=pt_BR&id={ppg_id}"
+            anchor = proc_id or _slugify_anchor(f"{titulo}-{inicio_inscricao}")
+            url_programa = (
+                f"https://sigaa.unb.br/sigaa/public/programa/processo_seletivo.jsf?lc=pt_BR&id={ppg_id}"
+                f"#processo-{anchor}"
+            )
 
             editais.append({
                 "titulo": titulo,
@@ -235,6 +261,8 @@ def parse_sigaa_extensao_html(html: str) -> List[Dict[str, Any]]:
     table = soup.find("table", class_=lambda c: c and "listagem" in c)
     if not table:
         return editais
+
+    now_utc = datetime.now(timezone.utc)
 
     for tr in table.find_all("tr"):
         tds = tr.find_all("td")
@@ -271,6 +299,18 @@ def parse_sigaa_extensao_html(html: str) -> List[Dict[str, Any]]:
             except ValueError:
                 pass
 
+        status = "aberto"
+        if fim_inscricao:
+            try:
+                d, mo, y = map(int, fim_inscricao.split("/"))
+                if datetime(y, mo, d, 23, 59, 59, tzinfo=timezone.utc) < now_utc:
+                    status = "fechado"
+            except ValueError:
+                pass
+
+        ext_anchor = _slugify_anchor(f"{tipo}-{titulo_limpo}-{inicio_inscricao}")
+        ext_link = f"{SIGAA_EXTENSAO_URL}#ext-{ext_anchor}"
+
         editais.append({
             "titulo": f"[{tipo}] {titulo_limpo}",
             "assunto": f"Ação / Curso de Extensão Comunitária - {titulo_limpo}",
@@ -279,13 +319,14 @@ def parse_sigaa_extensao_html(html: str) -> List[Dict[str, Any]]:
             "categoria": f"Extensão / {tipo}",
             "descricao": f"Ação de extensão comunitária ({tipo}) registrada no SIGAA da UnB pela unidade {unidade}. Área: {area}.",
             "resumo": f"Ação de extensão comunitária ({tipo}) registrada no SIGAA da UnB pela unidade {unidade}.",
-            "link": SIGAA_EXTENSAO_URL,
+            "link": ext_link,
             "programa": f"{unidade} ({campus})" if campus else unidade,
+            "campus": campus or None,
             "area_tematica": area,
             "inicio_inscricao": inicio_inscricao,
             "fim_inscricao": fim_inscricao,
             "data_publicacao": inicio_inscricao,
-            "status": "aberto",
+            "status": status,
             "ano": ano,
             "periodo_realizacao": periodo_atv,
             "documentos": [],
@@ -297,17 +338,23 @@ def parse_sigaa_extensao_html(html: str) -> List[Dict[str, Any]]:
 class SIGAAScraper(BaseScraper):
     """Implementação do scraper para processos seletivos públicos do SIGAA UnB."""
 
-    def __init__(self, timeout: float = DEFAULT_TIMEOUT):
+    def __init__(
+        self,
+        timeout: float = DEFAULT_TIMEOUT,
+        programas_cache_ttl: float = PROGRAMAS_CACHE_TTL_SECONDS,
+    ):
         self.timeout = timeout
+        self.programas_cache_ttl = programas_cache_ttl
         self._programas_cache: List[Tuple[str, str]] = []
+        self._programas_cache_ts: float = 0.0
 
     @property
     def orgao_origem(self) -> str:
         return "SIGAA"
 
     def fetch_programas_pos_graduacao(self, client: httpx.Client) -> List[Tuple[str, str]]:
-        """Mapeia os 110 Programas de Pós-Graduação (PPGs) ativos na UnB via SIGAA."""
-        if self._programas_cache:
+        """Mapeia os Programas de Pós-Graduação (PPGs) ativos na UnB via SIGAA (com TTL para execuções periódicas)."""
+        if self._programas_cache and (time.monotonic() - self._programas_cache_ts) <= self.programas_cache_ttl:
             return self._programas_cache
 
         programas: List[Tuple[str, str]] = []
@@ -324,25 +371,18 @@ class SIGAAScraper(BaseScraper):
                         programas.append((prog_id, prog_name))
                 if programas:
                     self._programas_cache = programas
+                    self._programas_cache_ts = time.monotonic()
         except Exception as exc:
             logger.warning(f"Erro ao mapear programas de pós-graduação no SIGAA: {exc}")
 
-        return programas
+        return programas or self._programas_cache
 
     def fetch_editais(
         self,
         year: Optional[int] = None,
         max_programs: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
-        """Consulta os processos seletivos públicos e os editais de PPGs no SIGAA UnB.
-
-        Args:
-            year: Ano de referência para filtragem (opcional).
-            max_programs: Limite de programas a consultar (None para todos os 110).
-
-        Returns:
-            Lista de editais padronizados com títulos, programas, datas e status.
-        """
+        """Consulta os processos seletivos públicos e os editais de PPGs no SIGAA UnB."""
         editais: List[Dict[str, Any]] = []
         seen_keys = set()
 
@@ -358,7 +398,7 @@ class SIGAAScraper(BaseScraper):
                     try:
                         resp = client.get(url)
                         if resp.status_code == 200:
-                            parsed = parse_sigaa_html(resp.text, base_url=str(resp.url))
+                            parsed = parse_sigaa_html(resp.text, base_url=canonicalize_sigaa_url(str(resp.url)))
                             for ed in parsed:
                                 ed["nivel"] = nivel
                                 key = (ed.get("titulo", ""), ed.get("link", ""))
@@ -414,8 +454,16 @@ class SIGAAScraper(BaseScraper):
 
     def fetch_documentos(self, edital_url: str) -> List[Dict[str, Any]]:
         """Extrai os documentos PDF associados a um processo seletivo do SIGAA."""
-        if edital_url.lower().endswith(".pdf") or "verarquivo" in edital_url.lower():
-            return [{"titulo": "Documento Oficial SIGAA", "link": edital_url, "tipo": classify_document(edital_url, edital_url)}]
+        clean_target = canonicalize_sigaa_url(edital_url).split("#", 1)[0]
+        if not clean_target:
+            return []
+
+        if clean_target.lower().endswith(".pdf") or "verarquivo" in clean_target.lower():
+            return [{
+                "titulo": "Documento Oficial SIGAA",
+                "link": clean_target,
+                "tipo": classify_document(clean_target, clean_target),
+            }]
 
         documentos: List[Dict[str, Any]] = []
         seen = set()
@@ -427,7 +475,7 @@ class SIGAAScraper(BaseScraper):
                 timeout=self.timeout,
                 follow_redirects=True,
             ) as client:
-                resp = client.get(edital_url)
+                resp = client.get(clean_target)
                 if resp.status_code != 200:
                     return documentos
 
@@ -435,7 +483,7 @@ class SIGAAScraper(BaseScraper):
                 for a in soup.find_all("a", href=True):
                     h = a["href"].strip()
                     if ".pdf" in h.lower() or "verarquivo" in h.lower():
-                        full_h = urljoin(str(resp.url), h)
+                        full_h = canonicalize_sigaa_url(urljoin(str(resp.url), h))
                         if full_h in seen:
                             continue
                         seen.add(full_h)

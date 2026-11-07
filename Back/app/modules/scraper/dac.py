@@ -1,5 +1,6 @@
 """Scraper para o Decanato de Assuntos Comunitários da UnB (DAC / DDS)."""
 
+from datetime import datetime, timezone
 import re
 from typing import Any, Dict, List, Optional
 from urllib.parse import urljoin
@@ -20,9 +21,11 @@ DATE_PATTERN = re.compile(
 )
 
 
-def build_dac_url(year: Optional[int] = None) -> str:
-    y = year or 2026
-    return f"{DAC_BASE_URL}/{y}-2/"
+def build_dac_url(year: Optional[int] = None, semester: Optional[int] = None) -> str:
+    now = datetime.now(timezone.utc)
+    y = year or now.year
+    sem = semester or (2 if now.month >= 7 else 1)
+    return f"{DAC_BASE_URL}/{y}-{sem}/"
 
 
 def parse_dac_html(html: str, base_url: str = DAC_BASE_URL) -> List[Dict[str, Any]]:
@@ -43,7 +46,10 @@ def parse_dac_html(html: str, base_url: str = DAC_BASE_URL) -> List[Dict[str, An
 
         full_url = urljoin(base_url, href)
 
-        is_edital = any(k in text.lower() for k in ["edital", "moradia", "transporte", "permanência", "alimentação", "auxílio"]) or "edital" in href.lower()
+        is_edital = (
+            any(k in text.lower() for k in ["edital", "moradia", "transporte", "permanência", "alimentação", "auxílio"])
+            or "edital" in href.lower()
+        )
         if not is_edital:
             continue
 
@@ -71,30 +77,34 @@ class DACScraper(BaseScraper):
         return "DAC"
 
     def fetch_editais(self, year: Optional[int] = None) -> List[Dict[str, Any]]:
-        """Extrai os editais da DAC para o ano/semestre informado."""
-        url = build_dac_url(year)
-        try:
-            resp = httpx.get(
-                url,
-                headers={"User-Agent": USER_AGENT},
-                follow_redirects=True,
-                timeout=DEFAULT_TIMEOUT,
-            )
-            resp.raise_for_status()
-            return parse_dac_html(resp.text, base_url=str(resp.url))
-        except httpx.HTTPError:
-            # Fallback para a URL geral de editais
+        """Extrai os editais da DAC para o ano/semestre atual ou informado (com fallback automático)."""
+        now = datetime.now(timezone.utc)
+        y = year or now.year
+        current_sem = 2 if now.month >= 7 else 1
+        other_sem = 1 if current_sem == 2 else 2
+
+        candidate_urls = [
+            build_dac_url(y, current_sem),
+            build_dac_url(y, other_sem),
+        ]
+        if year is None:
+            candidate_urls.append(build_dac_url(y - 1, 2))
+        candidate_urls.append(f"{DAC_BASE_URL}/editais/")
+        for candidate_url in candidate_urls:
             try:
-                fallback_resp = httpx.get(
-                    f"{DAC_BASE_URL}/editais/",
+                resp = httpx.get(
+                    candidate_url,
                     headers={"User-Agent": USER_AGENT},
                     follow_redirects=True,
                     timeout=DEFAULT_TIMEOUT,
                 )
-                fallback_resp.raise_for_status()
-                return parse_dac_html(fallback_resp.text, base_url=str(fallback_resp.url))
+                resp.raise_for_status()
+                parsed = parse_dac_html(resp.text, base_url=str(resp.url))
+                if parsed:
+                    return parsed
             except httpx.HTTPError:
-                return []
+                continue
+        return []
 
     def fetch_documentos(self, edital_url: str) -> List[Dict[str, Any]]:
         """Extrai anexos e resultados vinculados ao edital da DAC."""

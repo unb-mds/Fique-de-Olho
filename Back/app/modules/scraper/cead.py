@@ -6,6 +6,7 @@ discentes da Universidade Aberta do Brasil utilizando a API REST oficial do Tain
 
 from __future__ import annotations
 
+from datetime import date, datetime, timezone
 import logging
 import re
 from typing import Any, Dict, List, Optional
@@ -45,6 +46,26 @@ def _extract_meta_value(metadata: Dict[str, Any], key: str) -> Optional[str]:
     return field.get("value_as_string")
 
 
+def _parse_cead_date(raw: Optional[str]) -> Optional[date]:
+    """Converte string ISO (YYYY-MM-DD) ou BR (DD/MM/YYYY) em date."""
+    if not raw:
+        return None
+    s = raw.strip()
+    m_iso = re.search(r"\b(\d{4})-(\d{2})-(\d{2})\b", s)
+    if m_iso:
+        try:
+            return date(int(m_iso.group(1)), int(m_iso.group(2)), int(m_iso.group(3)))
+        except ValueError:
+            return None
+    m_br = re.search(r"\b(\d{1,2})/(\d{1,2})/(\d{4})\b", s)
+    if m_br:
+        try:
+            return date(int(m_br.group(3)), int(m_br.group(2)), int(m_br.group(1)))
+        except ValueError:
+            return None
+    return None
+
+
 class CEADScraper(BaseScraper):
     """Implementação do scraper para o Centro de Educação a Distância (CEAD / UAB)."""
 
@@ -71,6 +92,9 @@ class CEADScraper(BaseScraper):
         Returns:
             Lista de dicionários padronizados com metadados do edital.
         """
+        self._url_to_id_cache.clear()
+        today_utc = datetime.now(timezone.utc).date()
+        current_year = today_utc.year
         editais: List[Dict[str, Any]] = []
         page = 1
 
@@ -128,8 +152,14 @@ class CEADScraper(BaseScraper):
                         curso = _extract_meta_value(meta, "curso")
                         numero = _extract_meta_value(meta, "numero")
 
-                        # Normalização de status
+                        # Normalização dinâmica de status para execuções periódicas
                         status_normalizado = "aberto" if status_bruto.lower() in ["em andamento", "aberto"] else "fechado"
+                        fim_dt = _parse_cead_date(fim_inscricao)
+                        if status_normalizado == "aberto":
+                            if ano_edital is not None and ano_edital < (current_year - 1):
+                                status_normalizado = "fechado"
+                            elif status_bruto.lower() == "aberto" and fim_dt is not None and fim_dt < today_utc:
+                                status_normalizado = "fechado"
 
                         edital_dict: Dict[str, Any] = {
                             "titulo": title,

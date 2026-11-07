@@ -136,13 +136,31 @@ def get_edital(id: str, db: Session = Depends(get_db)):
 
 @router.post("/sync", response_model=Dict[str, Any])
 def sync_editais(
-    max_itens: int = Query(20, ge=1, le=100, description="Número máximo de editais a processar"),
+    max_itens: int = Query(20, ge=1, le=500, description="Número máximo de editais a processar por portal"),
+    orgao: Optional[str] = Query(
+        None,
+        description="Sigla do portal (ex: DEG, HUB, FAL, OCEAN) ou 'ALL' para sincronizar todos os portais",
+    ),
     db: Session = Depends(get_db),
 ):
-    """Dispara a sincronização com o portal do DEG e persiste novos editais."""
+    """Dispara a sincronização periódica com o portal informado (padrão DEG, ou 'ALL' para todos)."""
     try:
-        from app.modules.scraper.service import sync_deg_editais
-        return sync_deg_editais(db, max_items=max_itens)
+        from app.modules.scraper.service import (
+            sync_all_portais,
+            sync_deg_editais,
+            sync_portal_editais,
+        )
+
+        if not orgao:
+            return sync_deg_editais(db, max_items=max_itens)
+        if orgao.strip().upper() == "ALL":
+            return sync_all_portais(db, max_items_per_orgao=max_itens)
+        return sync_portal_editais(db, orgao=orgao, max_items=max_itens)
+    except ValueError as val_exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(val_exc),
+        )
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
