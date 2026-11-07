@@ -82,16 +82,17 @@ def inferir_categoria(titulo: str) -> str:
         return "Residência"
     if "extensão" in tit_lower or "extensao" in tit_lower or "inovação" in tit_lower or "inovacao" in tit_lower or "ocean" in tit_lower:
         return "Extensões"
-    if "bolsa" in tit_lower or "auxílio" in tit_lower or "auxilio" in tit_lower or "permanência" in tit_lower:
+    if "bolsa" in tit_lower or "auxílio" in tit_lower or "auxilio" in tit_lower or "permanência" in tit_lower or "atleta" in tit_lower:
         return "Bolsas / Auxílios"
-    if "estágio" in tit_lower or "estagio" in tit_lower:
+    if "estágio" in tit_lower or "estagio" in tit_lower or "estagiário" in tit_lower or "estagiario" in tit_lower:
         return "Estágio"
-    if "pesquisa" in tit_lower:
+    if "pesquisa" in tit_lower or "livro" in tit_lower or "publicação" in tit_lower or "publicacao" in tit_lower or "editorial" in tit_lower:
         return "Pesquisa"
     if "vestibular" in tit_lower or "transferência" in tit_lower or "transferencia" in tit_lower:
         return "Vestibular"
+    if "cultura" in tit_lower or "arte" in tit_lower or "galeria" in tit_lower or "esporte" in tit_lower or "jubs" in tit_lower:
+        return "Extensões"
     return "Extensões"
-
 
 def sync_deg_editais(db: Session, max_items: int = 30) -> Dict[str, Any]:
     """Executa a coleta no portal do DEG e persiste novos editais no banco de dados."""
