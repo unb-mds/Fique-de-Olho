@@ -19,6 +19,7 @@ from app.modules.scraper.fal import FALScraper, fal_scraper
 from app.modules.scraper.finatec import FinatecScraper, finatec_scraper
 from app.modules.scraper.hub import HUBScraper, hub_scraper
 from app.modules.scraper.int_scraper import INTScraper, int_scraper
+from app.modules.scraper.ocean import OceanBrasilScraper, ocean_scraper
 from app.modules.scraper.pctec import PCTecScraper, pctec_scraper
 from app.modules.scraper.proic import PROICScraper, proic_scraper
 from app.modules.scraper.sigaa import SIGAAScraper, sigaa_scraper
@@ -46,7 +47,7 @@ from app.modules.scraper.pdf import (
     extract_pdf_from_url,
     normalize_extracted_text,
 )
-from app.modules.scraper.pipeline import run_pipeline, upsert_edital
+from app.modules.scraper.pipeline import run_periodic_pipeline, run_pipeline, upsert_edital
 
 # Registro centralizado de scrapers por órgão da UnB
 SCRAPERS_REGISTRY: Dict[str, BaseScraper] = {
@@ -70,6 +71,7 @@ SCRAPERS_REGISTRY: Dict[str, BaseScraper] = {
     "PCTEC": pctec_scraper,
     "HUB": hub_scraper,
     "FAL": fal_scraper,
+    "OCEAN": ocean_scraper,
 }
 
 
@@ -120,9 +122,12 @@ __all__ = [
     "hub_scraper",
     "FALScraper",
     "fal_scraper",
+    "OceanBrasilScraper",
+    "ocean_scraper",
     "SCRAPERS_REGISTRY",
     "get_scraper",
     "run_pipeline",
+    "run_periodic_pipeline",
     "upsert_edital",
     "extract_pdf",
     "extract_pdf_from_bytes",

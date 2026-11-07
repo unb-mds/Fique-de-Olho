@@ -21,11 +21,13 @@ Fontes oficiais:
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+from datetime import date, datetime, timezone
 import html as html_lib
 import json
 import logging
 import re
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+import time
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 import unicodedata
 from urllib.parse import urljoin, urlparse
 
@@ -34,6 +36,11 @@ from bs4 import BeautifulSoup
 
 from app.modules.scraper.base import BaseScraper
 from app.modules.scraper.deg import classify_document
+from app.modules.scraper.ocean import (
+    OCEAN_RESIDENCIA_URL,
+    extract_ocean_residencia_unb_docs,
+)
+from app.modules.scraper.parser import parse_data_interval
 
 logger = logging.getLogger(__name__)
 
@@ -47,10 +54,12 @@ HUB_PIT_INDEX_URL = (
     "programa-de-iniciacao-tecnologica-pit-ebserh-hub-unb"
 )
 HUB_PESQUISA_EDITAIS_URL = f"{HUB_UNB_BASE_URL}/ensino-e-pesquisa/pesquisa/editais"
-HUB_RESIDENCIA_TIC_URL = (
-    f"{HUB_UNB_BASE_URL}/ensino-e-pesquisa/pesquisa/"
-    "projeto-residencia-em-tic-53-1/editais-e-oportunidades"
+HUB_JORNADA_CIENTIFICA_URL = f"{HUB_UNB_BASE_URL}/ensino-e-pesquisa/pesquisa/jornanda-cientifica"
+HUB_RESIDENCIA_TIC_BASE_URL = (
+    f"{HUB_UNB_BASE_URL}/ensino-e-pesquisa/pesquisa/projeto-residencia-em-tic-53-1"
 )
+HUB_RESIDENCIA_TIC_URL = f"{HUB_RESIDENCIA_TIC_BASE_URL}/editais-e-oportunidades"
+HUB_RESIDENCIA_TIC_CURSOS_URL = f"{HUB_RESIDENCIA_TIC_BASE_URL}/cursos-e-atividades-gratuitas"
 HUB_COREMU_TRANSFERENCIA_URL = (
     f"{HUB_UNB_BASE_URL}/ensino-e-pesquisa/ensino/pos-graduacao/cursos/transferencia"
 )
@@ -73,16 +82,34 @@ HUB_PSS_BASE_URL = (
 HUB_CONCURSOS_ANUAIS_BASE_URL = f"{HUB_CONCURSOS_BASE_URL}/concursos"
 HUB_ESTAGIOS_URL = f"{HUB_CONCURSOS_BASE_URL}/estagios"
 
-PSS_YEARS: Tuple[int, ...] = (2026, 2025, 2024, 2023, 2022)
-CONCURSOS_YEARS: Tuple[int, ...] = (2026, 2024, 2023, 2022)
+def _current_year() -> int:
+    """Retorna o ano civil atual em UTC para execuções periódicas."""
+    return datetime.now(timezone.utc).year
+
+
+def _build_pss_years(current_year: Optional[int] = None) -> Tuple[int, ...]:
+    yr = current_year or _current_year()
+    return tuple(range(yr, 2021, -1))
+
+
+def _build_concursos_years(current_year: Optional[int] = None) -> Tuple[int, ...]:
+    yr = current_year or _current_year()
+    return tuple(y for y in range(yr, 2021, -1) if y != 2025)
+
+
+PSS_YEARS: Tuple[int, ...] = _build_pss_years()
+CONCURSOS_YEARS: Tuple[int, ...] = _build_concursos_years()
 
 DEFAULT_TIMEOUT = 20.0
+CACHE_TTL_SECONDS = 300.0
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 Fique-de-Olho/1.0"
 )
 
 DOC_EXTENSIONS = (".pdf", ".doc", ".docx", ".zip", ".odt", ".xlsx", ".xls")
+GUIDE_IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png")
+PLAIN_URL_DOC_RE = re.compile(r"https?://[^\s<>\"')]+?\.(?:pdf|docx?|xlsx?|odt|zip)\b", re.IGNORECASE)
 EDITAL_YEAR_PATTERN = re.compile(r"\b\d{1,4}[./-](20\d{2})\b")
 GENERAL_YEAR_PATTERN = re.compile(r"\b(20\d{2})\b")
 DATE_SLASH_PATTERN = re.compile(r"\b(\d{1,2}/\d{1,2}/20\d{2})\b")
@@ -114,17 +141,19 @@ HUB_PSS_MATCH_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
-# Subpáginas puramente informativas/externas de agências em pesquisa/editais sem edital próprio do HUB
-GENERIC_AGENCY_SLUGS = {
-    "cnpq",
-    "fap-df",
-    "finep",
-    "capes",
-    "proadi-sus",
-    "nih",
-    "oportunidades-de-financiamento-internacional-de-projetos-de-pd-i",
-    "editais-do-centro-de-apoio-ao-desenvolvimento-tecnologico-cdt-unb",
-}
+REGISTRATION_HOST_PATTERNS = (
+    "redcap.ebserh.gov.br",
+    "redcap.link",
+    "sig.ebserh.gov.br/redepesquisa",
+    "forms.office.com",
+    "forms.gle",
+    "docs.google.com/forms",
+    "hospitais.proadi-sus.org.br/editais",
+    "grants.nih.gov",
+    "nih.gov/grants-funding",
+    "gov.uk/international-development-funding",
+    "abdi.com.br/industria40",
+)
 
 PSS_DOC_SUBFOLDER_SLUGS = (
     "edital-normativo",
@@ -160,29 +189,39 @@ def _clean_text(raw: str) -> str:
 
 
 def normalize_govbr_doc_url(url: str, base_url: str = HUBRASIL_BASE_URL) -> str:
-    """Normaliza URLs de documentos no Plone/Gov.br, removendo sufixos '/view' de arquivos binários."""
+    """Normaliza URLs de documentos no Plone/Gov.br, removendo sufixos '/view' ou '/@@images/...'."""
     if not url:
         return ""
     full = urljoin(base_url, url.strip())
+    full = re.sub(r"(\.(?:jpe?g|png))/@@images/.*$", r"\1", full, flags=re.IGNORECASE)
     lower = full.lower()
-    for ext in DOC_EXTENSIONS:
+    for ext in (*DOC_EXTENSIONS, *GUIDE_IMAGE_EXTENSIONS):
         if lower.endswith(f"{ext}/view"):
             return full[:-5]
     return full
 
 
 def is_document_url(url: str) -> bool:
-    """Indica se uma URL aponta para documento anexo (.pdf, .docx, @@download, docman/file, etc.)."""
+    """Indica se uma URL aponta para documento anexo (.pdf, .docx, Liferay /documents/d/, @@download, etc.)."""
     if not url:
         return False
     normalized = normalize_govbr_doc_url(url).lower()
-    parsed_path = urlparse(normalized).path.lower()
+    parsed = urlparse(normalized)
+    parsed_path = parsed.path.lower().rstrip("/")
     if parsed_path.endswith(DOC_EXTENSIONS):
         return True
     if "/@@download/" in parsed_path:
         return True
     if "portal.mec.gov.br/docman/" in normalized and normalized.endswith("/file"):
         return True
+    # Repositórios Liferay de agências de fomento (ex.: FAPDF e FINEP: /documents/d/fap/...-pdf)
+    if "/documents/d/" in parsed_path:
+        return True
+    # Guias visuais e cronogramas oficiais publicados no PIC / PIT do HUB-UnB
+    if parsed_path.endswith(GUIDE_IMAGE_EXTENSIONS):
+        filename = parsed_path.split("/")[-1]
+        if any(k in filename for k in ("guia", "cronograma", "edital", "errata", "retificacao")):
+            return True
     return False
 
 
@@ -197,10 +236,11 @@ def is_hub_relevant_pss(title: str, href: str) -> bool:
     return bool(HUB_PSS_MATCH_PATTERN.search(candidate))
 
 
-def _normalize_date_str(raw_date: str, default_year: int = 2026) -> str:
+def _normalize_date_str(raw_date: str, default_year: Optional[int] = None) -> str:
     """Converte datas brasileiras em texto ou barras para o formato padrão DD/MM/YYYY."""
+    fallback_yr = default_year or _current_year()
     if not raw_date:
-        return f"01/01/{default_year}"
+        return f"01/01/{fallback_yr}"
 
     m_slash = DATE_SLASH_PATTERN.search(raw_date)
     if m_slash:
@@ -224,7 +264,7 @@ def _normalize_date_str(raw_date: str, default_year: int = 2026) -> str:
     if m_iso:
         return f"{m_iso.group(3)}/{m_iso.group(2)}/{m_iso.group(1)}"
 
-    return f"01/01/{default_year}"
+    return f"01/01/{fallback_yr}"
 
 
 def classify_hub_document(title: str, link: str) -> str:
@@ -440,6 +480,18 @@ def classify_hub_edital(titulo: str, url: str = "", texto: str = "") -> Dict[str
             "programa": "Programa de Estágio Ebserh/HUB-UnB",
         }
 
+    if (
+        "residência tecnológica" in combined
+        or "residencia tecnologica" in combined
+        or "projeto-residencia-em-tic" in combined
+        or "ocean unb" in combined
+    ):
+        return {
+            "tipo": "Residência Tecnológica em Saúde Digital",
+            "tipo_edital": "Saúde Digital / Residência Tecnológica Ocean UnB & HUB-UnB",
+            "programa": "Residência Tecnológica em Saúde Digital (Ocean UnB / HUB-UnB)",
+        }
+
     return {
         "tipo": "Pesquisa, Inovação e Saúde Digital",
         "tipo_edital": "Saúde Digital e Fomento / Pesquisa HUB-UnB",
@@ -502,7 +554,188 @@ def extract_docs_from_govbr_html(html: str, page_url: str) -> List[Dict[str, Any
             "tipo": classify_hub_document(raw_title, doc_url),
         })
 
+    # Também captura URLs diretas de documentos (.pdf, .docx) escritas em texto puro no corpo da página
+    core_text = core.get_text(" ", strip=True)
+    for m_plain in PLAIN_URL_DOC_RE.finditer(core_text):
+        plain_doc_url = normalize_govbr_doc_url(m_plain.group(0).rstrip(".,;)"), base_url=page_url)
+        if plain_doc_url in seen_links:
+            continue
+        seen_links.add(plain_doc_url)
+        filename = urlparse(plain_doc_url).path.rstrip("/").split("/")[-1]
+        docs.append({
+            "titulo": filename or "Documento Oficial HUB-UnB",
+            "link": plain_doc_url,
+            "tipo": classify_hub_document(filename, plain_doc_url),
+        })
+
     return docs
+
+
+def _extract_hub_registration_metadata(
+    core: BeautifulSoup,
+    body_text: str,
+    page_url: str,
+    default_year: int,
+) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+    """Extrai `link_inscricao`, `inicio_inscricao` (ISO) e `fim_inscricao` (ISO) do corpo da página."""
+    link_inscricao: Optional[str] = None
+    fallback_external_link: Optional[str] = None
+
+    for a in core.find_all("a", href=True):
+        raw_href = str(a["href"]).strip()
+        if not raw_href or raw_href.startswith(("#", "javascript:", "mailto:")):
+            continue
+        full_href = urljoin(page_url, raw_href)
+        if is_document_url(full_href):
+            continue
+        lower_href = full_href.lower()
+        anchor_text = _clean_text(a.get_text(" ", strip=True)).lower()
+        if any(pat in lower_href for pat in REGISTRATION_HOST_PATTERNS) or any(
+            kw in anchor_text for kw in ("inscrição", "inscricao", "inscreva", "submissão", "submissao", "formulário de inscrição")
+        ):
+            link_inscricao = full_href
+            break
+        if "gov.br/hubrasil" not in lower_href and "gov.br/ebserh" not in lower_href and fallback_external_link is None:
+            fallback_external_link = full_href
+
+    if not link_inscricao and "/pesquisa/editais/" in page_url and fallback_external_link:
+        link_inscricao = fallback_external_link
+
+    inicio_iso: Optional[str] = None
+    fim_iso: Optional[str] = None
+
+    # Procura expressões explícitas de período de inscrições ou submissão
+    insc_patterns = (
+        r"(?:per[íi]odo\s+de\s+)?inscri[çc][õo]es\s*:?\s*(?:de\s+)?([^.|;\n]{6,80})",
+        r"submiss[ãa]o(?:\s+de\s+propostas)?\s*:?\s*(?:de\s+)?([^.|;\n]{6,80})",
+        r"(?:recebe\s+propostas|vig[êe]ncia[^.|;\n]{0,40})\s*(?:at[ée])\s*(\d{1,2}\s+de\s+[a-zçáéíóúãõâêîôû]+(?:\s+de\s+20\d{2})?|\d{1,2}/\d{1,2}/20\d{2})",
+    )
+    for pat in insc_patterns:
+        m_insc = re.search(pat, body_text, re.IGNORECASE)
+        if not m_insc:
+            continue
+        snippet = m_insc.group(1).strip()
+        if re.search(r"20\d{2}", snippet) is None:
+            snippet = f"{snippet} de {default_year}" if "de " in snippet.lower() else f"{snippet}/{default_year}"
+        dt_ini, dt_fim = parse_data_interval(snippet, default_year=default_year)
+        if dt_ini or dt_fim:
+            inicio_iso = dt_ini.date().isoformat() if dt_ini else None
+            fim_iso = dt_fim.date().isoformat() if dt_fim else inicio_iso
+            break
+
+    return link_inscricao, inicio_iso, fim_iso
+
+
+def parse_ocean_unb_oportunidades_table(
+    html: str,
+    page_url: str = HUB_RESIDENCIA_TIC_URL,
+    default_year: Optional[int] = None,
+) -> List[Dict[str, Any]]:
+    """Extrai individualmente cada edital da tabela 'Editais e oportunidades' do Ocean UnB no portal HUB."""
+    soup = BeautifulSoup(html or "", "html.parser")
+    core = soup.find("div", id="content-core") or soup.find("main") or soup
+    fallback_yr = default_year or _current_year()
+    items: List[Dict[str, Any]] = []
+
+    header_map: Dict[str, int] = {}
+    for tr in core.find_all("tr"):
+        cells = tr.find_all(["td", "th"])
+        if len(cells) < 2:
+            continue
+        col_texts = [_clean_text(c.get_text(" ", strip=True)) for c in cells]
+        col_title = col_texts[0]
+        if not col_title:
+            continue
+        if col_title.lower() in ("editais", "edital", "título", "titulo"):
+            for idx, hdr in enumerate(col_texts):
+                h_low = hdr.lower()
+                if "situa" in h_low or "status" in h_low:
+                    header_map["situacao"] = idx
+                elif "per" in h_low or "inscri" in h_low or "prazo" in h_low or "data" in h_low:
+                    header_map["periodo"] = idx
+            continue
+
+        if "situacao" in header_map or "periodo" in header_map:
+            sit_idx = header_map.get("situacao", -1)
+            per_idx = header_map.get("periodo", -1)
+            col_situacao = col_texts[sit_idx] if 0 <= sit_idx < len(col_texts) else ""
+            col_periodo = col_texts[per_idx] if 0 <= per_idx < len(col_texts) else ""
+        else:
+            c1 = col_texts[1] if len(col_texts) >= 2 else ""
+            c2 = col_texts[2] if len(col_texts) >= 3 else ""
+            if re.search(r"\d{1,2}/\d{1,2}", c1) and not re.search(r"\d{1,2}/\d{1,2}", c2):
+                col_periodo, col_situacao = c1, c2
+            else:
+                col_situacao, col_periodo = c1, c2
+
+        a_tag = cells[0].find("a", href=True) or tr.find("a", href=True)
+        row_href = urljoin(page_url, str(a_tag["href"]).strip()) if a_tag else ""
+        if not row_href:
+            slug = re.sub(r"[^a-z0-9]+", "-", col_title.lower()).strip("-")[:60]
+            row_href = f"{page_url.rstrip('/')}#{slug}"
+
+        m_yr = (
+            EDITAL_YEAR_PATTERN.search(col_title)
+            or GENERAL_YEAR_PATTERN.search(col_periodo)
+            or GENERAL_YEAR_PATTERN.search(col_title)
+            or GENERAL_YEAR_PATTERN.search(row_href)
+        )
+        ano = int(m_yr.group(1)) if m_yr else fallback_yr
+
+        periodo_norm = col_periodo
+        if periodo_norm and re.search(r"20\d{2}", periodo_norm) is None:
+            periodo_norm = f"{periodo_norm}/{ano}"
+        dt_ini, dt_fim = parse_data_interval(periodo_norm, default_year=ano)
+        inicio_iso = dt_ini.date().isoformat() if dt_ini else None
+        fim_iso = dt_fim.date().isoformat() if dt_fim else None
+        data_pub = _normalize_date_str(
+            f"{dt_ini.day:02d}/{dt_ini.month:02d}/{dt_ini.year}" if dt_ini else col_periodo,
+            default_year=ano,
+        )
+
+        sit_lower = col_situacao.lower()
+        if any(w in sit_lower for w in ("encerrad", "fechad", "conclu", "finaliz")):
+            status = "fechado"
+        elif any(w in sit_lower for w in ("abert", "andamento", "inscri")):
+            status = "aberto"
+        elif dt_fim and dt_fim.date() < datetime.now(timezone.utc).date():
+            status = "fechado"
+        else:
+            status = "aberto"
+
+        titulo = col_title if "hub" in col_title.lower() or "ocean" in col_title.lower() else f"{col_title} — Ocean UnB / HUB-UnB"
+        cat_info = classify_hub_edital(titulo, url=page_url, texto=col_title)
+        descricao_parts = [
+            f"{titulo}.",
+            "Chamada oficial vinculada ao Projeto de Residência Tecnológica em Saúde Digital / TIC 53 (parceria HUB-UnB, PCTec/UnB e Samsung Ocean UnB).",
+        ]
+        if col_situacao:
+            descricao_parts.append(f"Situação no portal HUB-UnB: {col_situacao}.")
+        if col_periodo:
+            descricao_parts.append(f"Período de inscrições: {col_periodo}.")
+        descricao = " ".join(descricao_parts)
+
+        items.append({
+            "titulo": titulo,
+            "assunto": f"HUB-UnB / Ocean UnB ({cat_info['programa']}) — {titulo}",
+            "tipo": cat_info["tipo"],
+            "tipo_edital": cat_info["tipo_edital"],
+            "programa": cat_info["programa"],
+            "descricao": descricao,
+            "resumo": descricao,
+            "unidade": "HUB-UnB / Ocean UnB",
+            "campus": "Darcy Ribeiro",
+            "link": row_href,
+            "link_inscricao": row_href,
+            "data_publicacao": data_pub,
+            "inicio_inscricao": inicio_iso,
+            "fim_inscricao": fim_iso,
+            "status": status,
+            "ano": ano,
+            "documentos": [],
+        })
+
+    return items
 
 
 def parse_hub_page_as_edital(
@@ -555,11 +788,11 @@ def parse_hub_page_as_edital(
             seen_doc_urls.add(extra["link"])
             docs.append(extra)
 
-    # Descrição limpa do corpo da página
+    # Descrição limpa do corpo da página (preservando informações de bolsas, vigência, público-alvo e prazos)
     paragraphs: List[str] = []
     for p in core.find_all(["p", "li"]):
         txt = _clean_text(p.get_text(" ", strip=True))
-        if len(txt) < 40:
+        if len(txt) < 25:
             continue
         if any(
             skip in txt.lower()
@@ -572,7 +805,7 @@ def parse_hub_page_as_edital(
             continue
         if txt not in paragraphs:
             paragraphs.append(txt)
-            if len(paragraphs) >= 3:
+            if len(paragraphs) >= 6:
                 break
 
     body_text = _clean_text(core.get_text(" ", strip=True))
@@ -581,6 +814,7 @@ def parse_hub_page_as_edital(
         if m_d:
             raw_date = m_d.group(1)
 
+    current_yr = _current_year()
     # Determinação do ano de referência
     ano: Optional[int] = default_year
     if ano is None:
@@ -593,28 +827,43 @@ def parse_hub_page_as_edital(
         if m_yr:
             ano = int(m_yr.group(1))
     if ano is None:
-        ano = 2026
+        ano = current_yr
+
+    link_inscricao, inicio_inscricao, fim_inscricao = _extract_hub_registration_metadata(
+        core=core,
+        body_text=body_text,
+        page_url=page_url,
+        default_year=ano,
+    )
 
     data_publicacao = _normalize_date_str(raw_date, default_year=ano)
-    cat_info = classify_hub_edital(titulo, url=page_url, texto=body_text[:500])
+    cat_info = classify_hub_edital(titulo, url=page_url, texto=body_text[:600])
 
     has_final_doc = any(d.get("tipo") == "resultado_final" for d in docs)
     is_continuous = (
         "transferencia" in page_url
         or "/graduacao/extensao" in page_url
         or "fluxo contínuo" in body_text.lower()
+        or "fluxo continuo" in body_text.lower()
         or "fluxo contínuo" in titulo.lower()
     )
+    today_iso = datetime.now(timezone.utc).date().isoformat()
     if is_continuous:
         status = "aberto"
-    elif has_final_doc or ano < 2025:
+    elif has_final_doc or ano < (current_yr - 1):
+        status = "fechado"
+    elif fim_inscricao and fim_inscricao < today_iso and "/pesquisa/editais/" not in page_url:
         status = "fechado"
     else:
         status = "aberto"
 
     descricao = (
-        " ".join(paragraphs[:2]).strip()
+        " ".join(paragraphs[:5]).strip()
         or f"Edital e documentação oficial do Hospital Universitário de Brasília (HUB-UnB/Ebserh) no âmbito de {cat_info['programa']}: {titulo}."
+    )
+    resumo = (
+        " ".join(paragraphs[:2]).strip()
+        or descricao
     )
     assunto = f"HUB-UnB / Ebserh ({cat_info['programa']}) — {titulo}"
 
@@ -625,11 +874,14 @@ def parse_hub_page_as_edital(
         "tipo_edital": cat_info["tipo_edital"],
         "programa": cat_info["programa"],
         "descricao": descricao,
-        "resumo": descricao,
+        "resumo": resumo[:1000],
         "unidade": "HUB-UnB",
         "campus": "Darcy Ribeiro",
         "link": page_url,
+        "link_inscricao": link_inscricao or page_url,
         "data_publicacao": data_publicacao,
+        "inicio_inscricao": inicio_inscricao,
+        "fim_inscricao": fim_inscricao,
         "status": status,
         "ano": ano,
         "documentos": docs,
@@ -742,9 +994,29 @@ def extract_enare_fgv_publicacoes(
 class HUBScraper(BaseScraper):
     """Implementação do scraper para o Hospital Universitário de Brasília (HUB-UnB / Ebserh)."""
 
-    def __init__(self, timeout: float = DEFAULT_TIMEOUT) -> None:
+    def __init__(
+        self,
+        timeout: float = DEFAULT_TIMEOUT,
+        cache_ttl_seconds: float = CACHE_TTL_SECONDS,
+    ) -> None:
         self.timeout = timeout
+        self.cache_ttl_seconds = cache_ttl_seconds
         self._url_to_docs_cache: Dict[str, List[Dict[str, Any]]] = {}
+        self._cache_timestamps: Dict[str, float] = {}
+
+    def _cache_put(self, url: str, docs: List[Dict[str, Any]]) -> None:
+        self._url_to_docs_cache[url] = list(docs)
+        self._cache_timestamps[url] = time.monotonic()
+
+    def _cache_get(self, url: str) -> Optional[List[Dict[str, Any]]]:
+        if url not in self._url_to_docs_cache:
+            return None
+        ts = self._cache_timestamps.get(url)
+        if ts is not None and (time.monotonic() - ts) > self.cache_ttl_seconds:
+            self._url_to_docs_cache.pop(url, None)
+            self._cache_timestamps.pop(url, None)
+            return None
+        return self._url_to_docs_cache[url]
 
     @property
     def orgao_origem(self) -> str:
@@ -844,13 +1116,18 @@ class HUBScraper(BaseScraper):
         Returns:
             Lista padronizada de editais do HUB-UnB.
         """
+        current_yr = _current_year()
+        # Limpa cache em memória a cada ciclo periódico para garantir atualização de documentos
+        self._url_to_docs_cache.clear()
+        self._cache_timestamps.clear()
+
         editais: List[Dict[str, Any]] = []
         seen_links = set()
 
         def _register(item: Optional[Dict[str, Any]]) -> None:
             if not item or not item.get("link"):
                 return
-            self._url_to_docs_cache[item["link"]] = item.get("documentos", [])
+            self._cache_put(item["link"], item.get("documentos", []))
             if year is not None and item.get("ano") != year:
                 return
             if item["link"] not in seen_links:
@@ -890,81 +1167,93 @@ class HUBScraper(BaseScraper):
                     )
                     candidate_targets.append((f"{pit_prefix}{title}", link, None, False))
 
-                # 2. Residência Médica (COREME) e Multiprofissional (COREMU) — ENARE 2026 (FGV + Gov.br) + Transferências
+                # 2. Residência Médica (COREME) e Multiprofissional (COREMU) — ENARE (FGV + Gov.br) + Transferências
                 fgv_normative_docs: List[Dict[str, Any]] = []
-                if year in (None, 2026):
-                    fgv_resp = self._safe_get(client, FGV_ENARE_2026_PUBLICACOES_URL)
-                    if fgv_resp:
-                        fgv_pubs = extract_enare_fgv_publicacoes(fgv_resp.text, base_url=str(fgv_resp.url))
-                        med_docs = [
-                            {"titulo": p["titulo"], "link": p["link"], "tipo": p["tipo"]}
-                            for p in fgv_pubs
-                            if any(d in p.get("destinatarios", []) for d in ("medica-acesso-direto", "medica-pre-requisito"))
-                        ]
-                        multi_docs = [
-                            {"titulo": p["titulo"], "link": p["link"], "tipo": p["tipo"]}
-                            for p in fgv_pubs
-                            if "multi-uniprofissional" in p.get("destinatarios", [])
-                        ]
-                        fgv_normative_docs = [
-                            {"titulo": p["titulo"], "link": p["link"], "tipo": p["tipo"]}
-                            for p in fgv_pubs
-                            if p.get("tipo_origem") in ("edital", "retificacao")
-                        ]
-                        latest_med_dt = next((p["data_publicacao"] for p in fgv_pubs if p.get("data_publicacao")), "2026-06-03")
-                        if med_docs:
-                            _register({
-                                "titulo": "Residência Médica (COREME / ENARE 2026) — Seleção Unificada HUB-UnB",
-                                "assunto": "HUB-UnB / Ebserh (Residência Médica HUB-UnB — COREME / ENARE 2026)",
-                                "tipo": "Residência Médica (COREME)",
-                                "tipo_edital": "Saúde / Residência Médica COREME",
-                                "programa": "Residência Médica HUB-UnB (COREME / ENARE)",
-                                "descricao": (
-                                    "Processo seletivo unificado do Exame Nacional de Residência (ENARE 2026 / FGV / HU Brasil) "
-                                    "para ingresso nos programas de Residência Médica (Acesso Direto e Pré-Requisito — COREME) "
-                                    "do Hospital Universitário de Brasília (HUB-UnB)."
-                                ),
-                                "resumo": (
-                                    "Processo seletivo unificado do Exame Nacional de Residência (ENARE 2026 / FGV / HU Brasil) "
-                                    "para ingresso nos programas de Residência Médica (Acesso Direto e Pré-Requisito — COREME) "
-                                    "do Hospital Universitário de Brasília (HUB-UnB)."
-                                ),
-                                "unidade": "HUB-UnB",
-                                "campus": "Darcy Ribeiro",
-                                "link": f"{FGV_ENARE_2026_PUBLICACOES_URL}#residencia-medica",
-                                "data_publicacao": _normalize_date_str(latest_med_dt, default_year=2026),
-                                "status": "aberto",
-                                "ano": 2026,
-                                "documentos": med_docs,
-                            })
-                        if multi_docs:
-                            _register({
-                                "titulo": (
-                                    "Residência Multiprofissional e em Área Profissional da Saúde "
-                                    "(COREMU / ENARE 2026) — Seleção Unificada HUB-UnB"
-                                ),
-                                "assunto": "HUB-UnB / Ebserh (Residência Multiprofissional HUB-UnB — COREMU / ENARE 2026)",
-                                "tipo": "Residência Multiprofissional em Saúde (COREMU)",
-                                "tipo_edital": "Saúde / Residência Multiprofissional COREMU",
-                                "programa": "Residência Multiprofissional HUB-UnB (COREMU / ENARE)",
-                                "descricao": (
-                                    "Processo seletivo unificado do Exame Nacional de Residência (ENARE 2026 / FGV / HU Brasil) "
-                                    "para ingresso nos programas de Residência Multiprofissional e Uniprofissional em Saúde "
-                                    "(COREMU) do Hospital Universitário de Brasília (HUB-UnB)."
-                                ),
-                                "resumo": (
-                                    "Processo seletivo unificado do Exame Nacional de Residência (ENARE 2026 / FGV / HU Brasil) "
-                                    "para ingresso nos programas de Residência Multiprofissional e Uniprofissional em Saúde "
-                                    "(COREMU) do Hospital Universitário de Brasília (HUB-UnB)."
-                                ),
-                                "unidade": "HUB-UnB",
-                                "campus": "Darcy Ribeiro",
-                                "link": f"{FGV_ENARE_2026_PUBLICACOES_URL}#residencia-multiprofissional",
-                                "data_publicacao": _normalize_date_str(latest_med_dt, default_year=2026),
-                                "status": "aberto",
-                                "ano": 2026,
-                                "documentos": multi_docs,
-                            })
+                fgv_candidate_years = [year] if year is not None else [current_yr, current_yr - 1]
+                for enare_yr in fgv_candidate_years:
+                    fgv_pub_url = f"https://enare{enare_yr}.conhecimento.fgv.br/publicacoes/"
+                    fgv_resp = self._safe_get(client, fgv_pub_url)
+                    if not fgv_resp:
+                        continue
+                    fgv_pubs = extract_enare_fgv_publicacoes(fgv_resp.text, base_url=str(fgv_resp.url))
+                    med_docs = [
+                        {"titulo": p["titulo"], "link": p["link"], "tipo": p["tipo"]}
+                        for p in fgv_pubs
+                        if any(d in p.get("destinatarios", []) for d in ("medica-acesso-direto", "medica-pre-requisito"))
+                    ]
+                    multi_docs = [
+                        {"titulo": p["titulo"], "link": p["link"], "tipo": p["tipo"]}
+                        for p in fgv_pubs
+                        if "multi-uniprofissional" in p.get("destinatarios", [])
+                    ]
+                    fgv_normative_docs = [
+                        {"titulo": p["titulo"], "link": p["link"], "tipo": p["tipo"]}
+                        for p in fgv_pubs
+                        if p.get("tipo_origem") in ("edital", "retificacao")
+                    ]
+                    latest_med_dt = next(
+                        (p["data_publicacao"] for p in fgv_pubs if p.get("data_publicacao")),
+                        f"{enare_yr}-06-03",
+                    )
+                    med_final = any(d["tipo"] == "resultado_final" for d in med_docs)
+                    multi_final = any(d["tipo"] == "resultado_final" for d in multi_docs)
+                    if med_docs:
+                        _register({
+                            "titulo": f"Residência Médica (COREME / ENARE {enare_yr}) — Seleção Unificada HUB-UnB",
+                            "assunto": f"HUB-UnB / Ebserh (Residência Médica HUB-UnB — COREME / ENARE {enare_yr})",
+                            "tipo": "Residência Médica (COREME)",
+                            "tipo_edital": "Saúde / Residência Médica COREME",
+                            "programa": "Residência Médica HUB-UnB (COREME / ENARE)",
+                            "descricao": (
+                                f"Processo seletivo unificado do Exame Nacional de Residência (ENARE {enare_yr} / FGV / HU Brasil) "
+                                "para ingresso nos programas de Residência Médica (Acesso Direto e Pré-Requisito — COREME) "
+                                "do Hospital Universitário de Brasília (HUB-UnB)."
+                            ),
+                            "resumo": (
+                                f"Processo seletivo unificado do Exame Nacional de Residência (ENARE {enare_yr} / FGV / HU Brasil) "
+                                "para ingresso nos programas de Residência Médica (Acesso Direto e Pré-Requisito — COREME) "
+                                "do Hospital Universitário de Brasília (HUB-UnB)."
+                            ),
+                            "unidade": "HUB-UnB",
+                            "campus": "Darcy Ribeiro",
+                            "link": f"{fgv_pub_url}#residencia-medica",
+                            "link_inscricao": fgv_pub_url,
+                            "data_publicacao": _normalize_date_str(latest_med_dt, default_year=enare_yr),
+                            "status": "fechado" if (med_final or enare_yr < current_yr) else "aberto",
+                            "ano": enare_yr,
+                            "documentos": med_docs,
+                        })
+                    if multi_docs:
+                        _register({
+                            "titulo": (
+                                f"Residência Multiprofissional e em Área Profissional da Saúde "
+                                f"(COREMU / ENARE {enare_yr}) — Seleção Unificada HUB-UnB"
+                            ),
+                            "assunto": f"HUB-UnB / Ebserh (Residência Multiprofissional HUB-UnB — COREMU / ENARE {enare_yr})",
+                            "tipo": "Residência Multiprofissional em Saúde (COREMU)",
+                            "tipo_edital": "Saúde / Residência Multiprofissional COREMU",
+                            "programa": "Residência Multiprofissional HUB-UnB (COREMU / ENARE)",
+                            "descricao": (
+                                f"Processo seletivo unificado do Exame Nacional de Residência (ENARE {enare_yr} / FGV / HU Brasil) "
+                                "para ingresso nos programas de Residência Multiprofissional e Uniprofissional em Saúde "
+                                "(COREMU) do Hospital Universitário de Brasília (HUB-UnB)."
+                            ),
+                            "resumo": (
+                                f"Processo seletivo unificado do Exame Nacional de Residência (ENARE {enare_yr} / FGV / HU Brasil) "
+                                "para ingresso nos programas de Residência Multiprofissional e Uniprofissional em Saúde "
+                                "(COREMU) do Hospital Universitário de Brasília (HUB-UnB)."
+                            ),
+                            "unidade": "HUB-UnB",
+                            "campus": "Darcy Ribeiro",
+                            "link": f"{fgv_pub_url}#residencia-multiprofissional",
+                            "link_inscricao": fgv_pub_url,
+                            "data_publicacao": _normalize_date_str(latest_med_dt, default_year=enare_yr),
+                            "status": "fechado" if (multi_final or enare_yr < current_yr) else "aberto",
+                            "ano": enare_yr,
+                            "documentos": multi_docs,
+                        })
+                    if med_docs or multi_docs:
+                        break
 
                 enare_resp = self._safe_get(client, HUB_ENARE_URL)
                 if enare_resp:
@@ -973,7 +1262,7 @@ class HUBScraper(BaseScraper):
                         str(enare_resp.url),
                         override_title="Exame Nacional de Residência (ENARE / HUB-UnB — COREME e COREMU)",
                         extra_docs=fgv_normative_docs,
-                        default_year=2026,
+                        default_year=current_yr,
                     )
                     _register(enare_item)
 
@@ -1001,7 +1290,7 @@ class HUBScraper(BaseScraper):
                     (
                         "Edital/Normas de Transferência — Residência Multiprofissional em Saúde (COREMU/HUB-UnB)",
                         HUB_COREMU_TRANSFERENCIA_URL,
-                        2026,
+                        current_yr,
                         False,
                     )
                 )
@@ -1009,7 +1298,7 @@ class HUBScraper(BaseScraper):
                     (
                         "Edital/Normas de Transferência — Residência Médica (COREME/HUB-UnB)",
                         HUB_COREME_TRANSFERENCIA_URL,
-                        2026,
+                        current_yr,
                         False,
                     )
                 )
@@ -1017,12 +1306,15 @@ class HUBScraper(BaseScraper):
                     (
                         "Fluxo Contínuo de Submissão — Atividades e Projetos de Extensão Universitária no HUB-UnB",
                         HUB_EXTENSAO_URL,
-                        2026,
+                        current_yr,
                         False,
                     )
                 )
 
-                # 3. Pesquisa, Inovação e Saúde Digital no HUB-UnB (Rede HU+, Saúde Digital, Residência TIC)
+                # 3. Pesquisa, Inovação e Saúde Digital no HUB-UnB:
+                #    Coleta integral de todas as subpáginas de `pesquisa/editais`
+                #    (Concurso de Inovação em Saúde Digital, Rede HU+, CNPq, Mulheres na Ciência,
+                #    FAP/DF, FINEP, CAPES, Editais CDT-UnB, PROADI-SUS, Financiamento Internacional e NIH)
                 pesq_resp = self._safe_get(client, HUB_PESQUISA_EDITAIS_URL)
                 if pesq_resp:
                     for p_title, p_url in extract_subpage_links(
@@ -1030,29 +1322,79 @@ class HUBScraper(BaseScraper):
                         str(pesq_resp.url),
                         path_must_contain="/pesquisa/editais/",
                     ):
-                        slug = urlparse(p_url).path.rstrip("/").split("/")[-1].lower()
-                        if slug in GENERIC_AGENCY_SLUGS:
-                            continue
-                        candidate_targets.append((f"{p_title} — HUB-UnB", p_url, None, False))
+                        title_label = p_title if "hub" in p_title.lower() else f"{p_title} — Editais e Fomento HUB-UnB"
+                        candidate_targets.append((title_label, p_url, None, False))
+
+                # 3b. Jornada Científica do HUB-UnB (edição mais recente / edições com normas e submissão)
+                jornada_pages = self._discover_edition_pages(
+                    client,
+                    HUB_JORNADA_CIENTIFICA_URL,
+                    "/jornanda-cientifica/",
+                )
+                for j_title, j_url in jornada_pages:
+                    if j_url.rstrip("/").endswith("jornada-cientifica-do-hub-1"):
+                        continue
+                    # Prioriza as edições mais recentes da Jornada Científica (evita sobrecarregar dezenas de anos antigos)
+                    if max_pss_years is not None and j_url != jornada_pages[-1][1]:
+                        continue
+                    if j_url in [p[1] for p in jornada_pages[-2:]]:
+                        candidate_targets.append((f"{j_title} — HUB-UnB", j_url, None, False))
+
+                # 3c. Ocean UnB (Projeto Residência em TIC 53) — Aba "Editais e oportunidades" + Residência OceanBrasil
+                ocean_res_docs: List[Dict[str, Any]] = []
+                ocean_res_resp = self._safe_get(client, OCEAN_RESIDENCIA_URL)
+                if ocean_res_resp:
+                    ocean_res_docs = extract_ocean_residencia_unb_docs(
+                        ocean_res_resp.text,
+                        base_url=str(ocean_res_resp.url),
+                    )
 
                 tic_resp = self._safe_get(client, HUB_RESIDENCIA_TIC_URL)
                 if tic_resp:
-                    tic_docs = extract_docs_from_govbr_html(tic_resp.text, str(tic_resp.url))
-                    # Também registra chamadas diretas do Projeto Residência em TIC 53 / Saúde Digital HUB-UnB
-                    tic_item = parse_hub_page_as_edital(
+                    tic_page_docs = extract_docs_from_govbr_html(tic_resp.text, str(tic_resp.url))
+                    table_items = parse_ocean_unb_oportunidades_table(
                         tic_resp.text,
-                        str(tic_resp.url),
-                        override_title="Editais e Oportunidades — Residência Tecnológica em Saúde Digital (HUB-UnB / Ocean)",
-                        extra_docs=tic_docs,
-                        default_year=2026,
+                        page_url=str(tic_resp.url),
+                        default_year=current_yr,
                     )
-                    _register(tic_item)
+                    if table_items:
+                        for row_item in table_items:
+                            row_docs: List[Dict[str, Any]] = list(tic_page_docs)
+                            seen_row_docs = {d["link"] for d in row_docs}
+                            # Busca PDFs oficiais na página de destino (ex.: pctec.unb.br/edital-...)
+                            if row_item["link"] and not row_item["link"].startswith(HUB_RESIDENCIA_TIC_URL):
+                                ext_resp = self._safe_get(client, row_item["link"])
+                                if ext_resp:
+                                    for d in extract_docs_from_govbr_html(ext_resp.text, str(ext_resp.url)):
+                                        if d["link"] not in seen_row_docs:
+                                            seen_row_docs.add(d["link"])
+                                            row_docs.append(d)
+                            # Anexa PDFs UnB/DF hospedados em residencia.oceanbrasil.com ao edital de Residência Ocean UnB
+                            if "ocean" in row_item["titulo"].lower() or "saúde digital" in row_item["titulo"].lower():
+                                for od in ocean_res_docs:
+                                    if od["link"] not in seen_row_docs:
+                                        seen_row_docs.add(od["link"])
+                                        row_docs.append(od)
+                            row_item["documentos"] = row_docs
+                            if any(d.get("tipo") == "resultado_final" for d in row_docs):
+                                row_item["status"] = "fechado"
+                            _register(row_item)
+                    else:
+                        tic_item = parse_hub_page_as_edital(
+                            tic_resp.text,
+                            str(tic_resp.url),
+                            override_title="Editais e Oportunidades — Residência Tecnológica em Saúde Digital (HUB-UnB / Ocean UnB)",
+                            extra_docs=[*tic_page_docs, *ocean_res_docs],
+                            default_year=current_yr,
+                        )
+                        _register(tic_item)
 
                 # 4. Processos Seletivos Simplificados (PSS) filtrados exclusivamente para HUB-UnB / Nacional / Sede
+                dynamic_pss_years = _build_pss_years(current_yr)
                 pss_years_to_check = (
                     (year,)
-                    if year is not None and year in PSS_YEARS
-                    else PSS_YEARS[:max_pss_years] if max_pss_years is not None else PSS_YEARS
+                    if year is not None and year in dynamic_pss_years
+                    else dynamic_pss_years[:max_pss_years] if max_pss_years is not None else dynamic_pss_years
                 )
                 for pss_yr in pss_years_to_check:
                     pss_list_url = f"{HUB_PSS_BASE_URL}/{pss_yr}"
@@ -1068,10 +1410,11 @@ class HUBScraper(BaseScraper):
                             candidate_targets.append((pss_title, pss_url, pss_yr, True))
 
                 # 5. Concursos Públicos Nacionais Ebserh (vagas efetivas para o HUB-UnB, excluindo outros HUs isolados)
+                dynamic_conc_years = _build_concursos_years(current_yr)
                 conc_years_to_check = (
                     (year,)
-                    if year is not None and year in CONCURSOS_YEARS
-                    else CONCURSOS_YEARS[:max_pss_years] if max_pss_years is not None else CONCURSOS_YEARS
+                    if year is not None and year in dynamic_conc_years
+                    else dynamic_conc_years[:max_pss_years] if max_pss_years is not None else dynamic_conc_years
                 )
                 for conc_yr in conc_years_to_check:
                     conc_url = f"{HUB_CONCURSOS_ANUAIS_BASE_URL}/{conc_yr}"
@@ -1178,8 +1521,9 @@ class HUBScraper(BaseScraper):
         if not edital_url:
             return []
 
-        if edital_url in self._url_to_docs_cache:
-            return self._url_to_docs_cache[edital_url]
+        cached = self._cache_get(edital_url)
+        if cached is not None:
+            return cached
 
         if is_document_url(edital_url):
             clean_url = normalize_govbr_doc_url(edital_url)
@@ -1217,7 +1561,7 @@ class HUBScraper(BaseScraper):
                         ]
                     else:
                         docs = [{"titulo": p["titulo"], "link": p["link"], "tipo": p["tipo"]} for p in fgv_pubs]
-                    self._url_to_docs_cache[edital_url] = docs
+                    self._cache_put(edital_url, docs)
                     return docs
 
                 docs = extract_docs_from_govbr_html(resp.text, str(resp.url))
@@ -1233,7 +1577,7 @@ class HUBScraper(BaseScraper):
                             if tab_doc["link"] not in seen:
                                 seen.add(tab_doc["link"])
                                 docs.append(tab_doc)
-                self._url_to_docs_cache[edital_url] = docs
+                self._cache_put(edital_url, docs)
                 return docs
         except Exception as exc:
             logger.warning(f"Erro ao extrair documentos do HUB-UnB em {edital_url}: {exc}")

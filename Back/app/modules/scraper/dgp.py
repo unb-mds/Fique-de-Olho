@@ -192,7 +192,7 @@ def parse_capacitacao_eventos_externos_html(
         if not links:
             continue
 
-        m_year = re.search(r"\b(202\d)\b", text)
+        m_year = re.search(r"\b(20\d{2})\b", text)
         ano = int(m_year.group(1)) if m_year else None
 
         m_edital = re.search(

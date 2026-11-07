@@ -12,10 +12,12 @@ Fontes oficiais:
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import html as html_lib
 import logging
 import re
-from typing import Any, Dict, List, Optional
+import time
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urljoin
 
 import httpx
@@ -36,10 +38,16 @@ FINATEC_EDITAIS_HTML_URL = f"{FINATEC_BASE_URL}/editais/"
 FINATEC_EDITAIS_CATEGORY_IDS = "16,15,9"
 
 DEFAULT_TIMEOUT = 20.0
+CACHE_TTL_SECONDS = 300.0
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Fique-de-Olho/1.0"
 
 EDITAL_YEAR_PATTERN = re.compile(r"\b\d{1,4}/(20\d{2})\b")
 GENERAL_YEAR_PATTERN = re.compile(r"\b(20\d{2})\b")
+
+
+def _current_year() -> int:
+    """Retorna o ano corrente em UTC para execuções periódicas."""
+    return datetime.now(timezone.utc).year
 
 
 def _clean_html_text(raw: str) -> str:
@@ -171,8 +179,9 @@ def parse_finatec_content_html(content_html: str, base_url: str = FINATEC_BASE_U
     }
 
 
-def parse_finatec_wp_item(item: Dict[str, Any]) -> Dict[str, Any]:
+def parse_finatec_wp_item(item: Dict[str, Any], reference_year: Optional[int] = None) -> Dict[str, Any]:
     """Converte um item JSON da API REST WordPress da Finatec em dicionário padronizado de edital."""
+    curr_year = reference_year or _current_year()
     raw_title = (item.get("title") or {}).get("rendered") if isinstance(item.get("title"), dict) else str(item.get("title") or "")
     titulo = _clean_html_text(raw_title) or "Edital Finatec"
     link = str(item.get("link") or "").strip()
@@ -200,8 +209,8 @@ def parse_finatec_wp_item(item: Dict[str, Any]) -> Dict[str, Any]:
     documentos = parsed_content["documentos"]
     has_final = parsed_content["has_final"]
 
-    # Status: fechado se já possui Resultado Final ou se é de anos anteriores a 2026
-    if has_final or (ano is not None and ano < 2026):
+    # Status: fechado se já possui Resultado Final ou se é de anos anteriores ao ano corrente
+    if has_final or (ano is not None and ano < curr_year):
         status = "fechado"
     else:
         status = "aberto"
@@ -238,8 +247,13 @@ def parse_finatec_wp_item(item: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def parse_finatec_editais_html(html: str, base_url: str = FINATEC_BASE_URL) -> List[Dict[str, Any]]:
+def parse_finatec_editais_html(
+    html: str,
+    base_url: str = FINATEC_BASE_URL,
+    reference_year: Optional[int] = None,
+) -> List[Dict[str, Any]]:
     """Extrai editais a partir da página HTML de arquivo /editais/ da Finatec."""
+    curr_year = reference_year or _current_year()
     soup = BeautifulSoup(html or "", "html.parser")
     main = soup.find("main") or soup
     editais: List[Dict[str, Any]] = []
@@ -276,7 +290,7 @@ def parse_finatec_editais_html(html: str, base_url: str = FINATEC_BASE_URL) -> L
                 "unidade": "FINATEC",
                 "link": link,
                 "data_publicacao": f"{ano}-01-01" if ano else "",
-                "status": "aberto" if (ano and ano >= 2026) else "fechado",
+                "status": "aberto" if (ano and ano >= curr_year) else "fechado",
                 "ano": ano,
                 "documentos": [],
             })
@@ -307,7 +321,7 @@ def parse_finatec_editais_html(html: str, base_url: str = FINATEC_BASE_URL) -> L
         ano = int(m_year.group(1)) if m_year else (int(data_pub[:4]) if data_pub and data_pub[:4].isdigit() else None)
 
         cat_info = classify_finatec_edital(titulo, class_list=art.get("class", []))
-        status = "fechado" if (parsed_content["has_final"] or (ano is not None and ano < 2026)) else "aberto"
+        status = "fechado" if (parsed_content["has_final"] or (ano is not None and ano < curr_year)) else "aberto"
         assunto = f"Seleção Finatec ({cat_info['tipo']}) - {titulo}"
         descricao = f"Edital publicado pela FINATEC (Fundação de Empreendimentos Científicos e Tecnológicos da UnB): {titulo}."
 
@@ -332,14 +346,29 @@ def parse_finatec_editais_html(html: str, base_url: str = FINATEC_BASE_URL) -> L
 class FinatecScraper(BaseScraper):
     """Implementação do scraper para a FINATEC (Fundação de Projetos da UnB)."""
 
-    def __init__(self, timeout: float = DEFAULT_TIMEOUT) -> None:
+    def __init__(self, timeout: float = DEFAULT_TIMEOUT, cache_ttl: float = CACHE_TTL_SECONDS) -> None:
         self.timeout = timeout
-        self._url_to_docs_cache: Dict[str, List[Dict[str, Any]]] = {}
+        self.cache_ttl = cache_ttl
+        self._url_to_docs_cache: Dict[str, Tuple[float, List[Dict[str, Any]]]] = {}
 
     @property
     def orgao_origem(self) -> str:
         """Identificador institucional do órgão."""
         return "FINATEC"
+
+    def _cache_set(self, url: str, docs: List[Dict[str, Any]]) -> None:
+        if url:
+            self._url_to_docs_cache[url] = (time.monotonic(), docs)
+
+    def _cache_get(self, url: str) -> Optional[List[Dict[str, Any]]]:
+        entry = self._url_to_docs_cache.get(url)
+        if not entry:
+            return None
+        ts, docs = entry
+        if (time.monotonic() - ts) > self.cache_ttl:
+            self._url_to_docs_cache.pop(url, None)
+            return None
+        return docs
 
     def fetch_editais(
         self,
@@ -357,6 +386,7 @@ class FinatecScraper(BaseScraper):
         Returns:
             Lista de dicionários padronizados de editais da FINATEC.
         """
+        self._url_to_docs_cache.clear()
         editais: List[Dict[str, Any]] = []
         seen_links = set()
 
@@ -394,7 +424,7 @@ class FinatecScraper(BaseScraper):
                     for item in items:
                         edital = parse_finatec_wp_item(item)
                         if edital["link"]:
-                            self._url_to_docs_cache[edital["link"]] = edital["documentos"]
+                            self._cache_set(edital["link"], edital["documentos"])
                         if edital.get("ano"):
                             page_years.append(edital["ano"])
 
@@ -405,7 +435,7 @@ class FinatecScraper(BaseScraper):
                             seen_links.add(edital["link"])
                             editais.append(edital)
 
-                    # Otimização cronológica: se filtramos por ano e a página inteira já é mais antiga que (year - 1)
+                    # Otimização cronológica: se filtramos por ano e a página inteira já é mais antiga que year
                     if year is not None and page_years and max(page_years) < year:
                         break
 
@@ -424,7 +454,7 @@ class FinatecScraper(BaseScraper):
                                 for post in posts:
                                     edital = parse_finatec_wp_item(post)
                                     if edital["link"]:
-                                        self._url_to_docs_cache[edital["link"]] = edital["documentos"]
+                                        self._cache_set(edital["link"], edital["documentos"])
 
                                     if year is not None and edital.get("ano") is not None and edital["ano"] != year:
                                         continue
@@ -446,8 +476,9 @@ class FinatecScraper(BaseScraper):
         if not edital_url:
             return []
 
-        if edital_url in self._url_to_docs_cache:
-            return self._url_to_docs_cache[edital_url]
+        cached = self._cache_get(edital_url)
+        if cached is not None:
+            return cached
 
         if edital_url.lower().endswith(".pdf"):
             return [{
@@ -467,7 +498,7 @@ class FinatecScraper(BaseScraper):
                 if resp.status_code == 200:
                     parsed = parse_finatec_content_html(resp.text, base_url=str(resp.url))
                     docs = parsed["documentos"]
-                    self._url_to_docs_cache[edital_url] = docs
+                    self._cache_set(edital_url, docs)
                     return docs
         except Exception as exc:
             logger.warning(f"Erro ao extrair documentos da FINATEC em {edital_url}: {exc}")

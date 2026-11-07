@@ -17,10 +17,12 @@ Fontes oficiais:
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
 import html as html_lib
 import logging
 import re
-from typing import Any, Dict, List, Optional
+import time
+from typing import Any, Dict, List, Optional, Tuple
 import unicodedata
 from urllib.parse import urljoin, urlparse
 
@@ -38,6 +40,7 @@ FAV_ESTAGIO_URL = "https://fav.unb.br/estagio/"
 FAV_EDITAIS_API_URL = "https://fav.unb.br/wp-json/wp/v2/posts?search=edital&per_page=20"
 
 DEFAULT_TIMEOUT = 20.0
+CACHE_TTL_SECONDS = 300.0
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 Fique-de-Olho/1.0"
@@ -72,6 +75,12 @@ MESES_PT_NUM = {
     "novembro": "11",
     "dezembro": "12",
 }
+
+
+def _current_year() -> int:
+    """Retorna o ano corrente em UTC para execuções periódicas."""
+    return datetime.now(timezone.utc).year
+
 
 # Páginas puramente institucionais/estáticas do Joomla da FAL que não configuram
 # oportunidade acadêmica, estágio, laboratório prático, chamada ou projeto
@@ -162,10 +171,11 @@ def sanitize_fal_text(raw: str) -> str:
     return " ".join(safe_sentences).strip()
 
 
-def _normalize_date_str(raw_date: str, default_year: int = 2026) -> str:
+def _normalize_date_str(raw_date: str, default_year: Optional[int] = None) -> str:
     """Converte datas ISO, por extenso ou com barras para o formato padrão DD/MM/YYYY."""
+    eff_year = default_year or _current_year()
     if not raw_date:
-        return f"01/01/{default_year}"
+        return f"01/01/{eff_year}"
 
     m_iso = DATE_ISO_PATTERN.search(raw_date)
     if m_iso:
@@ -189,7 +199,7 @@ def _normalize_date_str(raw_date: str, default_year: int = 2026) -> str:
             year = m_parts.group(3)
             return f"{day:02d}/{month}/{year}"
 
-    return f"01/01/{default_year}"
+    return f"01/01/{eff_year}"
 
 
 def is_fal_static_institutional(title: str, href: str) -> bool:
@@ -528,8 +538,10 @@ def parse_fal_article_html(
     default_title: str = "",
     header_date: str = "",
     intro_html: str = "",
+    reference_year: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Extrai descrição higienizada, documentos, links de inscrição e categorias de um artigo da FAL/FAV."""
+    curr_year = reference_year or _current_year()
     soup = BeautifulSoup(html or "", "html.parser")
     for chrome in soup.select("header, footer, nav"):
         chrome.decompose()
@@ -582,6 +594,7 @@ def parse_fal_article_html(
     documentos: List[Dict[str, Any]] = []
     seen_docs = set()
     link_inscricao = ""
+    has_final = False
 
     for root in search_roots:
         for a in root.find_all("a", href=True):
@@ -634,10 +647,13 @@ def parse_fal_article_html(
                 if full_link not in seen_docs:
                     seen_docs.add(full_link)
                     doc_title = _clean_fal_doc_title(link_text, full_link)
+                    doc_type = classify_fal_document(doc_title, full_link)
+                    if doc_type == "resultado_final":
+                        has_final = True
                     documentos.append({
                         "titulo": doc_title,
                         "link": full_link,
-                        "tipo": classify_fal_document(doc_title, full_link),
+                        "tipo": doc_type,
                     })
 
     # Data de publicação e ano
@@ -659,10 +675,15 @@ def parse_fal_article_html(
     if m_yr:
         ano = int(m_yr.group(1))
     else:
-        ano = 2026
+        ano = curr_year
 
     data_publicacao = _normalize_date_str(raw_date, default_year=ano)
-    status = "aberto" if (is_continuous or ano >= 2025) else "fechado"
+    if is_continuous:
+        status = "aberto"
+    elif has_final or ano < (curr_year - 1):
+        status = "fechado"
+    else:
+        status = "aberto"
 
     descricao = (
         " ".join(paragraphs[:2]).strip()
@@ -690,7 +711,7 @@ def parse_fal_article_html(
     }
 
 
-def parse_fav_wp_edital_post(post: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+def parse_fav_wp_edital_post(post: Dict[str, Any], reference_year: Optional[int] = None) -> Optional[Dict[str, Any]]:
     """Converte um post da API WordPress da FAV/FAL em item de edital caso seja chamada/seleção oficial."""
     if not isinstance(post, dict):
         return None
@@ -748,20 +769,36 @@ def parse_fav_wp_edital_post(post: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         link,
         default_title=effective_title,
         header_date=raw_date,
+        reference_year=reference_year,
     )
 
 
 class FALScraper(BaseScraper):
     """Implementação do scraper para a Fazenda Água Limpa da UnB (FAL/UnB)."""
 
-    def __init__(self, timeout: float = DEFAULT_TIMEOUT) -> None:
+    def __init__(self, timeout: float = DEFAULT_TIMEOUT, cache_ttl: float = CACHE_TTL_SECONDS) -> None:
         self.timeout = timeout
-        self._url_to_docs_cache: Dict[str, List[Dict[str, Any]]] = {}
+        self.cache_ttl = cache_ttl
+        self._url_to_docs_cache: Dict[str, Tuple[float, List[Dict[str, Any]]]] = {}
 
     @property
     def orgao_origem(self) -> str:
         """Identificador institucional do órgão."""
         return "FAL"
+
+    def _cache_set(self, url: str, docs: List[Dict[str, Any]]) -> None:
+        if url:
+            self._url_to_docs_cache[url] = (time.monotonic(), docs)
+
+    def _cache_get(self, url: str) -> Optional[List[Dict[str, Any]]]:
+        entry = self._url_to_docs_cache.get(url)
+        if not entry:
+            return None
+        ts, docs = entry
+        if (time.monotonic() - ts) > self.cache_ttl:
+            self._url_to_docs_cache.pop(url, None)
+            return None
+        return docs
 
     def fetch_editais(
         self,
@@ -777,6 +814,8 @@ class FALScraper(BaseScraper):
         Returns:
             Lista de dicionários padronizados de oportunidades/chamadas da FAL.
         """
+        self._url_to_docs_cache.clear()
+        curr_year = _current_year()
         editais: List[Dict[str, Any]] = []
         seen_links = set()
         seen_norm_titles = set()
@@ -839,6 +878,7 @@ class FALScraper(BaseScraper):
                         default_title=entry["titulo"],
                         header_date=entry["header_date"],
                         intro_html=entry.get("intro_html", ""),
+                        reference_year=curr_year,
                     )
 
                 with ThreadPoolExecutor(max_workers=4) as pool:
@@ -847,7 +887,7 @@ class FALScraper(BaseScraper):
                 for item in article_items:
                     if not item:
                         continue
-                    self._url_to_docs_cache[item["link"]] = item.get("documentos", [])
+                    self._cache_set(item["link"], item.get("documentos", []))
 
                     # Remove duplicatas históricas idênticas (ex: mesmo projeto publicado 2 vezes em anos distintos)
                     norm_title_key = re.sub(r"[^a-z0-9]+", "", item["titulo"].lower())
@@ -873,9 +913,10 @@ class FALScraper(BaseScraper):
                                     "Estágio Obrigatório e Não Obrigatório em Campo (FAV/FAL) — "
                                     "Agronomia, Medicina Veterinária e Agronegócios"
                                 ),
-                                header_date="01/01/2026",
+                                header_date=f"01/01/{curr_year}",
+                                reference_year=curr_year,
                             )
-                            self._url_to_docs_cache[fav_item["link"]] = fav_item.get("documentos", [])
+                            self._cache_set(fav_item["link"], fav_item.get("documentos", []))
                             if year is None or fav_item.get("ano") == year:
                                 seen_links.add(fav_item["link"])
                                 editais.append(fav_item)
@@ -889,10 +930,10 @@ class FALScraper(BaseScraper):
                         posts_payload = fav_api_resp.json()
                         if isinstance(posts_payload, list):
                             for post_obj in posts_payload:
-                                fav_edital = parse_fav_wp_edital_post(post_obj)
+                                fav_edital = parse_fav_wp_edital_post(post_obj, reference_year=curr_year)
                                 if not fav_edital:
                                     continue
-                                self._url_to_docs_cache[fav_edital["link"]] = fav_edital.get("documentos", [])
+                                self._cache_set(fav_edital["link"], fav_edital.get("documentos", []))
                                 norm_key = re.sub(r"[^a-z0-9]+", "", fav_edital["titulo"].lower())
                                 if fav_edital["link"] in seen_links or norm_key in seen_norm_titles:
                                     continue
@@ -915,8 +956,9 @@ class FALScraper(BaseScraper):
         if not edital_url:
             return []
 
-        if edital_url in self._url_to_docs_cache:
-            return self._url_to_docs_cache[edital_url]
+        cached = self._cache_get(edital_url)
+        if cached is not None:
+            return cached
 
         if is_fal_document_url(edital_url):
             return [{
@@ -936,7 +978,7 @@ class FALScraper(BaseScraper):
                 if resp.status_code == 200:
                     parsed = parse_fal_article_html(resp.text, str(resp.url))
                     docs = parsed.get("documentos", [])
-                    self._url_to_docs_cache[edital_url] = docs
+                    self._cache_set(edital_url, docs)
                     return docs
         except Exception as exc:
             logger.warning(f"Erro ao extrair documentos da FAL em {edital_url}: {exc}")

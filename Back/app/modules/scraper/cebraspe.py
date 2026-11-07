@@ -107,6 +107,9 @@ class CebraspeScraper(BaseScraper):
 
     def fetch_editais(self, year: Optional[int] = None) -> List[Dict[str, Any]]:
         """Consulta os processos seletivos e vestibulares da UnB via API do Cebraspe."""
+        # Limpa caches em memória por ciclo para refletir mudanças de fase nas execuções periódicas
+        self._identificador_cache.clear()
+        self._url_to_id_cache.clear()
         editais: List[Dict[str, Any]] = []
         seen_identificadores = set()
 

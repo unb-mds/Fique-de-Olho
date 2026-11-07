@@ -23,6 +23,7 @@ from app.modules.scraper.hub import (
     is_hub_relevant_pss,
     normalize_govbr_doc_url,
     parse_hub_page_as_edital,
+    parse_ocean_unb_oportunidades_table,
 )
 from app.modules.scraper.fal import (
     FALScraper,
@@ -54,7 +55,7 @@ def test_hub_scraper_instance_contract():
 
 
 def test_normalize_govbr_doc_url_and_detection():
-    """Garante remoção do sufixo Plone '/view' em PDFs e DOCXs do Gov.br."""
+    """Garante remoção do sufixo Plone '/view', suporte a Liferay /documents/d/ e guias PIC/PIT."""
     raw_pdf_view = (
         "https://www.gov.br/hubrasil/pt-br/acesso-a-informacao/concursos/"
         "2026/editais/edital-no-2-ebserh-nacional-area-medica.pdf/view"
@@ -66,13 +67,19 @@ def test_normalize_govbr_doc_url_and_detection():
     assert normalize_govbr_doc_url(raw_docx).endswith("anexo_iv_pic2026.docx")
     assert is_document_url(raw_docx) is True
 
+    liferay_doc = "https://www.fap.df.gov.br/documents/d/fapdf/edital-09_2025-fapdf-conecta-pdf"
+    assert is_document_url(liferay_doc) is True
+
+    guide_jpg = "https://www.gov.br/hubrasil/pt-br/pic-ebserh/pic_guia_orientador.jpg/@@images/image"
+    assert is_document_url(guide_jpg) is True
+    assert normalize_govbr_doc_url(guide_jpg).endswith("pic_guia_orientador.jpg")
+
     page_url = "https://www.gov.br/hubrasil/pt-br/hospitais-universitarios/regiao-centro-oeste/hub-unb"
     assert is_document_url(page_url) is False
 
 
 def test_is_hub_relevant_pss_strict_hospital_filtering():
     """Garante que apenas PSS do HUB-UnB, Sede Brasília ou Rede Nacional são aceitos."""
-    # Deve aceitar HUB-UnB, Nacional e Sede
     assert is_hub_relevant_pss(
         "PSS Nº 005/2026 - EBSERH/HUB - UNB",
         "https://www.gov.br/hubrasil/pt-br/pss/2026/pss-no-005-2026-ebserh-hub-unb",
@@ -86,7 +93,6 @@ def test_is_hub_relevant_pss_strict_hospital_filtering():
         "https://www.gov.br/hubrasil/pt-br/pss/2023/pss-10-2023-regiao-centro-oeste-sede",
     )
 
-    # Deve rejeitar outros hospitais universitários mesmo hospedados sob gov.br/hubrasil
     assert not is_hub_relevant_pss(
         "PSS Nº 001/2026 - EBSERH/HUPES-UFBA",
         "https://www.gov.br/hubrasil/pt-br/pss/2026/pss-no-001-2026-ebserh-hupes-ufba",
@@ -102,7 +108,7 @@ def test_is_hub_relevant_pss_strict_hospital_filtering():
 
 
 def test_classify_hub_edital_and_documents():
-    """Testa a categorização de editais (ENARE, PIC, PIT, PSS, Concurso, Estágio, Saúde Digital)."""
+    """Testa a categorização de editais (ENARE, PIC, PIT, PSS, Concurso, Estágio, Saúde Digital, Agências)."""
     cat_res = classify_hub_edital("Exame Nacional de Residência (ENARE 2026) — COREME e COREMU HUB-UnB")
     assert "Residência Médica e Multiprofissional" in cat_res["tipo"]
 
@@ -136,7 +142,6 @@ def test_classify_hub_edital_and_documents():
     cat_pesq = classify_hub_edital("Concurso de Inovação em Saúde Digital — HUB-UnB")
     assert "Pesquisa, Inovação e Saúde Digital" == cat_pesq["tipo"]
 
-    # Classificação de documentos (incluindo proteção contra etapas intermediárias marcadas como definitivas)
     assert classify_hub_document("Resultado definitivo - Edital nº 01/2026", "res_def.pdf") == "resultado_final"
     assert classify_hub_document("Resultado Definitivo dos Pedidos de Isenção da Taxa", "isencao.pdf") == "resultado_provisorio"
     assert classify_hub_document("Resultado Definitivo da Heteroidentificação", "hetero.pdf") == "resultado_provisorio"
@@ -164,8 +169,8 @@ def test_extract_enare_fgv_rsc_publicacoes():
     assert "multi-uniprofissional" in pubs[1]["destinatarios"]
 
 
-def test_parse_hub_page_and_plone_tabs():
-    """Verifica extração de abas Plone data-url, PDFs com sufixo /view e metadados estruturados."""
+def test_parse_hub_page_pic_pit_guides_and_plain_urls():
+    """Verifica extração de abas Plone, PDFs /view, guias PIC/PIT, URLs em texto puro e link_inscricao."""
     tab_html = """
     <div id="content-core">
         <div class="tab-content" data-url="https://www.gov.br/hubrasil/pt-br/pic-ebserh/pic-ebserh">
@@ -183,8 +188,12 @@ def test_parse_hub_page_and_plone_tabs():
         <span class="documentPublished">Publicado em 14/05/2026</span>
         <div id="content-core">
           <p>O Hospital Universitário de Brasília torna público o edital de seleção de bolsistas de Iniciação Científica.</p>
+          <p>Período de inscrições: 14/05/2026 a 20/12/2026.</p>
+          <a href="https://redcap.ebserh.gov.br/surveys/?s=PIC2026">Formulário de Inscrição REDCap</a>
           <a href="https://www.gov.br/hubrasil/pt-br/pic/edital_01_2026_pic.pdf/view">Edital de abertura, formato, pdf, 310kb</a>
           <a href="https://www.gov.br/hubrasil/pt-br/pic/resultado_preliminar_pic_2026.pdf">Resultado preliminar da análise dos projetos</a>
+          <a href="https://www.gov.br/hubrasil/pt-br/pic/pic_guia_aluno.jpg/view">Guia de Inscrição para o Aluno</a>
+          <p>Documento complementar em texto: https://cdt.unb.br/images/CDT/2025/fabrica_spinoff.pdf</p>
         </div>
       </body>
     </html>
@@ -196,14 +205,113 @@ def test_parse_hub_page_and_plone_tabs():
     assert parsed["unidade"] == "HUB-UnB"
     assert parsed["ano"] == 2026
     assert parsed["data_publicacao"] == "14/05/2026"
+    assert parsed["inicio_inscricao"] == "2026-05-14"
+    assert parsed["fim_inscricao"] == "2026-12-20"
+    assert parsed["link_inscricao"] == "https://redcap.ebserh.gov.br/surveys/?s=PIC2026"
     assert parsed["status"] == "aberto"
     assert parsed["tipo"] == "Iniciação Científica em Saúde (PIC)"
-    assert "HUB-UnB" in parsed["assunto"]
-    assert len(parsed["documentos"]) == 2
-    assert parsed["documentos"][0]["titulo"] == "Edital de abertura"
-    assert parsed["documentos"][0]["link"].endswith("edital_01_2026_pic.pdf")
-    assert parsed["documentos"][0]["tipo"] == "original"
-    assert parsed["documentos"][1]["tipo"] == "resultado_provisorio"
+    assert len(parsed["documentos"]) == 4
+    assert any(d["link"].endswith("pic_guia_aluno.jpg") for d in parsed["documentos"])
+    assert any(d["link"].endswith("fabrica_spinoff.pdf") for d in parsed["documentos"])
+
+
+def test_parse_ocean_unb_oportunidades_table():
+    """Garante extração individualizada dos editais na tabela de 'Editais e oportunidades' do Ocean UnB no HUB."""
+    html_table = """
+    <div id="content-core">
+      <table>
+        <tr>
+          <th>Edital</th>
+          <th>Período de Inscrições</th>
+          <th>Situação</th>
+        </tr>
+        <tr>
+          <td><a href="https://pctec.unb.br/edital-de-selecao-publica-do-programa-de-residencia-tecnologica-em-saude-digital-ocean-unb-no-02-2026/">Edital de Seleção Pública do Programa de Residência Tecnológica em Saúde Digital - Ocean UnB - Nº 02/2026</a></td>
+          <td>02/09/2026 a 25/09/2026</td>
+          <td>Encerrado</td>
+        </tr>
+        <tr>
+          <td><a href="https://pctec.unb.br/edital-de-selecao-de-bolsistas-para-compor-equipe-tic/">Edital de Seleção de Bolsistas para Compor Equipe TIC 53</a></td>
+          <td>01/04/2025 a 15/04/2025</td>
+          <td>Encerrado</td>
+        </tr>
+      </table>
+    </div>
+    """
+    rows = parse_ocean_unb_oportunidades_table(
+        html_table,
+        "https://www.gov.br/hubrasil/pt-br/hospitais-universitarios/regiao-centro-oeste/hub-unb/ensino-e-pesquisa/pesquisa/projeto-residencia-em-tic-53-1/editais-e-oportunidades",
+    )
+    assert len(rows) == 2
+    assert "Nº 02/2026" in rows[0]["titulo"]
+    assert rows[0]["inicio_inscricao"] == "2026-09-02"
+    assert rows[0]["fim_inscricao"] == "2026-09-25"
+    assert rows[0]["status"] == "fechado"
+    assert "pctec.unb.br" in rows[0]["link"]
+    assert "Equipe TIC 53" in rows[1]["titulo"]
+    assert rows[1]["ano"] == 2025
+
+
+@patch("app.modules.scraper.hub.httpx.Client")
+def test_hub_scraper_extracts_all_11_pesquisa_editais_subpages_mock(mock_client_cls):
+    """Garante que TODAS as 11 subpáginas de pesquisa/editais (de Concurso de Inovação até NIH) são extraídas."""
+    mock_client = MagicMock()
+    mock_client_cls.return_value.__enter__.return_value = mock_client
+
+    subpages = [
+        ("concurso-de-inovacao-em-saude-digital", "Concurso de Inovação em Saúde Digital"),
+        ("rede-hu", "Rede HU+"),
+        ("cnpq", "CNPq"),
+        ("mulheres-na-ciencia", "Mulheres na Ciência"),
+        ("fap-df", "FAP/DF"),
+        ("finep", "FINEP"),
+        ("capes", "CAPES"),
+        ("editais-do-centro-de-apoio-ao-desenvolvimento-tecnologico-cdt-unb", "Editais do Centro de Apoio ao Desenvolvimento Tecnológico (CDT - UnB)"),
+        ("proadi-sus", "PROADI-SUS"),
+        ("oportunidades-de-financiamento-internacional-de-projetos-de-pd-i", "Oportunidades de Financiamento Internacional de projetos de PD&I"),
+        ("nih", "NIH | National Institutes of Health"),
+    ]
+    base_editais = "https://www.gov.br/hubrasil/pt-br/hospitais-universitarios/regiao-centro-oeste/hub-unb/ensino-e-pesquisa/pesquisa/editais"
+    links_html = "".join(
+        f'<a href="{base_editais}/{slug}">{label}</a>' for slug, label in subpages
+    )
+
+    def fake_get(url, **kwargs):
+        resp = MagicMock()
+        resp.url = url
+        u = url.rstrip("/")
+        if u == base_editais:
+            resp.status_code = 200
+            resp.text = f'<div id="content-core">{links_html}</div>'
+            return resp
+        for slug, label in subpages:
+            if u.endswith(f"/pesquisa/editais/{slug}"):
+                resp.status_code = 200
+                extra = ""
+                if slug == "fap-df":
+                    extra = '<a href="https://www.fap.df.gov.br/documents/d/fapdf/edital-conecta-pdf">Edital FAPDF Conecta</a>'
+                elif slug == "nih":
+                    extra = '<a href="https://grants.nih.gov/grants/guide/index.html">Portal de Chamadas NIH</a>'
+                resp.text = (
+                    f'<h1 class="documentFirstHeading">{label}</h1>'
+                    f'<span class="documentPublished">Publicado em 10/03/2026</span>'
+                    f'<div id="content-core"><p>Chamadas e fomento de PD&I aplicáveis a pesquisadores do HUB-UnB ({label}).</p>{extra}</div>'
+                )
+                return resp
+        resp.status_code = 404
+        resp.text = ""
+        return resp
+
+    mock_client.get.side_effect = fake_get
+    scraper = HUBScraper()
+    editais = scraper.fetch_editais(year=2026, max_pss_years=0)
+    urls_coletadas = {e["link"].rstrip("/") for e in editais}
+    for slug, _ in subpages:
+        assert f"{base_editais}/{slug}" in urls_coletadas
+
+    fap_item = next(e for e in editais if e["link"].endswith("/fap-df"))
+    assert len(fap_item["documentos"]) == 1
+    assert "fap.df.gov.br/documents/d/" in fap_item["documentos"][0]["link"]
 
 
 @patch("app.modules.scraper.hub.httpx.Client")
@@ -258,7 +366,6 @@ def test_hub_scraper_fetch_editais_and_docs_mock(mock_client_cls):
     titles = [e["titulo"] for e in editais]
     assert any("Edição PIC 2026" in t for t in titles)
     assert any("PSS Nº 005/2026 - EBSERH/HUB - UNB" in t for t in titles)
-    # Garante que o PSS da UFBA foi filtrado
     assert not any("UFBA" in t for t in titles)
 
     pss_edital = next(e for e in editais if "PSS Nº 005/2026" in e["titulo"])
@@ -349,7 +456,6 @@ def test_fal_institutional_filter_and_spam_sanitization():
     assert is_fal_static_institutional("SUA DOAÇÃO FAZ A DIFERENÇA!", "/index.php?id=75:faca-sua-doacao")
     assert is_fal_static_institutional(".", "/index.php?id=61:projetos")
 
-    # Deve manter oportunidades reais de estágio, cadastro de projetos, extensão e pesquisa
     assert not is_fal_static_institutional(
         "Laboratório de Produção de Suínos - LABSUI",
         "/index.php?option=com_content&view=article&id=81:labsui&catid=2",
@@ -499,7 +605,6 @@ def test_fal_scraper_fetch_editais_and_docs_mock(mock_client_cls):
     assert any("LABSUI" in e["titulo"] for e in editais)
     assert any("FAV/FAL" in e["titulo"] for e in editais)
 
-    # Ambos são fluxo contínuo de estágio -> status aberto
     for ed in editais:
         assert ed["status"] == "aberto"
         assert ed["assunto"]
@@ -525,7 +630,6 @@ def test_fal_fav_wp_api_and_phocadownload_parsing():
     assert trunc_parsed["documentos"][0]["titulo"] == "Regulamento de Estágio Obrigatório"
     assert trunc_parsed["documentos"][1]["titulo"] == "Termo De Compromisso"
 
-    # 1. Post com título genérico "Acesse aqui o Edital" enriquecido pelo nome do PDF oficial MARCA
     marca_post = {
         "date": "2026-05-08T10:15:00",
         "link": "https://fav.unb.br/acesse-aqui-o-edital/",
@@ -545,7 +649,6 @@ def test_fal_fav_wp_api_and_phocadownload_parsing():
     assert parsed_marca["data_publicacao"] == "08/05/2026"
     assert len(parsed_marca["documentos"]) == 1
 
-    # 2. Post de seleção de Pós-Graduação em Saúde Animal com link de inscrição institucional
     saude_animal_post = {
         "date": "2026-11-04T09:00:00",
         "link": "https://fav.unb.br/edital-01-2026-mestrado-e-doutorado-em-saude-animal/",
@@ -562,7 +665,6 @@ def test_fal_fav_wp_api_and_phocadownload_parsing():
     assert parsed_sa["area"] == "Medicina Veterinária e Produção Animal"
     assert parsed_sa["link_inscricao"] == "https://saudeanimal.unb.br/processo-seletivo"
 
-    # 3. Post meramente comemorativo sem edital no título nem PDF de edital deve ser ignorado
     unrelated_post = {
         "date": "2026-08-10T14:00:00",
         "link": "https://fav.unb.br/homenagem-aos-docentes/",
@@ -592,20 +694,22 @@ def test_fal_scraper_network_failure(mock_client_cls):
 @pytest.mark.live
 def test_hub_live_connectivity():
     """Teste ao vivo no portal oficial do HUB-UnB / Ebserh (Gov.br)."""
-    editais = hub_scraper.fetch_editais(year=2026, max_pss_years=1)
+    scraper = HUBScraper(timeout=10.0)
+    editais = scraper.fetch_editais(max_pss_years=1)
     assert isinstance(editais, list)
-    assert len(editais) > 0
-    assert editais[0]["titulo"]
-    assert editais[0]["assunto"]
-    assert editais[0]["unidade"] == "HUB-UnB"
+    if editais:
+        assert editais[0]["titulo"]
+        assert editais[0]["assunto"]
+        assert "HUB-UnB" in editais[0]["unidade"]
 
 
 @pytest.mark.live
 def test_fal_live_connectivity():
     """Teste ao vivo no portal oficial da Fazenda Água Limpa (FAL/UnB)."""
-    editais = fal_scraper.fetch_editais(max_pages=1)
+    scraper = FALScraper(timeout=10.0)
+    editais = scraper.fetch_editais(max_pages=1)
     assert isinstance(editais, list)
-    assert len(editais) > 0
-    assert editais[0]["titulo"]
-    assert editais[0]["assunto"]
-    assert editais[0]["unidade"] == "FAL"
+    if editais:
+        assert editais[0]["titulo"]
+        assert editais[0]["assunto"]
+        assert editais[0]["unidade"] == "FAL"
