@@ -15,7 +15,9 @@ from app.modules.scraper.dex import DEXScraper, dex_scraper
 from app.modules.scraper.dgp import DGPScraper, dgp_scraper
 from app.modules.scraper.dpg import DPGScraper, dpg_scraper
 from app.modules.scraper.dpi import DPIScraper, dpi_scraper
+from app.modules.scraper.fal import FALScraper, fal_scraper
 from app.modules.scraper.finatec import FinatecScraper, finatec_scraper
+from app.modules.scraper.hub import HUBScraper, hub_scraper
 from app.modules.scraper.int_scraper import INTScraper, int_scraper
 from app.modules.scraper.pctec import PCTecScraper, pctec_scraper
 from app.modules.scraper.proic import PROICScraper, proic_scraper
@@ -66,6 +68,8 @@ SCRAPERS_REGISTRY: Dict[str, BaseScraper] = {
     "FINATEC": finatec_scraper,
     "CDT": cdt_scraper,
     "PCTEC": pctec_scraper,
+    "HUB": hub_scraper,
+    "FAL": fal_scraper,
 }
 
 
@@ -112,6 +116,10 @@ __all__ = [
     "cdt_scraper",
     "PCTecScraper",
     "pctec_scraper",
+    "HUBScraper",
+    "hub_scraper",
+    "FALScraper",
+    "fal_scraper",
     "SCRAPERS_REGISTRY",
     "get_scraper",
     "run_pipeline",

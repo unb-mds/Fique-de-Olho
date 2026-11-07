@@ -33,7 +33,7 @@ def test_scrapers_registry_contains_all_nine_organs():
     expected_organs = {
         "DEG", "DPG", "INT", "DEX", "DPI", "DAC", "PROIC", "DACES",
         "BCE", "CEAD", "SIGAA", "CEBRASPE", "UNB_IDIOMAS", "CONCURSOS", "DGP",
-        "FINATEC", "CDT", "PCTEC"
+        "FINATEC", "CDT", "PCTEC", "HUB", "FAL"
     }
     assert set(SCRAPERS_REGISTRY.keys()) == expected_organs
 
