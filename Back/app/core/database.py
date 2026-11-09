@@ -106,8 +106,9 @@ class Edital(Base):
     criado_em = Column(DateTime(timezone=True), server_default=func.now(), nullable=True)
     atualizado_em = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=True)
 
-    #Coloquei para a issues #52
-    orgao_emissor = Column(String(50), nullable=True)
+    # Metadados da Issue #52
+    orgao_emissor = Column(String(50), nullable=True, index=True)
+    assunto = Column(Text, nullable=True)
     vagas = Column(Integer, nullable=True)
     valor_bolsa = Column(Numeric(10, 2), nullable=True)
 

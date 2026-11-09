@@ -24,7 +24,8 @@ def test_database_schema_has_required_tables_and_columns():
     assert {"editais", "edital_documentos", "usuarios", "favoritos"}.issubset(table_names)
 
     editais = Base.metadata.tables["editais"]
-    assert {"titulo", "url_pagina", "campus", "tipo", "data_publicacao", "status", "created_at"}.issubset(editais.columns.keys())
+    assert {"titulo", "url_pagina", "campus", "tipo", "data_publicacao", "status", "created_at", "orgao_emissor", "assunto", "vagas", "valor_bolsa"}.issubset(editais.columns.keys())
+    assert editais.columns["orgao_emissor"].index is True
 
     documentos = Base.metadata.tables["edital_documentos"]
     assert {"edital_id", "url_pdf", "tipo_documento", "created_at"}.issubset(documentos.columns.keys())
@@ -100,6 +101,7 @@ def test_edital_salva_sem_metadados():
         session.refresh(edital)
 
         assert edital.orgao_emissor is None
+        assert edital.assunto is None
         assert edital.vagas is None
         assert edital.valor_bolsa is None
 
@@ -114,6 +116,7 @@ def test_edital_salva_com_metadados():
             titulo="Edital PIBIC",
             url_pagina="https://exemplo.unb.br/e2",
             orgao_emissor="DPG",
+            assunto="Bolsa de Iniciacao Cientifica",
             vagas=10,
             valor_bolsa=Decimal("400.00"),
         )
@@ -122,4 +125,6 @@ def test_edital_salva_com_metadados():
         session.refresh(edital)
 
         assert edital.orgao_emissor == "DPG"
+        assert edital.assunto == "Bolsa de Iniciacao Cientifica"
         assert edital.vagas == 10
+        assert edital.valor_bolsa == Decimal("400.00")
