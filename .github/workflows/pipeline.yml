@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   build-frontend:
-    name: Build frontend
+    name: Build e testes do frontend
     runs-on: ubuntu-latest
 
     steps:
@@ -36,6 +36,10 @@ jobs:
       - name: Instalar dependências do frontend
         working-directory: Front
         run: npm ci
+
+      - name: Executar testes do frontend
+        working-directory: Front
+        run: npm run test
 
       - name: Executar build do frontend
         working-directory: Front
@@ -109,4 +113,3 @@ jobs:
 
       - name: Construir imagem Docker do backend
         run: docker build --tag fique-de-olho-backend:ci ./Back
-

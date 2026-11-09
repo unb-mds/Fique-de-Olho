@@ -219,6 +219,12 @@ Na pasta `Back/`, com o ambiente virtual ativado:
 
 ```powershell
 pytest -v
+
+# Executar com relatório de cobertura no terminal:
+pytest --cov=app --cov-report=term-missing
+
+# Gerar relatório navegável em HTML (pasta htmlcov/):
+pytest --cov=app --cov-report=html
 ```
 
 Para validar especificamente o schema e os modelos:

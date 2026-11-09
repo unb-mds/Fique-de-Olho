@@ -1,5 +1,6 @@
 """Scraper para o Decanato de Pesquisa e Inovação da UnB (DPI)."""
 
+from datetime import datetime, timezone
 import re
 from typing import Any, Dict, List, Optional
 from urllib.parse import urljoin
@@ -21,7 +22,7 @@ DATE_PATTERN = re.compile(
 
 
 def build_dpi_url(year: Optional[int] = None) -> str:
-    y = year or 2026
+    y = year or datetime.now(timezone.utc).year
     return f"{DPI_BASE_URL}/editais/editais{y}"
 
 
@@ -43,7 +44,10 @@ def parse_dpi_html(html: str, base_url: str = DPI_BASE_URL) -> List[Dict[str, An
 
         full_url = urljoin(base_url, href)
 
-        is_edital = any(k in text.lower() for k in ["edital", "chamada", "fomento", "pesquisa"]) or "edital" in href.lower()
+        is_edital = (
+            any(k in text.lower() for k in ["edital", "chamada", "fomento", "pesquisa"])
+            or "edital" in href.lower()
+        )
         if not is_edital:
             continue
 
@@ -71,19 +75,25 @@ class DPIScraper(BaseScraper):
         return "DPI"
 
     def fetch_editais(self, year: Optional[int] = None) -> List[Dict[str, Any]]:
-        """Busca editais no portal do DPI para o ano fornecido."""
-        url = build_dpi_url(year)
-        try:
-            resp = httpx.get(
-                url,
-                headers={"User-Agent": USER_AGENT},
-                follow_redirects=True,
-                timeout=DEFAULT_TIMEOUT,
-            )
-            resp.raise_for_status()
-            return parse_dpi_html(resp.text, base_url=str(resp.url))
-        except httpx.HTTPError:
-            return []
+        """Busca editais no portal do DPI para o ano fornecido (com fallback em início de ano)."""
+        now_year = datetime.now(timezone.utc).year
+        candidate_years = [year] if year is not None else [now_year, now_year - 1]
+        for y in candidate_years:
+            url = build_dpi_url(y)
+            try:
+                resp = httpx.get(
+                    url,
+                    headers={"User-Agent": USER_AGENT},
+                    follow_redirects=True,
+                    timeout=DEFAULT_TIMEOUT,
+                )
+                resp.raise_for_status()
+                items = parse_dpi_html(resp.text, base_url=str(resp.url))
+                if items or year is not None:
+                    return items
+            except httpx.HTTPError:
+                continue
+        return []
 
     def fetch_documentos(self, edital_url: str) -> List[Dict[str, Any]]:
         """Extrai PDFs anexos vinculados a um edital do DPI."""

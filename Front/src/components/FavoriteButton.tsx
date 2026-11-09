@@ -1,43 +1,85 @@
-import { useState } from 'react';
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+import {
+  listarFavoritos,
+  favoritarEdital,
+  desfavoritarEdital,
+} from "../services/favoritosService";
 
-export default function FavoriteButton() {
+interface FavoriteButtonProps {
+  editalId: string | number;
+}
+
+export default function FavoriteButton({ editalId }: FavoriteButtonProps) {
   const [favorito, setFavorito] = useState(false);
-  const [mostrarLogin, setMostrarLogin] = useState(false);
+  const [carregando, setCarregando] = useState(false);
+  const [erro, setErro] = useState("");
 
-  function alterarFavorito() {
-    const usuarioLogado = false;
+  const { autenticado } = useAuth();
+  const navigate = useNavigate();
 
-    if (!usuarioLogado) {
-      setMostrarLogin(true);
+  useEffect(() => {
+    async function verificarFavorito() {
+      if (!autenticado) {
+        setFavorito(false);
+        return;
+      }
+
+      try {
+        const favoritos = await listarFavoritos();
+
+        const jaFavoritado = favoritos.some(
+          (edital) => String(edital.id) === String(editalId)
+        );
+
+        setFavorito(jaFavoritado);
+      } catch {
+        setErro("Não foi possível verificar os favoritos.");
+      }
+    }
+
+    verificarFavorito();
+  }, [autenticado, editalId]);
+
+  async function alterarFavorito() {
+    if (!autenticado) {
+      navigate("/login");
       return;
     }
 
-    setFavorito(!favorito);
+    setErro("");
+    setCarregando(true);
+
+    try {
+      if (favorito) {
+        await desfavoritarEdital(editalId);
+        setFavorito(false);
+      } else {
+        await favoritarEdital(editalId);
+        setFavorito(true);
+      }
+    } catch {
+      setErro("Não foi possível atualizar o favorito.");
+    } finally {
+      setCarregando(false);
+    }
   }
 
   return (
     <>
       <button
         type="button"
+        data-edital-id={editalId}
         onClick={alterarFavorito}
-        aria-label={favorito ? 'Desfavoritar edital' : 'Favoritar edital'}
-        title={favorito ? 'Desfavoritar edital' : 'Favoritar edital'}
+        disabled={carregando}
+        aria-label={favorito ? "Desfavoritar edital" : "Favoritar edital"}
+        title={favorito ? "Desfavoritar edital" : "Favoritar edital"}
       >
-        {favorito ? '★' : '☆'}
+        {favorito ? "★" : "☆"}
       </button>
 
-      {mostrarLogin && (
-        <div>
-          <p>Faça login para favoritar este edital.</p>
-
-          <button
-            type="button"
-            onClick={() => setMostrarLogin(false)}
-          >
-            Fechar
-          </button>
-        </div>
-      )}
+      {erro && <span>{erro}</span>}
     </>
   );
 }

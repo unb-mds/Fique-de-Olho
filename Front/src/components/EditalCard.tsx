@@ -13,7 +13,7 @@ export default function EditalCard({ edital }: EditalCardProps) {
 
   return (
     <article className="edital-card">
-      <FavoriteButton />
+   <FavoriteButton editalId={edital.id} />
       <div className="edital-card-badges">
         <div className="badge-group">
           {edital.categoria && (

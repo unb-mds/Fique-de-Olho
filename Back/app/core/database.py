@@ -12,6 +12,7 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    UniqueConstraint,
     func,
     create_engine,
 )
@@ -172,6 +173,53 @@ class Favorito(Base):
 
     usuario = relationship("Usuario", back_populates="favoritos")
     edital = relationship("Edital", back_populates="favoritos")
+
+
+class TipoNotificacao(PyEnum):
+    EDITAL_ATUALIZADO = "edital_atualizado"
+    PRAZO_ENCERRANDO = "prazo_encerrando"
+
+
+class StatusNotificacao(PyEnum):
+    PENDENTE = "pendente"
+    ENVIADA = "enviada"
+    FALHOU = "falhou"
+
+
+class Notificacao(Base):
+    __tablename__ = "notificacoes"
+    __table_args__ = (
+        UniqueConstraint("usuario_id", "edital_id", "tipo", "chave_evento", name="uq_notificacao_evento"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id", ondelete="CASCADE"), nullable=False, index=True)
+    edital_id = Column(Integer, ForeignKey("editais.id", ondelete="CASCADE"), nullable=False, index=True)
+    tipo = Column(
+        Enum(
+            TipoNotificacao,
+            name="tipo_notificacao",
+            create_type=True,
+            values_callable=lambda enum: [item.value for item in enum],
+        ),
+        nullable=False,
+    )
+    status = Column(
+        Enum(
+            StatusNotificacao,
+            name="status_notificacao",
+            create_type=True,
+            values_callable=lambda enum: [item.value for item in enum],
+        ),
+        nullable=False,
+        server_default=StatusNotificacao.PENDENTE.value,
+    )
+    chave_evento = Column(String(128), nullable=False)
+    enviada_em = Column(DateTime(timezone=True), nullable=True)
+    criada_em = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    usuario = relationship("Usuario")
+    edital = relationship("Edital")
 
 
 class Coleta(Base):
