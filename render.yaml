@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: fique-de-olho-api
+    runtime: docker
+    region: ohio
+    plan: free
+    rootDir: Back
+    dockerfilePath: Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "1440"
