@@ -8,6 +8,7 @@ import {
 
 import {
   getCurrentUser,
+  updateEmailPreference,
   type Usuario,
 } from "@/services/authService";
 
@@ -16,6 +17,7 @@ type AuthContextType = {
   autenticado: boolean;
   carregando: boolean;
   atualizarUsuario: () => Promise<void>;
+  atualizarPreferenciaEmail: (receberEmails: boolean) => Promise<void>;
   logout: () => void;
 };
 
@@ -52,6 +54,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }
 
+  async function atualizarPreferenciaEmail(receberEmails: boolean) {
+    const usuarioAtual = await updateEmailPreference(receberEmails);
+    setUsuario(usuarioAtual);
+    localStorage.setItem("usuario", JSON.stringify(usuarioAtual));
+  }
+
   function logout() {
     localStorage.removeItem("token");
     localStorage.removeItem("usuario");
@@ -69,6 +77,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         autenticado: !!usuario,
         carregando,
         atualizarUsuario,
+        atualizarPreferenciaEmail,
         logout,
       }}
     >

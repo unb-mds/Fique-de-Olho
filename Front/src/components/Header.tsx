@@ -1,8 +1,33 @@
 import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 export default function Header() {
-  const { usuario, autenticado, logout } = useAuth();
+  const {
+    usuario,
+    autenticado,
+    atualizarPreferenciaEmail,
+    logout,
+  } = useAuth();
   const navigate = useNavigate();
+  const [atualizandoPreferencia, setAtualizandoPreferencia] = useState(false);
+  const [erroPreferencia, setErroPreferencia] = useState<string | null>(null);
+
+  async function alternarPreferencia(receberEmails: boolean) {
+    setAtualizandoPreferencia(true);
+    setErroPreferencia(null);
+
+    try {
+      await atualizarPreferenciaEmail(receberEmails);
+    } catch (error) {
+      setErroPreferencia(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível atualizar a preferência.",
+      );
+    } finally {
+      setAtualizandoPreferencia(false);
+    }
+  }
 
   return (
     <header className="site-header">
@@ -26,6 +51,23 @@ export default function Header() {
   {autenticado && usuario ? (
     <>
       <span className="header-link">{usuario.nome}</span>
+      <button type="button" onClick={() => navigate("/notifications")}>
+        Notificações
+      </button>
+      <label className="email-preference">
+        <input
+          type="checkbox"
+          checked={usuario.receber_emails}
+          disabled={atualizandoPreferencia}
+          onChange={(event) => alternarPreferencia(event.target.checked)}
+        />
+        Receber emails
+      </label>
+      {erroPreferencia && (
+        <span className="header-error" role="alert">
+          {erroPreferencia}
+        </span>
+      )}
 
       <button
         type="button"
