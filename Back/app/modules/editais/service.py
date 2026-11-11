@@ -4,6 +4,7 @@ from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 from sqlalchemy import and_, extract, or_
 from sqlalchemy.orm import Session
+from datetime import date, datetime, timedelta
 
 from app.core.database import Campus, Edital, StatusEdital, TipoEdital
 
@@ -130,6 +131,8 @@ def seed_initial_editais(db: Session) -> None:
         tipos_map[nome] = t
 
     # 3. Editais Iniciais
+    # Teste 
+    today = date.today()
     exemplos = [
         {
             "identificador_origem": "deg-monitoria-01-2026",
@@ -138,7 +141,8 @@ def seed_initial_editais(db: Session) -> None:
             "url_pdf": "https://deg.unb.br/editais/edital-monitoria-deg-01-2026.pdf",
             "data_publicacao": date(2026, 9, 1),
             "inicio_inscricao": date(2026, 9, 5),
-            "fim_inscricao": date(2026, 12, 1),
+            "fim_inscricao": today - timedelta(days=10),
+            #"fim_inscricao": date(2026, 12, 1),
             "campus": "Darcy Ribeiro",
             "tipo": "Monitoria",
         },
@@ -149,7 +153,8 @@ def seed_initial_editais(db: Session) -> None:
             "url_pdf": "https://deg.unb.br/edital-deg-n-58-2026-premio-anual-de-inovacao/",
             "data_publicacao": date(2026, 9, 23),
             "inicio_inscricao": date(2026, 9, 23),
-            "fim_inscricao": date(2026, 11, 15),
+            "fim_inscricao": today + timedelta(days=15),
+            #"fim_inscricao": date(2026, 11, 15),
             "campus": "Darcy Ribeiro",
             "tipo": "Extensões",
         },
@@ -160,7 +165,8 @@ def seed_initial_editais(db: Session) -> None:
             "url_pdf": "https://deg.unb.br/editais/edital-pibic-2026-2027.pdf",
             "data_publicacao": date(2026, 8, 15),
             "inicio_inscricao": date(2026, 8, 20),
-            "fim_inscricao": date(2026, 10, 30),
+            "fim_inscricao": today + timedelta(days=45),
+            # "fim_inscricao": date(2026, 10, 30),
             "campus": "Geral",
             "tipo": "PIBIC",
         },
@@ -222,19 +228,24 @@ def list_editais_com_filtros(
 
     if status == "aberto":
         query = query.filter(
-            or_(
-                Edital.status == StatusEdital.ABERTO,
+        or_(
+            Edital.fim_inscricao >= today,
+            and_(
                 Edital.fim_inscricao.is_(None),
-                Edital.fim_inscricao >= today,
-            )
+                or_(Edital.status.is_(None), Edital.status == StatusEdital.ABERTO),
+            ),
         )
+    )
     elif status == "fechado":
         query = query.filter(
-            or_(
+        or_(
+            Edital.fim_inscricao < today,
+            and_(
+                Edital.fim_inscricao.is_(None),
                 Edital.status == StatusEdital.ENCERRADO,
-                and_(Edital.fim_inscricao.is_not(None), Edital.fim_inscricao < today),
-            )
+            ),
         )
+    )
 
     if categoria and categoria.strip():
         cat_pattern = f"%{categoria.strip()}%"

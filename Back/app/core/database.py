@@ -2,13 +2,16 @@ from enum import Enum as PyEnum
 from typing import Generator
 
 from sqlalchemy import (
+
     Boolean,
+    CheckConstraint,
     Column,
     Date,
     DateTime,
     Enum,
     ForeignKey,
     Integer,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -71,6 +74,18 @@ class Curso(Base):
 
 class Edital(Base):
     __tablename__ = "editais"
+    __table_args__ = (
+        CheckConstraint(
+            "inicio_inscricao IS NULL OR fim_inscricao IS NULL "
+            "OR inicio_inscricao <= fim_inscricao",
+            name="editais_periodo_inscricao_ck",
+        ),
+        CheckConstraint(
+            "status_processamento IN "
+            "('pendente', 'processado', 'parcialmente_processado', 'erro')",
+            name="editais_status_processamento_ck",
+        ),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     titulo = Column(String(500), nullable=False)
@@ -87,11 +102,17 @@ class Edital(Base):
     url_pdf = Column(String(500), unique=True, nullable=True)
     texto_extraido = Column(Text, nullable=True)
     inicio_inscricao = Column(Date, nullable=True)
-    fim_inscricao = Column(Date, nullable=True)
-    status_processamento = Column(String(30), nullable=False, server_default="processado")
+    fim_inscricao = Column(Date, nullable=True, index=True)
+    status_processamento = Column(String(30), nullable=False,default="pendente", server_default="pendente")
     hash_conteudo = Column(String(64), nullable=True)
     criado_em = Column(DateTime(timezone=True), server_default=func.now(), nullable=True)
-    atualizado_em = Column(DateTime(timezone=True), server_default=func.now(), nullable=True)
+    atualizado_em = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=True)
+
+    # Metadados da Issue #52
+    orgao_emissor = Column(String(50), nullable=True, index=True)
+    assunto = Column(Text, nullable=True)
+    vagas = Column(Integer, nullable=True)
+    valor_bolsa = Column(Numeric(10, 2), nullable=True)
 
     # Relacionamentos com documentos, favoritos e catálogos M:N
     documentos = relationship("EditalDocumento", back_populates="edital", cascade="all, delete-orphan")

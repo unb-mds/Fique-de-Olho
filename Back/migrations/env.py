@@ -22,6 +22,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         compare_type=True,
+        include_object=include_object,
     )
 
     with context.begin_transaction():
@@ -40,11 +41,18 @@ def run_migrations_online() -> None:
             connection=connection,
             target_metadata=target_metadata,
             compare_type=True,
+            include_object=include_object,
         )
 
         with context.begin_transaction():
             context.run_migrations()
 
+def include_object(obj, name, type_, reflected, compare_to):
+    if type_ == "column" and reflected and name == "busca_documento":
+        return False
+    if type_ == "index" and reflected and name == "editais_busca_documento_gin_idx":
+        return False
+    return True
 
 if context.is_offline_mode():
     run_migrations_offline()
