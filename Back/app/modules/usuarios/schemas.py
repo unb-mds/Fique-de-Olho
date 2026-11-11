@@ -22,6 +22,7 @@ class UsuarioResposta(BaseModel):
     id: int
     nome: str
     email: EmailStr
+    receber_emails: bool
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -37,3 +38,8 @@ class TokenPayload(BaseModel):
     """Estrutura das claims principais decodificadas do JWT."""
     sub: Optional[str] = None
     email: Optional[EmailStr] = None
+
+
+class PreferenciaEmailAtualizacao(BaseModel):
+    """Preferência para receber notificações de editais por email."""
+    receber_emails: bool

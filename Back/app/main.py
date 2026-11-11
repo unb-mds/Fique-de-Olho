@@ -1,3 +1,6 @@
+import asyncio
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
@@ -7,6 +10,24 @@ from app.core.config import settings
 from app.core.database import engine
 from app.modules.editais.router import router as editais_router
 from app.modules.usuarios.router import router as usuarios_router
+from app.modules.notificacoes.scheduler import executar_scheduler_notificacoes
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    scheduler_task = None
+    if settings.NOTIFICATION_SCHEDULER_ENABLED:
+        scheduler_task = asyncio.create_task(
+            executar_scheduler_notificacoes(
+                settings.NOTIFICATION_SCHEDULER_INTERVAL_SECONDS
+            )
+        )
+    try:
+        yield
+    finally:
+        if scheduler_task:
+            scheduler_task.cancel()
+            await asyncio.gather(scheduler_task, return_exceptions=True)
 
 # Inicialização da aplicação FastAPI
 app = FastAPI(
@@ -16,6 +37,7 @@ app = FastAPI(
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # Configuração de CORS (Permitir comunicação com frontends locais como React/Vite/Next)

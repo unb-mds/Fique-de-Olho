@@ -2,6 +2,8 @@ from enum import Enum as PyEnum
 from typing import Generator
 
 from sqlalchemy import (
+
+    Boolean,
     CheckConstraint,
     Column,
     Date,
@@ -160,6 +162,7 @@ class Usuario(Base):
     nome = Column(String(255), nullable=False)
     email = Column(String(255), unique=True, nullable=False, index=True)
     senha_hash = Column(String(255), nullable=False)
+    receber_emails = Column(Boolean, nullable=False, default=True, server_default="true")
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     favoritos = relationship("Favorito", back_populates="usuario", cascade="all, delete-orphan")

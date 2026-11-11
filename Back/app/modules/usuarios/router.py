@@ -10,12 +10,16 @@ from app.modules.usuarios.schemas import (
     UsuarioCadastro,
     UsuarioLogin,
     UsuarioResposta,
+    PreferenciaEmailAtualizacao,
 )
 from app.modules.usuarios.security import create_access_token
+from app.modules.notificacoes.schemas import NotificacaoResposta
+from app.modules.notificacoes.service import listar_notificacoes_usuario
 from app.modules.usuarios.service import (
     autenticar_usuario,
     buscar_usuario_por_email,
     criar_usuario,
+    atualizar_preferencia_email,
 )
 
 router = APIRouter(prefix="/auth", tags=["Autenticação"])
@@ -91,3 +95,44 @@ def obter_usuario_logado(
     usuario_atual: Usuario = Depends(get_current_user),
 ) -> UsuarioResposta:
     return usuario_atual
+
+
+@router.patch(
+    "/me/email-preferences",
+    response_model=UsuarioResposta,
+    summary="Atualizar preferência de emails",
+)
+def atualizar_preferencia_email_usuario(
+    dados: PreferenciaEmailAtualizacao,
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(get_current_user),
+) -> UsuarioResposta:
+    return atualizar_preferencia_email(
+        db,
+        usuario_atual.id,
+        dados.receber_emails,
+    )
+
+
+@router.get(
+    "/me/notifications",
+    response_model=list[NotificacaoResposta],
+    summary="Listar histórico de notificações",
+)
+def listar_notificacoes_usuario_atual(
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(get_current_user),
+) -> list[NotificacaoResposta]:
+    notificacoes = listar_notificacoes_usuario(db, usuario_atual.id)
+    return [
+        NotificacaoResposta(
+            id=notificacao.id,
+            edital_id=notificacao.edital_id,
+            edital_titulo=notificacao.edital.titulo,
+            tipo=notificacao.tipo,
+            status=notificacao.status,
+            criada_em=notificacao.criada_em,
+            enviada_em=notificacao.enviada_em,
+        )
+        for notificacao in notificacoes
+    ]
