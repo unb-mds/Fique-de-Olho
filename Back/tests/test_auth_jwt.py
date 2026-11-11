@@ -18,7 +18,14 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.config import settings
-from app.core.database import Base, Usuario, get_db
+from app.core.database import (
+    Base,
+    Edital,
+    Notificacao,
+    TipoNotificacao,
+    Usuario,
+    get_db,
+)
 from app.main import app
 from app.modules.usuarios.security import (
     create_access_token,
@@ -233,6 +240,48 @@ def test_get_current_user_with_invalid_token(auth_client):
 def test_get_current_user_without_token(auth_client):
     """Requisição a endpoint protegido sem token deve retornar HTTP 401."""
     response = auth_client.get("/api/v1/auth/me")
-
     assert response.status_code == 401
 
+
+def test_usuario_pode_alterar_preferencia_de_email(auth_client, usuario_teste):
+    token = create_access_token(
+        data={"sub": str(usuario_teste.id), "email": usuario_teste.email}
+    )
+
+    response = auth_client.patch(
+        "/api/v1/auth/me/email-preferences",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"receber_emails": False},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["receber_emails"] is False
+
+
+def test_usuario_consulta_historico_de_notificacoes(auth_client, usuario_teste, db_session):
+    edital = Edital(
+        titulo="Edital histórico",
+        url_pagina="https://example.com/historico",
+    )
+    db_session.add(edital)
+    db_session.flush()
+    db_session.add(
+        Notificacao(
+            usuario_id=usuario_teste.id,
+            edital_id=edital.id,
+            tipo=TipoNotificacao.EDITAL_ATUALIZADO,
+            chave_evento="alteracao:historico",
+        )
+    )
+    db_session.commit()
+    token = create_access_token(
+        data={"sub": str(usuario_teste.id), "email": usuario_teste.email}
+    )
+
+    response = auth_client.get(
+        "/api/v1/auth/me/notifications",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()[0]["edital_titulo"] == "Edital histórico"

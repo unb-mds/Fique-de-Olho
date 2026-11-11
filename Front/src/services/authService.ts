@@ -1,10 +1,16 @@
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
+export function getAuthenticatedHeaders(): HeadersInit {
+  const token = localStorage.getItem("token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export type Usuario = {
   id: number;
   nome: string;
   email: string;
+  receber_emails: boolean;
 };
 
 export type LoginResponse = {
@@ -79,6 +85,34 @@ export async function getCurrentUser(): Promise<Usuario> {
 
   if (!response.ok) {
     throw new Error("Sessão inválida ou expirada.");
+  }
+
+  return response.json();
+}
+
+export async function updateEmailPreference(
+  receberEmails: boolean,
+): Promise<Usuario> {
+  const token = localStorage.getItem("token");
+
+  if (!token) {
+    throw new Error("Usuário não autenticado.");
+  }
+
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/auth/me/email-preferences`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ receber_emails: receberEmails }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error("Não foi possível atualizar a preferência de emails.");
   }
 
   return response.json();

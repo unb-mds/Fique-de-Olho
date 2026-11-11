@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: str = "insecure-secret-key-change-in-production-mds-2026"
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 horas
+    SENDGRID_API_KEY: str = ""
+    SENDGRID_FROM_EMAIL: str = ""
+    NOTIFICATION_SCHEDULER_ENABLED: bool = True
+    NOTIFICATION_SCHEDULER_INTERVAL_SECONDS: int = 86400
 
     model_config = SettingsConfigDict(
         env_file=".env",

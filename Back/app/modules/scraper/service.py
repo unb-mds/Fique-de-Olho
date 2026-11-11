@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.modules.editais.models import Coleta, Edital
 from app.modules.scraper.deg import fetch_editais
 from app.modules.scraper.pipeline import gerar_notificacoes_prazo, upsert_edital
+from app.modules.notificacoes.processor import processar_notificacoes_se_configuradas
 
 logger = logging.getLogger(__name__)
 
@@ -135,6 +136,12 @@ def sync_deg_editais(db: Session, max_items: int = 30) -> Dict[str, Any]:
         coleta.editais_encontrados = len(itens_raspados)
         coleta.finalizada_em = func.now()
         db.commit()
+        try:
+            processar_notificacoes_se_configuradas(db)
+        except Exception as notif_exc:
+            logger.warning(
+                f"Falha ao processar notificações após sincronizar DEG: {notif_exc}"
+            )
 
         return {
             "status": "success",
@@ -216,6 +223,12 @@ def sync_portal_editais(
         coleta.editais_encontrados = len(itens_raspados)
         coleta.finalizada_em = func.now()
         db.commit()
+        try:
+            processar_notificacoes_se_configuradas(db)
+        except Exception as notif_exc:
+            logger.warning(
+                f"Falha ao processar notificações após sincronizar {sigla}: {notif_exc}"
+            )
 
         return {
             "status": "success",
@@ -283,6 +296,11 @@ def sync_all_portais(
         gerar_notificacoes_prazo(db)
     except Exception as notif_exc:
         logger.warning(f"Erro ao gerar notificações de prazo após sync_all_portais: {notif_exc}")
+
+    try:
+        processar_notificacoes_se_configuradas(db)
+    except Exception as notif_exc:
+        logger.warning(f"Falha ao processar notificações após sync_all_portais: {notif_exc}")
 
     return {
         "status": "success",

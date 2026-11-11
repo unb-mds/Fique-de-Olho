@@ -8,6 +8,21 @@ from sqlalchemy.orm import Session
 from app.core.database import Edital, Favorito, Notificacao, TipoNotificacao
 
 
+def listar_notificacoes_usuario(
+    db: Session,
+    usuario_id: int,
+    limite: int = 50,
+) -> list[Notificacao]:
+    """Lista as notificações mais recentes de um usuário."""
+    return (
+        db.query(Notificacao)
+        .filter(Notificacao.usuario_id == usuario_id)
+        .order_by(Notificacao.criada_em.desc(), Notificacao.id.desc())
+        .limit(limite)
+        .all()
+    )
+
+
 def registrar_notificacao(
     db: Session,
     *,
