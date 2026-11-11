@@ -81,6 +81,3 @@ nav:
       - ADR 0002 - Stack do Frontend: adr/0002-stack-frontend.md
       - ADR 0003 - Schema do Banco de Dados: adr/0003-database-schema.md
       - ADR 0004 - Plataformas de Hospedagem e Deploy: adr/0004-plataformas-de-deploy.md
-
-      - ADR 0003 - Schema do Banco de Dados: adr/0003-database-schema.md
-      - ADR 0004 - Plataformas de Hospedagem e Deploy: adr/0004-plataformas-de-deploy.md
