@@ -304,6 +304,17 @@ Os testes automatizados do nível 2 estão em `tests/test_scraper.py` e não dep
 
 ---
 
+## ☁️ Hospedagem e Deploy em Produção
+
+A API é implantada como Web Service no **Render** em contêiner Docker, conectada ao banco de dados **Neon PostgreSQL Serverless**:
+- **Plataforma:** [Render](https://render.com) (executa o `Back/Dockerfile` com suporte à porta dinâmica `${PORT:-8000}`).
+- **Banco de Dados:** [Neon](https://neon.tech) (PostgreSQL 16 Serverless hospedado na região de São Paulo `sa-east-1`).
+- **Automação de Migrações:** As migrações do Alembic são executadas automaticamente no boot do contêiner (`alembic upgrade head`).
+- **Healthcheck:** Endpoint `GET /health` monitora a integridade da aplicação e conectividade ativa com o banco.
+- Decisão e motivações detalhadas na [ADR 0004 — Plataformas de Hospedagem e Deploy](../docs/adr/0004-plataformas-de-deploy.md).
+
+---
+
 ## 📦 Como Adicionar uma Nova Feature/Módulo
 
 Ao implementar uma nova funcionalidade (ex: `notificacoes`), siga o padrão modular:

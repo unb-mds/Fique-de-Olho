@@ -64,3 +64,15 @@ cp .env.example .env
 - Toda página/rota nova vai em `src/pages`, e é registrada em `src/routes/AppRoutes.tsx`.
 - Toda chamada à API do backend fica centralizada em `src/services`.
 - Rodar `npm run lint` e `npm run test` antes de abrir PR.
+
+---
+
+## ☁️ Hospedagem e Deploy (Vercel)
+
+O frontend é implantado e distribuído globalmente pela **Vercel**:
+- **Plataforma:** [Vercel](https://vercel.com) com detecção automática do framework **Vite**.
+- **Root Directory:** `Front`
+- **Variáveis de Ambiente:** `VITE_API_BASE_URL` configurada apontando para a URL pública da API no Render.
+- **Roteamento SPA:** O arquivo `Front/vercel.json` gerencia reescritas automáticas para `/index.html`, evitando erros 404 em recarregamento (*F5*) de rotas internas.
+- Decisão e motivações detalhadas na [ADR 0004 — Plataformas de Hospedagem e Deploy](../docs/adr/0004-plataformas-de-deploy.md).
+
