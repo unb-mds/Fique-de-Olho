@@ -6,3 +6,6 @@ __pycache__/
 coverage.xml
 htmlcov/
 sendgrid.env
+.neon
+node_modules/
+.env.local
