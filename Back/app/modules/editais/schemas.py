@@ -1,6 +1,7 @@
 """Schemas Pydantic para serialização de editais na API."""
 
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Optional, List
 from pydantic import BaseModel, ConfigDict
 
@@ -38,6 +39,8 @@ class EditalResponse(BaseModel):
     campus: Optional[str] = None
     unidade: Optional[str] = None
     categoria: Optional[str] = None
+    orgao_emissor: Optional[str] = None
+    assunto: Optional[str] = None
     data_publicacao: Optional[date] = None
     dataPublicacao: Optional[str] = None
     inicio_inscricao: Optional[date] = None
@@ -47,6 +50,7 @@ class EditalResponse(BaseModel):
     urlDocumento: str
     status_processamento: str = "processado"
     vagas: Optional[int] = None
+    valor_bolsa: Optional[Decimal] = None
     valor: Optional[str] = None
     campi: List[CampusSchema] = []
     tipos: List[TipoEditalSchema] = []

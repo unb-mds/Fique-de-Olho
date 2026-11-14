@@ -95,7 +95,12 @@ def inferir_categoria(titulo: str) -> str:
         return "Extensões"
     return "Extensões"
 
-def sync_deg_editais(db: Session, max_items: int = 30) -> Dict[str, Any]:
+
+def sync_deg_editais(
+    db: Session,
+    max_items: int = 30,
+    enable_pdf_enrichment: bool = False,
+) -> Dict[str, Any]:
     """Executa a coleta no portal do DEG e persiste novos editais no banco de dados."""
     coleta = Coleta(fonte="DEG", status="executando")
     db.add(coleta)
@@ -122,10 +127,13 @@ def sync_deg_editais(db: Session, max_items: int = 30) -> Dict[str, Any]:
                 db,
                 {
                     **item,
+                    "orgao_emissor": item.get("orgao_emissor") or item.get("orgao_origem") or "DEG",
+                    "assunto": item.get("assunto") or item.get("programa") or item.get("tipo_edital"),
                     "resumo": f"Edital publicado pelo DEG em {item.get('data_publicacao', 'data não informada')}.",
                     "campus": "Darcy Ribeiro",
                     "tipo": inferir_categoria(titulo),
                 },
+                enable_pdf_enrichment=enable_pdf_enrichment,
             )
             if not edital_existente:
                 novos_count += 1
@@ -166,6 +174,7 @@ def sync_portal_editais(
     max_items: Optional[int] = 100,
     year: Optional[int] = None,
     fetch_docs: bool = False,
+    enable_pdf_enrichment: Optional[bool] = None,
 ) -> Dict[str, Any]:
     """Executa a coleta idempotente e periódica de um portal específico registrado em SCRAPERS_REGISTRY."""
     from app.modules.scraper import get_scraper
@@ -174,6 +183,8 @@ def sync_portal_editais(
     scraper = get_scraper(sigla)
     if scraper is None:
         raise ValueError(f"Portal '{sigla}' não registrado em SCRAPERS_REGISTRY.")
+
+    eff_pdf_enrichment = fetch_docs if enable_pdf_enrichment is None else enable_pdf_enrichment
 
     coleta = Coleta(fonte=sigla, status="executando")
     db.add(coleta)
@@ -204,6 +215,8 @@ def sync_portal_editais(
 
             payload = {
                 **item,
+                "orgao_emissor": item.get("orgao_emissor") or item.get("orgao_origem") or sigla,
+                "assunto": item.get("assunto") or item.get("programa") or item.get("tipo_edital"),
                 "resumo": (
                     item.get("resumo")
                     or item.get("descricao")
@@ -213,7 +226,12 @@ def sync_portal_editais(
                 "campus": item.get("campus") or "Darcy Ribeiro",
                 "tipo": item.get("tipo") or item.get("tipo_edital") or inferir_categoria(titulo),
             }
-            edital_salvo = upsert_edital(db, payload, documentos_data=docs)
+            edital_salvo = upsert_edital(
+                db,
+                payload,
+                documentos_data=docs,
+                enable_pdf_enrichment=eff_pdf_enrichment,
+            )
             if edital_existente is None:
                 novos_count += 1
             elif hash_anterior != edital_salvo.hash_conteudo:
@@ -257,6 +275,7 @@ def sync_all_portais(
     max_items_per_orgao: Optional[int] = 100,
     year: Optional[int] = None,
     fetch_docs: bool = False,
+    enable_pdf_enrichment: Optional[bool] = None,
 ) -> Dict[str, Any]:
     """Sincroniza periodicamente todos os portais da UnB (ou subconjunto informado), isolando erros por órgão."""
     from app.modules.scraper import SCRAPERS_REGISTRY
@@ -279,6 +298,7 @@ def sync_all_portais(
                 max_items=max_items_per_orgao,
                 year=year,
                 fetch_docs=fetch_docs,
+                enable_pdf_enrichment=enable_pdf_enrichment,
             )
             relatorios[sigla] = res
             total_encontrados += int(res.get("editais_encontrados", 0))

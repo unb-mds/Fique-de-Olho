@@ -3,9 +3,11 @@
 from datetime import datetime, timezone
 
 from app.modules.scraper.parser import (
+    ORGAOS_UNB,
     EditalMetadados,
     detect_campus,
     detect_orgao_emissor,
+    extrair_orgao_emissor,
     parse_data_interval,
     parse_edital_metadados,
 )
@@ -52,6 +54,19 @@ def test_detect_orgao_emissor_multi_orgaos():
     assert detect_orgao_emissor("Programa de Iniciação Científica PROIC UnB 2026") == "PROIC"
     assert detect_orgao_emissor("Diretoria de Acessibilidade (DACES) - Seleção de Apoio") == "DACES"
     assert detect_orgao_emissor("Biblioteca Central (BCE) - Bolsas de Apoio ao Acervo") == "BCE"
+
+
+def test_detect_orgao_emissor_covers_all_scrapers_registry():
+    from app.modules.scraper import SCRAPERS_REGISTRY
+
+    assert set(SCRAPERS_REGISTRY.keys()).issubset(set(ORGAOS_UNB.keys()))
+    assert extrair_orgao_emissor("Centro de Educação a Distância (CEAD) - Seleção UAB/UnB") == "CEAD"
+    assert extrair_orgao_emissor("Hospital Universitário de Brasília (HUB-UnB / EBSERH)") == "HUB"
+    assert extrair_orgao_emissor("Fazenda Água Limpa - FAL") == "FAL"
+    assert extrair_orgao_emissor("Fundação de Empreendimentos Científicos e Tecnológicos - FINATEC") == "FINATEC"
+    assert extrair_orgao_emissor("Parque Científico e Tecnológico - PCTEC") == "PCTEC"
+    assert extrair_orgao_emissor("Texto sem nenhum órgão identificável") is None
+    assert extrair_orgao_emissor("") is None
 
 
 def test_detect_campus_multi_campi():

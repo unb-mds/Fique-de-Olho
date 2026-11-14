@@ -3,6 +3,7 @@ import json
 import logging
 import re
 from datetime import date, datetime, timezone
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 
@@ -14,12 +15,22 @@ from app.core.database import (
     TipoDocumento,
 )
 from app.modules.scraper import deg
+from app.modules.scraper.parser import detect_orgao_emissor, parse_edital_metadados
+from app.modules.scraper.pdf import (
+    PDFCorruptedError,
+    PDFDownloadError,
+    PDFExtractionError,
+    extract_pdf,
+)
 from app.modules.notificacoes.service import (
     gerar_notificacoes_prazo as _gerar_notificacoes_prazo,
     notificar_edital_atualizado,
 )
 
 logger = logging.getLogger(__name__)
+
+PDF_ENRICHMENT_TIMEOUT = 10.0
+MAX_TEXTO_EXTRAIDO_CHARS = 100000
 
 MESES_PT = {
     "janeiro": 1,
@@ -93,10 +104,23 @@ def parse_data_publicacao(date_str: str, default_year: Optional[int] = None) -> 
     return datetime(eff_year, 1, 1, tzinfo=timezone.utc)
 
 
-def map_tipo_documento(tipo_str: str) -> TipoDocumento:
-    """Mapeia string do scraper para o enum TipoDocumento do banco."""
+def map_tipo_documento(tipo_str: str, titulo_str: Optional[str] = None) -> TipoDocumento:
+    """Mapeia string do scraper para o enum TipoDocumento do banco, considerando também o título."""
     normalizado = tipo_str.lower().strip() if tipo_str else "original"
-    return MAPA_TIPOS_DOCUMENTO.get(normalizado, TipoDocumento.ORIGINAL)
+    mapped = MAPA_TIPOS_DOCUMENTO.get(normalizado)
+    if mapped is not None and mapped != TipoDocumento.ORIGINAL:
+        return mapped
+
+    if titulo_str:
+        tit_low = titulo_str.lower()
+        if any(k in tit_low for k in ("resultado final", "resultado_final", "homologacao", "homologação")):
+            return TipoDocumento.RESULTADO_FINAL
+        if any(k in tit_low for k in ("resultado provisorio", "resultado provisório", "resultado preliminar")):
+            return TipoDocumento.RESULTADO_PROVISORIO
+        if any(k in tit_low for k in ("retificacao", "retificação")):
+            return TipoDocumento.RETIFICACAO
+
+    return mapped or TipoDocumento.ORIGINAL
 
 
 def _parse_optional_date(value: Any) -> Optional[date]:
@@ -128,6 +152,311 @@ def _parse_optional_date(value: Any) -> Optional[date]:
             except ValueError:
                 return None
     return None
+
+
+def _coerce_vagas(value: Any) -> Optional[int]:
+    """Converte número ou string (ex.: '2100', '1 vaga', '2 + CR') para inteiro positivo seguro."""
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value if 0 < value < 1000000 else None
+    if isinstance(value, float):
+        iv = int(value)
+        return iv if 0 < iv < 1000000 else None
+    if isinstance(value, str):
+        raw = value.strip()
+        if not raw:
+            return None
+        if raw.isdigit():
+            val = int(raw)
+            return val if 0 < val < 1000000 else None
+        m = re.search(
+            r"\b(\d{1,6})\s*(?:vagas?|bolsas?|\+\s*cr\b|cadastro)",
+            raw,
+            re.I,
+        )
+        if m:
+            val = int(m.group(1))
+            return val if 0 < val < 1000000 else None
+        nums = re.findall(r"\b(\d{1,6})\b", raw)
+        if len(nums) == 1:
+            val = int(nums[0])
+            return val if 0 < val < 1000000 else None
+    return None
+
+
+def _coerce_valor_bolsa(value: Any) -> Optional[Decimal]:
+    """Converte número, Decimal ou string monetária ('R$ 1.500,00', 700.0) para Decimal(10, 2)."""
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, Decimal):
+        if value <= 0 or value >= Decimal("100000000"):
+            return None
+        return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    if isinstance(value, (int, float)):
+        if value <= 0 or value >= 100000000:
+            return None
+        try:
+            return Decimal(str(value)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        except InvalidOperation:
+            return None
+    if isinstance(value, str):
+        raw = value.strip()
+        if not raw:
+            return None
+        cleaned = re.sub(r"[rR]\$\s*", "", raw).strip()
+        m_br = re.search(r"(\d{1,3}(?:\.\d{3})+,\d{1,2}|\d+,\d{1,2})", cleaned)
+        if m_br:
+            num_str = m_br.group(1).replace(".", "").replace(",", ".")
+        else:
+            m_num = re.search(r"\b(\d+(?:\.\d{1,2})?)\b", cleaned)
+            if not m_num:
+                return None
+            num_str = m_num.group(1)
+        try:
+            dec = Decimal(num_str).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            return dec if Decimal("0") < dec < Decimal("100000000") else None
+        except InvalidOperation:
+            return None
+    return None
+
+
+def _sanitize_periodo_inscricao(
+    inicio: Optional[date],
+    fim: Optional[date],
+    context: str = "",
+) -> tuple[Optional[date], Optional[date]]:
+    """Garante a constraint inicio_inscricao <= fim_inscricao, descartando início inconsistente."""
+    if inicio is not None and fim is not None and inicio > fim:
+        logger.warning(
+            f"Período de inscrição inconsistente ({inicio} > {fim}) em '{context}'; "
+            "descartando inicio_inscricao para respeitar editais_periodo_inscricao_ck."
+        )
+        return None, fim
+    return inicio, fim
+
+
+def _sanitize_texto_extraido(text: Optional[str]) -> Optional[str]:
+    """Remove NUL bytes e limita tamanho para persistência segura no PostgreSQL."""
+    if not text:
+        return None
+    cleaned = text.replace("\x00", "").strip()
+    if not cleaned:
+        return None
+    return cleaned[:MAX_TEXTO_EXTRAIDO_CHARS]
+
+
+def _is_likely_pdf_url(url: Optional[str]) -> bool:
+    """Verifica se a URL aponta para um documento PDF (ou endpoint de download de arquivo)."""
+    if not url or not isinstance(url, str):
+        return False
+    low = url.strip().lower()
+    if not low.startswith(("http://", "https://")):
+        return False
+    base_path = low.split("?", 1)[0].split("#", 1)[0]
+    if base_path.endswith(".pdf"):
+        return True
+    if any(token in low for token in (".pdf?", "download=", "/download/", "id_arquivo=")):
+        return True
+    return False
+
+
+def _select_candidate_pdf_url(
+    edital_data: Dict[str, Any],
+    effective_docs: List[Dict[str, Any]],
+    url_pagina: str,
+) -> Optional[str]:
+    """Determina a URL candidata oficial do PDF do edital (Prioridade 2)."""
+    raw_url_pdf = str(edital_data.get("url_pdf") or "").strip()
+    if raw_url_pdf and _is_likely_pdf_url(raw_url_pdf):
+        return raw_url_pdf
+
+    # Procura primeiro documento original com extensão .pdf
+    for doc in effective_docs:
+        doc_url = str(doc.get("link") or doc.get("url_pdf") or "").strip()
+        tipo = map_tipo_documento(doc.get("tipo", "original"), doc.get("titulo"))
+        if tipo == TipoDocumento.ORIGINAL and _is_likely_pdf_url(doc_url):
+            return doc_url
+
+    # Se a própria url_pagina for um link direto .pdf
+    if _is_likely_pdf_url(url_pagina):
+        return url_pagina
+
+    return None
+
+
+def _enrich_edital_metadata(
+    edital_data: Dict[str, Any],
+    effective_docs: List[Dict[str, Any]],
+    existing_edital: Optional[Edital] = None,
+    hash_conteudo: Optional[str] = None,
+    default_orgao: Optional[str] = None,
+    enable_pdf_enrichment: bool = True,
+) -> Dict[str, Any]:
+    """Enriquece os metadados do edital combinando dados estruturados do scraper (P1) e fallback PDF (P2)."""
+    url_pagina = str(edital_data.get("link") or edital_data.get("url_pagina") or "").strip()
+    titulo = str(edital_data.get("titulo") or "").strip()
+
+    # 1. Prioridade 1 — Dados Estruturados do Scraper
+    inicio_insc = _parse_optional_date(edital_data.get("inicio_inscricao"))
+    fim_insc = _parse_optional_date(edital_data.get("fim_inscricao"))
+    inicio_insc, fim_insc = _sanitize_periodo_inscricao(inicio_insc, fim_insc, context=url_pagina or titulo)
+
+    raw_orgao = (
+        edital_data.get("orgao_emissor")
+        or edital_data.get("orgao_origem")
+        or default_orgao
+    )
+    orgao_emissor = str(raw_orgao).strip()[:50] if raw_orgao and str(raw_orgao).strip() else None
+
+    raw_assunto = edital_data.get("assunto")
+    assunto = str(raw_assunto).strip() if raw_assunto and str(raw_assunto).strip() else None
+
+    raw_campus = edital_data.get("campus")
+    campus = str(raw_campus).strip()[:255] if raw_campus and str(raw_campus).strip() else None
+
+    vagas = _coerce_vagas(edital_data.get("vagas"))
+    valor_bolsa = _coerce_valor_bolsa(
+        edital_data.get("valor_bolsa")
+        if edital_data.get("valor_bolsa") is not None
+        else edital_data.get("valor")
+    )
+    texto_extraido = _sanitize_texto_extraido(edital_data.get("texto_extraido"))
+    resumo = (
+        edital_data.get("resumo")
+        or edital_data.get("descricao")
+        or assunto
+    )
+
+    candidate_pdf_url = _select_candidate_pdf_url(edital_data, effective_docs, url_pagina)
+
+    # Preserva texto_extraido e metadados já existentes no banco em caso de reprocessamento idempotente
+    is_redundant_reprocess = False
+    if existing_edital is not None:
+        same_hash = bool(hash_conteudo and existing_edital.hash_conteudo == hash_conteudo)
+        same_pdf = (
+            not candidate_pdf_url
+            or existing_edital.url_pdf == candidate_pdf_url
+            or any(d.url_pdf == candidate_pdf_url for d in existing_edital.documentos)
+        )
+        if same_hash and same_pdf and existing_edital.texto_extraido:
+            is_redundant_reprocess = True
+            if not texto_extraido:
+                texto_extraido = existing_edital.texto_extraido
+            if inicio_insc is None and "inicio_inscricao" not in edital_data:
+                inicio_insc = existing_edital.inicio_inscricao
+            if fim_insc is None and "fim_inscricao" not in edital_data:
+                fim_insc = existing_edital.fim_inscricao
+            if vagas is None and "vagas" not in edital_data:
+                vagas = existing_edital.vagas
+            if valor_bolsa is None and "valor_bolsa" not in edital_data and "valor" not in edital_data:
+                valor_bolsa = existing_edital.valor_bolsa
+            if not campus:
+                campus = existing_edital.campus
+            if not orgao_emissor:
+                orgao_emissor = existing_edital.orgao_emissor
+            if not assunto:
+                assunto = existing_edital.assunto
+            inicio_insc, fim_insc = _sanitize_periodo_inscricao(inicio_insc, fim_insc, context=url_pagina or titulo)
+
+    missing_essential = (
+        any(x is None for x in (inicio_insc, fim_insc, vagas, valor_bolsa, campus))
+        or not texto_extraido
+    )
+
+    pdf_attempted = False
+    pdf_failed = False
+    pdf_succeeded = False
+
+    # 2. Prioridade 2 — Fallback/Enriquecimento via extract_pdf + parse_edital_metadados
+    if (
+        enable_pdf_enrichment
+        and candidate_pdf_url
+        and missing_essential
+        and not is_redundant_reprocess
+    ):
+        pdf_attempted = True
+        try:
+            extraction = extract_pdf(candidate_pdf_url, timeout=PDF_ENRICHMENT_TIMEOUT)
+            extracted_txt = _sanitize_texto_extraido(getattr(extraction, "full_text", None))
+            if extracted_txt and not texto_extraido:
+                texto_extraido = extracted_txt
+
+            ano_ref = edital_data.get("ano") if isinstance(edital_data.get("ano"), int) else None
+            parsed = parse_edital_metadados(extraction, ano_referencia=ano_ref)
+            pdf_succeeded = True
+
+            # Preenche apenas campos ausentes (scraper > parser do PDF)
+            if not orgao_emissor and parsed.orgao_emissor:
+                orgao_emissor = parsed.orgao_emissor[:50]
+            if not campus and parsed.campus:
+                campus = parsed.campus[:255]
+            if vagas is None and parsed.vagas is not None:
+                vagas = _coerce_vagas(parsed.vagas)
+            if valor_bolsa is None and parsed.valor_bolsa is not None:
+                valor_bolsa = _coerce_valor_bolsa(parsed.valor_bolsa)
+
+            pdf_ini = _parse_optional_date(parsed.inicio_inscricao)
+            pdf_fim = _parse_optional_date(parsed.fim_inscricao)
+            pdf_ini, pdf_fim = _sanitize_periodo_inscricao(pdf_ini, pdf_fim, context=candidate_pdf_url)
+
+            if inicio_insc is None and pdf_ini is not None:
+                if fim_insc is None or pdf_ini <= fim_insc:
+                    inicio_insc = pdf_ini
+                else:
+                    logger.warning(
+                        f"Data inicio_inscricao do PDF ({pdf_ini}) > fim_inscricao ({fim_insc}) "
+                        f"em {candidate_pdf_url}; mantendo apenas fim_inscricao."
+                    )
+
+            if fim_insc is None and pdf_fim is not None:
+                if inicio_insc is None or inicio_insc <= pdf_fim:
+                    fim_insc = pdf_fim
+                else:
+                    logger.warning(
+                        f"Data fim_inscricao do PDF ({pdf_fim}) < inicio_inscricao ({inicio_insc}) "
+                        f"em {candidate_pdf_url}; ignorando fim_inscricao inconsistente."
+                    )
+
+            inicio_insc, fim_insc = _sanitize_periodo_inscricao(inicio_insc, fim_insc, context=url_pagina or titulo)
+
+        except (PDFExtractionError, PDFDownloadError, PDFCorruptedError, Exception) as exc:
+            pdf_failed = True
+            logger.warning(f"Falha ao extrair/enriquecer PDF '{candidate_pdf_url}' para '{url_pagina}': {exc}")
+
+    # Se ainda não identificou órgão emissor no PDF nem veio estruturado, tenta detectar pelo título/resumo
+    if not orgao_emissor:
+        detected = detect_orgao_emissor(f"{titulo} {resumo or ''}")
+        if detected:
+            orgao_emissor = detected[:50]
+
+    # 3. Ciclo de status_processamento
+    has_complete_metadata = bool(
+        (inicio_insc is not None or fim_insc is not None)
+        and (vagas is not None or valor_bolsa is not None or campus is not None)
+    )
+    if pdf_failed:
+        status_processamento = "erro"
+    elif pdf_succeeded or is_redundant_reprocess or has_complete_metadata or bool(texto_extraido):
+        status_processamento = "processado"
+    else:
+        status_processamento = "parcialmente_processado"
+
+    return {
+        "orgao_emissor": orgao_emissor,
+        "assunto": assunto,
+        "campus": campus,
+        "vagas": vagas,
+        "valor_bolsa": valor_bolsa,
+        "inicio_inscricao": inicio_insc,
+        "fim_inscricao": fim_insc,
+        "texto_extraido": texto_extraido,
+        "resumo": resumo,
+        "status_processamento": status_processamento,
+        "candidate_pdf_url": candidate_pdf_url,
+        "pdf_attempted": pdf_attempted,
+        "pdf_failed": pdf_failed,
+    }
 
 
 def _merge_documentos_list(
@@ -224,10 +553,12 @@ def upsert_edital(
     db: Session,
     edital_data: Dict[str, Any],
     documentos_data: Optional[List[Dict[str, Any]]] = None,
+    enable_pdf_enrichment: bool = True,
 ) -> Edital:
     """
     Insere ou atualiza um edital e seus documentos associados (UPSERT).
-    Garante idempotência e atualização periódica evitando duplicações por url_pagina e url_pdf.
+    Garante idempotência e atualização periódica evitando duplicações por url_pagina e url_pdf,
+    enriquecendo metadados via scraper + PDF fallback e recalculando status automaticamente.
     """
     effective_docs = _merge_documentos_list(edital_data.get("documentos"), documentos_data)
     url_pagina = edital_data.get("link") or edital_data.get("url_pagina", "")
@@ -237,22 +568,41 @@ def upsert_edital(
     data_pub = parse_data_publicacao(str(data_str), default_year=default_yr)
     hash_conteudo = edital_data.get("hash_conteudo") or _hash_edital(edital_data, effective_docs)
 
-    # Determina se há resultado final nos documentos informados
-    tem_resultado_final = any(
-        map_tipo_documento(doc.get("tipo", "")) == TipoDocumento.RESULTADO_FINAL
-        for doc in effective_docs
-    )
-
-    inicio_insc = _parse_optional_date(edital_data.get("inicio_inscricao"))
-    fim_insc = _parse_optional_date(edital_data.get("fim_inscricao"))
-    novo_status = _resolve_edital_status(edital_data, tem_resultado_final, fim_insc)
-
-    # Busca edital existente pela URL única
+    # Busca edital existente pela URL única antes do enriquecimento para permitir skip idempotente
     edital = db.query(Edital).filter(Edital.url_pagina == url_pagina).first()
 
-    resumo = edital_data.get("resumo") or edital_data.get("descricao") or edital_data.get("assunto")
+    # Etapa de enriquecimento híbrido (estruturado + PDF fallback)
+    enriched = _enrich_edital_metadata(
+        edital_data=edital_data,
+        effective_docs=effective_docs,
+        existing_edital=edital,
+        hash_conteudo=hash_conteudo,
+        enable_pdf_enrichment=enable_pdf_enrichment,
+    )
+
+    inicio_insc = enriched["inicio_inscricao"]
+    fim_insc = enriched["fim_inscricao"]
+    orgao_emissor = enriched["orgao_emissor"]
+    assunto = enriched["assunto"]
+    campus = enriched["campus"]
+    vagas = enriched["vagas"]
+    valor_bolsa = enriched["valor_bolsa"]
+    texto_extraido = enriched["texto_extraido"]
+    resumo = enriched["resumo"]
+    status_processamento = enriched["status_processamento"]
+    candidate_pdf_url = enriched["candidate_pdf_url"]
+
+    # Determina se há resultado final nos documentos informados ou já persistidos
+    tem_resultado_final = any(
+        map_tipo_documento(doc.get("tipo", ""), doc.get("titulo")) == TipoDocumento.RESULTADO_FINAL
+        for doc in effective_docs
+    )
+    if edital and any(d.tipo_documento == TipoDocumento.RESULTADO_FINAL for d in edital.documentos):
+        tem_resultado_final = True
+
+    # Recalcula status DEPOIS do enriquecimento via PDF
+    novo_status = _resolve_edital_status(edital_data, tem_resultado_final, fim_insc)
     tipo = edital_data.get("tipo") or edital_data.get("tipo_edital")
-    campus = edital_data.get("campus")
 
     if edital:
         hash_anterior = edital.hash_conteudo
@@ -265,10 +615,25 @@ def upsert_edital(
             edital.tipo = tipo
         if campus:
             edital.campus = campus
+        if orgao_emissor:
+            edital.orgao_emissor = orgao_emissor
+        if assunto:
+            edital.assunto = assunto
+        if vagas is not None:
+            edital.vagas = vagas
+        if valor_bolsa is not None:
+            edital.valor_bolsa = valor_bolsa
+        if texto_extraido:
+            edital.texto_extraido = texto_extraido
         if inicio_insc is not None or "inicio_inscricao" in edital_data:
             edital.inicio_inscricao = inicio_insc
         if fim_insc is not None or "fim_inscricao" in edital_data:
             edital.fim_inscricao = fim_insc
+        # Garante invariante de período de inscrição no banco
+        edital.inicio_inscricao, edital.fim_inscricao = _sanitize_periodo_inscricao(
+            edital.inicio_inscricao, edital.fim_inscricao, context=url_pagina
+        )
+        edital.status_processamento = status_processamento
         edital.hash_conteudo = hash_conteudo
         edital.status = novo_status
         edital.atualizado_em = datetime.now(timezone.utc)
@@ -278,7 +643,7 @@ def upsert_edital(
         # Cria novo edital protegendo unicidade de url_pdf
         safe_url_pdf = _resolve_unique_url_pdf(
             db,
-            edital_data.get("url_pdf") or url_pagina,
+            edital_data.get("url_pdf") or candidate_pdf_url or url_pagina,
             url_pagina,
         )
         edital = Edital(
@@ -290,8 +655,14 @@ def upsert_edital(
             campus=campus,
             tipo=tipo,
             resumo=resumo,
+            orgao_emissor=orgao_emissor,
+            assunto=assunto,
+            vagas=vagas,
+            valor_bolsa=valor_bolsa,
             inicio_inscricao=inicio_insc,
             fim_inscricao=fim_insc,
+            texto_extraido=texto_extraido,
+            status_processamento=status_processamento,
             hash_conteudo=hash_conteudo,
         )
         db.add(edital)
@@ -305,7 +676,7 @@ def upsert_edital(
         if not doc_url:
             continue
 
-        tipo_enum = map_tipo_documento(doc_data.get("tipo", "original"))
+        tipo_enum = map_tipo_documento(doc_data.get("tipo", "original"), doc_data.get("titulo"))
 
         if doc_url in docs_existentes:
             # Atualiza tipo se necessário
@@ -341,6 +712,7 @@ def run_pipeline(
     db: Session,
     year: Optional[int] = None,
     fetch_docs: bool = True,
+    enable_pdf_enrichment: bool = True,
 ) -> List[Edital]:
     """
     Executa a coleta do scraper do DEG e persiste os resultados no banco de dados.
@@ -357,8 +729,18 @@ def run_pipeline(
             except Exception as exc:
                 logger.warning(f"Erro ao buscar documentos para {item['link']}: {exc}")
 
-        edital_salvo = upsert_edital(db=db, edital_data=item, documentos_data=docs)
-        editais_persistidos.append(edital_salvo)
+        payload = {**item, "orgao_emissor": item.get("orgao_emissor") or item.get("orgao_origem") or "DEG"}
+        try:
+            edital_salvo = upsert_edital(
+                db=db,
+                edital_data=payload,
+                documentos_data=docs,
+                enable_pdf_enrichment=enable_pdf_enrichment,
+            )
+            editais_persistidos.append(edital_salvo)
+        except Exception as item_exc:
+            db.rollback()
+            logger.warning(f"[DEG] Falha ao persistir edital {item.get('link')}: {item_exc}")
 
     return editais_persistidos
 
@@ -369,6 +751,7 @@ def run_periodic_pipeline(
     year: Optional[int] = None,
     fetch_docs: bool = True,
     max_items_per_orgao: Optional[int] = None,
+    enable_pdf_enrichment: Optional[bool] = None,
 ) -> Dict[str, List[Edital]]:
     """Executa periodicamente a coleta idempotente de múltiplos (ou todos os) portais registrados.
 
@@ -382,6 +765,7 @@ def run_periodic_pipeline(
         if orgaos
         else list(SCRAPERS_REGISTRY.keys())
     )
+    eff_pdf_enrichment = fetch_docs if enable_pdf_enrichment is None else enable_pdf_enrichment
     resultados: Dict[str, List[Edital]] = {}
 
     for sigla in target_orgaos:
@@ -406,8 +790,17 @@ def run_periodic_pipeline(
                         docs = scraper.fetch_documentos(item["link"])
                     except Exception as doc_exc:
                         logger.warning(f"[{sigla}] Erro ao extrair documentos de {item['link']}: {doc_exc}")
+                payload = {
+                    **item,
+                    "orgao_emissor": item.get("orgao_emissor") or item.get("orgao_origem") or sigla,
+                }
                 try:
-                    salvo = upsert_edital(db=db, edital_data=item, documentos_data=docs)
+                    salvo = upsert_edital(
+                        db=db,
+                        edital_data=payload,
+                        documentos_data=docs,
+                        enable_pdf_enrichment=eff_pdf_enrichment,
+                    )
                     persistidos_orgao.append(salvo)
                 except Exception as item_exc:
                     db.rollback()

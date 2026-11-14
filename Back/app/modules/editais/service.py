@@ -1,12 +1,25 @@
 """Camada de serviço para operações de banco de dados do módulo de Editais."""
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
+from decimal import Decimal
 from typing import Any, Dict, List, Optional
 from sqlalchemy import and_, extract, or_
 from sqlalchemy.orm import Session
-from datetime import date, datetime, timedelta
 
 from app.core.database import Campus, Edital, StatusEdital, TipoEdital
+
+
+def _format_valor_bolsa_str(valor_bolsa: Any) -> Optional[str]:
+    """Formata valor_bolsa (Decimal/float) como string monetária amigável ou ISO decimal."""
+    if valor_bolsa is None:
+        return None
+    try:
+        dec = Decimal(str(valor_bolsa))
+        inteiro, centavos = f"{dec:.2f}".split(".")
+        inteiro_fmt = f"{int(inteiro):,}".replace(",", ".")
+        return f"R$ {inteiro_fmt},{centavos}"
+    except Exception:
+        return str(valor_bolsa)
 
 
 def serialize_edital(edital: Edital, detail: bool = False) -> Dict[str, Any]:
@@ -60,6 +73,11 @@ def serialize_edital(edital: Edital, detail: bool = False) -> Dict[str, Any]:
 
     url_doc = edital.url_pdf or (docs_list[0].url_pdf if docs_list else "") or edital.url_pagina or ""
     resumo_texto = edital.resumo or "Processo seletivo publicado pela Universidade de Brasília."
+    valor_bolsa_num = (
+        float(edital.valor_bolsa)
+        if edital.valor_bolsa is not None
+        else None
+    )
 
     data: Dict[str, Any] = {
         "id": edital.id,
@@ -71,6 +89,8 @@ def serialize_edital(edital: Edital, detail: bool = False) -> Dict[str, Any]:
         "unidade": campus_nome,
         "categoria": tipo_nome,
         "tipo": tipo_nome,
+        "orgao_emissor": edital.orgao_emissor,
+        "assunto": edital.assunto,
         "url_pagina": edital.url_pagina,
         "url_pdf": url_doc,
         "urlDocumento": url_doc,
@@ -80,8 +100,9 @@ def serialize_edital(edital: Edital, detail: bool = False) -> Dict[str, Any]:
         "fim_inscricao": fim_insc_val,
         "prazoFinal": dt_fim_iso,
         "status_processamento": edital.status_processamento or "processado",
-        "vagas": None,
-        "valor": None,
+        "vagas": edital.vagas,
+        "valor_bolsa": valor_bolsa_num,
+        "valor": _format_valor_bolsa_str(edital.valor_bolsa),
         "campi": [{"id": c.id, "nome": c.nome} for c in campi_list],
         "tipos": [{"id": t.id, "nome": t.nome} for t in tipos_list],
         "documentos": [
@@ -131,7 +152,6 @@ def seed_initial_editais(db: Session) -> None:
         tipos_map[nome] = t
 
     # 3. Editais Iniciais
-    # Teste 
     today = date.today()
     exemplos = [
         {
@@ -142,7 +162,6 @@ def seed_initial_editais(db: Session) -> None:
             "data_publicacao": date(2026, 9, 1),
             "inicio_inscricao": date(2026, 9, 5),
             "fim_inscricao": today - timedelta(days=10),
-            #"fim_inscricao": date(2026, 12, 1),
             "campus": "Darcy Ribeiro",
             "tipo": "Monitoria",
         },
@@ -154,7 +173,6 @@ def seed_initial_editais(db: Session) -> None:
             "data_publicacao": date(2026, 9, 23),
             "inicio_inscricao": date(2026, 9, 23),
             "fim_inscricao": today + timedelta(days=15),
-            #"fim_inscricao": date(2026, 11, 15),
             "campus": "Darcy Ribeiro",
             "tipo": "Extensões",
         },
@@ -166,7 +184,6 @@ def seed_initial_editais(db: Session) -> None:
             "data_publicacao": date(2026, 8, 15),
             "inicio_inscricao": date(2026, 8, 20),
             "fim_inscricao": today + timedelta(days=45),
-            # "fim_inscricao": date(2026, 10, 30),
             "campus": "Geral",
             "tipo": "PIBIC",
         },
@@ -228,24 +245,24 @@ def list_editais_com_filtros(
 
     if status == "aberto":
         query = query.filter(
-        or_(
-            Edital.fim_inscricao >= today,
-            and_(
-                Edital.fim_inscricao.is_(None),
-                or_(Edital.status.is_(None), Edital.status == StatusEdital.ABERTO),
-            ),
+            or_(
+                Edital.fim_inscricao >= today,
+                and_(
+                    Edital.fim_inscricao.is_(None),
+                    or_(Edital.status.is_(None), Edital.status == StatusEdital.ABERTO),
+                ),
+            )
         )
-    )
     elif status == "fechado":
         query = query.filter(
-        or_(
-            Edital.fim_inscricao < today,
-            and_(
-                Edital.fim_inscricao.is_(None),
-                Edital.status == StatusEdital.ENCERRADO,
-            ),
+            or_(
+                Edital.fim_inscricao < today,
+                and_(
+                    Edital.fim_inscricao.is_(None),
+                    Edital.status == StatusEdital.ENCERRADO,
+                ),
+            )
         )
-    )
 
     if categoria and categoria.strip():
         cat_pattern = f"%{categoria.strip()}%"

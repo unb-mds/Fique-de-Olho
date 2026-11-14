@@ -37,7 +37,7 @@ MESES_PT = {
     "dezembro": 12, "dez": 12, "dec": 12,
 }
 
-# Órgãos e Decanatos da UnB mapeados para extensibilidade
+# Órgãos, Decanatos e Portais da UnB mapeados para extensibilidade multi-portal
 ORGAOS_UNB: Dict[str, Tuple[str, ...]] = {
     "DEG": ("decanato de ensino de graduacao", "decanato de ensino de graduação", "deg"),
     "DPG": ("decanato de pos-graduacao", "decanato de pós-graduação", "dpg"),
@@ -48,6 +48,38 @@ ORGAOS_UNB: Dict[str, Tuple[str, ...]] = {
     "PROIC": ("programa de iniciacao cientifica", "programa de iniciação científica", "proic"),
     "DACES": ("diretoria de acessibilidade", "daces"),
     "BCE": ("biblioteca central", "bce"),
+    "CEAD": ("centro de educacao a distancia", "centro de educação a distância", "cead", "uab/unb"),
+    "SIGAA": ("sistema integrado de gestao de atividades academicas", "sigaa"),
+    "CEBRASPE": ("centro brasileiro de pesquisa em avaliacao e selecao", "cebraspe", "cespe"),
+    "UNB_IDIOMAS": ("unb idiomas", "escola de linguas", "unbidiomas"),
+    "CONCURSOS": ("concursos unb", "concursos.unb.br", "portal de concursos"),
+    "DGP": ("decanato de gestao de pessoas", "decanato de gestão de pessoas", "dgp"),
+    "FINATEC": (
+        "fundacao de empreendimentos cientificos e tecnologicos",
+        "fundação de empreendimentos científicos e tecnológicos",
+        "finatec",
+    ),
+    "CDT": ("centro de apoio ao desenvolvimento tecnologico", "centro de apoio ao desenvolvimento tecnológico", "cdt"),
+    "PCTEC": ("parque cientifico e tecnologico", "parque científico e tecnológico", "pctec"),
+    "HUB": ("hospital universitario de brasilia", "hospital universitário de brasília", "hub-unb", "ebserh", "hub"),
+    "FAL": ("fazenda agua limpa", "fazenda água limpa", "fal"),
+    "OCEAN": ("samsung ocean", "ocean brasil", "ocean unb", "ocean"),
+    "CEL": ("coordenacao de esporte e lazer", "coordenação de esporte e lazer", "diretoria de esporte", "cel"),
+    "CAL": ("casa da cultura da america latina", "casa da cultura da américa latina", "cal"),
+    "EDU": ("editora universidade de brasilia", "editora unb", "edu"),
+    "UNBTV": ("unbtv", "unb tv", "televisao universitaria"),
+    "FUP": ("faculdade unb planaltina", "faculdade de planaltina", "fup"),
+    "FACE": (
+        "faculdade de economia, administracao, contabilidade",
+        "faculdade de economia, administração, contabilidade",
+        "face",
+    ),
+    "DIREITO": ("faculdade de direito", "fd/unb", "direito unb"),
+    "DAF": ("decanato de administracao", "decanato de administração", "daf"),
+    "PRC": ("prefeitura do campus", "prefeitura da unb", "prc"),
+    "DOU": ("diario oficial da uniao", "diário oficial da união", "imprensa nacional", "dou"),
+    "PPGCONT": ("programa de pos-graduacao em ciencias contabeis", "ppgcont"),
+    "PPGGIPP": ("gestao publica", "ppggipp", "ppgipp"),
 }
 
 # Campus da UnB
@@ -195,6 +227,8 @@ def parse_data_interval(text: str, default_year: Optional[int] = None) -> Tuple[
 
 def detect_orgao_emissor(text: str) -> Optional[str]:
     """Identifica o órgão/decanato emissor a partir do texto do edital."""
+    if not text or not text.strip():
+        return None
     clean = _strip_accents(text)
 
     # Prioriza cabeçalho das primeiras 2000 letras onde o emissor normalmente se declara
@@ -202,23 +236,30 @@ def detect_orgao_emissor(text: str) -> Optional[str]:
 
     for orgao, termos in ORGAOS_UNB.items():
         for termo in termos:
+            termo_clean = _strip_accents(termo)
             # Termos curtos como 'deg' usam fronteira de palavra
-            if len(termo) <= 4:
-                if re.search(rf"\b{re.escape(termo)}\b", header):
+            if len(termo_clean) <= 5:
+                if re.search(rf"\b{re.escape(termo_clean)}\b", header):
                     return orgao
-            elif termo in header:
+            elif termo_clean in header:
                 return orgao
 
     # Se não achou no cabeçalho, procura no documento inteiro
     for orgao, termos in ORGAOS_UNB.items():
         for termo in termos:
-            if len(termo) <= 4:
-                if re.search(rf"\b{re.escape(termo)}\b", clean):
+            termo_clean = _strip_accents(termo)
+            if len(termo_clean) <= 5:
+                if re.search(rf"\b{re.escape(termo_clean)}\b", clean):
                     return orgao
-            elif termo in clean:
+            elif termo_clean in clean:
                 return orgao
 
     return None
+
+
+def extrair_orgao_emissor(text: str) -> Optional[str]:
+    """Alias compatível com a especificação para detecção do órgão emissor."""
+    return detect_orgao_emissor(text)
 
 
 def detect_campus(text: str) -> Optional[str]:
