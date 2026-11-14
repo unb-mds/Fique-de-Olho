@@ -12,18 +12,26 @@ from app.modules.scraper.cel import CELScraper, cel_scraper
 from app.modules.scraper.concursos import ConcursosScraper, concursos_scraper
 from app.modules.scraper.dac import DACScraper, dac_scraper
 from app.modules.scraper.daces import DACESScraper, daces_scraper
+from app.modules.scraper.daf import DAFScraper, daf_scraper
 from app.modules.scraper.deg import DEGScraper, deg_scraper
 from app.modules.scraper.dex import DEXScraper, dex_scraper
 from app.modules.scraper.dgp import DGPScraper, dgp_scraper
+from app.modules.scraper.direito import DireitoScraper, direito_scraper
+from app.modules.scraper.dou import DOUScraper, dou_scraper
 from app.modules.scraper.dpg import DPGScraper, dpg_scraper
 from app.modules.scraper.dpi import DPIScraper, dpi_scraper
 from app.modules.scraper.edu import EDUScraper, edu_scraper
+from app.modules.scraper.face import FACEScraper, face_scraper
 from app.modules.scraper.fal import FALScraper, fal_scraper
 from app.modules.scraper.finatec import FinatecScraper, finatec_scraper
+from app.modules.scraper.fup import FUPScraper, fup_scraper
 from app.modules.scraper.hub import HUBScraper, hub_scraper
 from app.modules.scraper.int_scraper import INTScraper, int_scraper
 from app.modules.scraper.ocean import OceanBrasilScraper, ocean_scraper
 from app.modules.scraper.pctec import PCTecScraper, pctec_scraper
+from app.modules.scraper.ppgcont import PPGContScraper, ppgcont_scraper
+from app.modules.scraper.ppggipp import PPGGIPPScraper, ppggipp_scraper
+from app.modules.scraper.prc import PRCScraper, prc_scraper
 from app.modules.scraper.proic import PROICScraper, proic_scraper
 from app.modules.scraper.sigaa import SIGAAScraper, sigaa_scraper
 from app.modules.scraper.unb_idiomas import UnBIdiomasScraper, unb_idiomas_scraper
@@ -80,12 +88,26 @@ SCRAPERS_REGISTRY: Dict[str, BaseScraper] = {
     "CAL": cal_scraper,
     "EDU": edu_scraper,
     "UNBTV": unbtv_scraper,
+    "FUP": fup_scraper,
+    "FACE": face_scraper,
+    "DIREITO": direito_scraper,
+    "DAF": daf_scraper,
+    "PRC": prc_scraper,
+    "DOU": dou_scraper,
+    "PPGCONT": ppgcont_scraper,
+    "PPGGIPP": ppggipp_scraper,
+}
+
+SCRAPER_ALIASES: Dict[str, str] = {
+    "PPGIPP": "PPGGIPP",
 }
 
 
 def get_scraper(orgao: str) -> Optional[BaseScraper]:
     """Retorna a instância do scraper correspondente à sigla do órgão."""
-    return SCRAPERS_REGISTRY.get(orgao.upper().strip())
+    key = orgao.upper().strip()
+    key = SCRAPER_ALIASES.get(key, key)
+    return SCRAPERS_REGISTRY.get(key)
 
 
 __all__ = [
@@ -140,6 +162,22 @@ __all__ = [
     "edu_scraper",
     "UnBTVScraper",
     "unbtv_scraper",
+    "FUPScraper",
+    "fup_scraper",
+    "FACEScraper",
+    "face_scraper",
+    "DireitoScraper",
+    "direito_scraper",
+    "DAFScraper",
+    "daf_scraper",
+    "PRCScraper",
+    "prc_scraper",
+    "DOUScraper",
+    "dou_scraper",
+    "PPGContScraper",
+    "ppgcont_scraper",
+    "PPGGIPPScraper",
+    "ppggipp_scraper",
     "SCRAPERS_REGISTRY",
     "get_scraper",
     "run_pipeline",
