@@ -35,6 +35,8 @@ def test_scrapers_registry_contains_all_nine_organs():
         "BCE", "CEAD", "SIGAA", "CEBRASPE", "UNB_IDIOMAS", "CONCURSOS", "DGP",
         "FINATEC", "CDT", "PCTEC", "HUB", "FAL", "OCEAN",
         "CEL", "CAL", "EDU", "UNBTV",
+        "FUP", "FACE", "DIREITO", "DAF", "PRC", "DOU",
+        "PPGCONT", "PPGGIPP",
     }
     assert set(SCRAPERS_REGISTRY.keys()) == expected_organs
 
