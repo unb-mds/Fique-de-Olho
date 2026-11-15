@@ -150,11 +150,11 @@ def sync_portal_editais(
                 **item,
                 "orgao_emissor": item.get("orgao_emissor") or item.get("orgao_origem") or sigla,
                 "assunto": item.get("assunto") or item.get("programa") or item.get("tipo_edital"),
-                "resumo": (
-                    item.get("resumo")
-                    or item.get("descricao")
-                    or item.get("assunto")
-                    or f"Edital publicado pelo portal {sigla} em {item.get('data_publicacao') or 'data não informada'}."
+                # Resumo real (se houver); o pipeline extrai o objeto do texto_extraido/PDF (Issue #77)
+                # e só recorre à frase genérica de resumo_fallback quando nada puder ser extraído.
+                "resumo": item.get("resumo") or item.get("descricao") or item.get("assunto"),
+                "resumo_fallback": (
+                    f"Edital publicado pelo portal {sigla} em {item.get('data_publicacao') or 'data não informada'}."
                 ),
                 "campus": item.get("campus") or "Darcy Ribeiro",
                 "tipo": item.get("tipo") or item.get("tipo_edital") or inferir_categoria(titulo),

@@ -34,6 +34,12 @@ class Settings(BaseSettings):
     NOTIFICATION_SCHEDULER_ENABLED: bool = True
     NOTIFICATION_SCHEDULER_INTERVAL_SECONDS: int = 86400
 
+    # Camada 2 (LLM) de resumo/normalização de títulos — Issues #77 e #106.
+    # Opcional: sem chave, o pipeline usa apenas a heurística local (Camada 1).
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-1.5-flash"
+    GEMINI_TIMEOUT_SECONDS: float = 8.0
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

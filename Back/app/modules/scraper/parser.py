@@ -6,6 +6,10 @@ Capaz de analisar o texto e tabelas extraídos de PDFs para identificar:
 - Datas de resultado preliminar e final;
 - Campus mencionado (Darcy Ribeiro, FGA, FCE, FUP);
 - Vagas e indicação de bolsas remuneradas.
+
+Também concentra a Camada 1 (heurística determinística, offline e de custo zero) das
+Issues #77 e #106: extração do objeto do edital para resumo automático e detecção /
+reconstrução de títulos vagos ou genéricos.
 """
 
 from __future__ import annotations
@@ -15,6 +19,7 @@ import re
 import unicodedata
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple, Union
+from urllib.parse import unquote, urlparse
 
 from pydantic import BaseModel, Field
 
@@ -447,3 +452,537 @@ def parse_edital_metadados(
         valor_bolsa=valor_bolsa,
         cronograma=cronograma,
     )
+
+
+
+# ============================================================================
+# Camada 1 — Heurística determinística local (Issues #77 e #106)
+# Offline, custo zero e usada como fallback da Camada 2 (LLM).
+# ============================================================================
+
+MAX_RESUMO_CHARS = 350
+MAX_TITULO_CHARS = 140
+_MAX_ASSUNTO_TITULO_CHARS = 80
+_MAX_SUBJECT_CHARS = 70
+_CABECALHO_JANELA_CHARS = 1500
+
+# Linhas de ruído típicas de PDFs gerados pelo SEI, Boletim de Atos e DOU.
+_NOISE_LINE_RE = re.compile(
+    "|".join(
+        (
+            r"^\s*SEI\s*/\s*\w+\s*-\s*\d+.*$",  # SEI/UnB - 11223344 - Edital
+            r"^\s*SEI\s+n[º°o.]?\s*\d+.*$",
+            r"^\s*Refer[eê]ncia:\s*Processo.*$",
+            r"^.*Documento assinado eletronicamente.*$",
+            r"^.*autenticidade (?:deste|do) documento.*$",
+            r"^.*controlador_externo\.php.*$",
+            r"^\s*Criado por .*$",
+            r"^\s*P[áa]g(?:ina|\.)?\s*\d+\s*(?:de|/)\s*\d+\s*$",
+            r"^\s*\d{1,3}\s*(?:de|/)\s*\d{1,3}\s*$",
+            r"^\s*\d{1,3}\s*$",
+            r"^.*Boletim de Atos Oficiais.*$",
+            r"^.*Di[áa]rio Oficial da Uni[ãa]o.*$",
+            r"^.*Imprensa Nacional.*$",
+            r"^\s*Publicado em:.*$",
+            r"^\s*Edi[çc][ãa]o:.*$",
+            r"^\s*https?://\S+\s*$",
+        )
+    ),
+    re.IGNORECASE | re.MULTILINE,
+)
+
+_ENUM = r"(?:\d{1,2}(?:\.\d{1,2})*\.?|[IVXL]{1,5})"
+_SEP = r"[\.\-–—)]"
+
+# Seções padronizadas em ordem de prioridade para compor o resumo (Issue #77).
+_SECOES_OBJETO: Tuple[str, ...] = (
+    r"OBJETO",
+    r"OBJETIVOS?",
+    r"FINALIDADE",
+    r"PROGRAMA",
+    r"DISPOSI[ÇC][ÕO]ES\s+PRELIMINARES",
+    r"APRESENTA[ÇC][ÃA]O",
+)
+
+_PROXIMA_SECAO_RE = re.compile(
+    rf"^[ \t]*(?:(?:\d{{1,2}}|[IVXL]{{1,5}})\s*{_SEP}\s*)?(?:D[OA]S?|ANEXO|CAP[ÍI]TULO)\b[A-ZÀ-Ý0-9 \t,/\-–]*$"
+    rf"|^[ \t]*(?:\d{{1,2}}|[IVXL]{{1,5}})\s*{_SEP}\s*[A-ZÀ-Ý][A-ZÀ-Ý \t,/\-–]{{3,}}$",
+    re.MULTILINE,
+)
+
+_SUBITEM_RE = re.compile(r"^[ \t]*\d{1,2}(?:\.\d{1,2})+\.?[ \t]+", re.MULTILINE)
+
+# Resto de título de seção em caixa alta grudado no corpo (", HABILITAÇÃO E AVALIAÇÃO Para ...").
+_CAIXA_ALTA_INICIAL_RE = re.compile(
+    r"^[\s,;:\-–]*(?:(?:[A-ZÀ-Ý]{2,}|E|À)[\s,;:/\-–]+)+(?=[A-ZÀ-Ý][a-zà-ÿ])"
+)
+
+_TORNA_PUBLICO_RE = re.compile(
+    r"torna(?:m)?\s+p[úu]blic[oa]s?\s+(?:a|o|as|os)?\s*(.+?)(?:\.\s|\.$|$)",
+    re.IGNORECASE,
+)
+
+# "presente instrumento/regulamento/edital para ..." → mantém só o que interessa ao estudante.
+_PRESENTE_INSTRUMENTO_RE = re.compile(
+    r"^(?:(?:o|a)\s+)?presentes?\s+(?:instrumento|regulamento|edital|chamada|chamamento|processo)"
+    r"(?:\s+(?:para|que\s+(?:trata|disp[õo]e)\s+(?:sobre|d[aoe]s?)|de|com\s+vistas\s+[àa]))?\s+(?:(?:a|o|à)\s+)?",
+    re.IGNORECASE,
+)
+_BOILERPLATE_FINAL_RE = re.compile(
+    r",?\s+(?:de\s+acordo\s+com|conforme\s+(?:os\s+termos|as\s+condi)|nos\s+termos\s+d)",
+    re.IGNORECASE,
+)
+
+_CABECALHO_RE = re.compile(
+    r"^[ \t]*((?:EDITAL|CHAMADA|CHAMAMENTO|AVISO|PORTARIA|RESOLU[ÇC][ÃA]O)\b[^\n]{0,200})$",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+_NUMERO_EDITAL_RE = re.compile(r"\d+\s*/\s*\d{2,4}")
+
+# Títulos genéricos / etapas isoladas (comparação sem acentos e sem caixa) — Issue #106.
+_TITULOS_GENERICOS_RAW: Tuple[str, ...] = (
+    "edital", "edital de abertura", "edital complementar", "edital sem titulo", "edital completo",
+    "chamada publica", "aviso", "comunicado", "retificacao", "resultado", "resultado preliminar",
+    "resultado provisorio", "resultado final", "homologacao", "convocacao", "convocacoes",
+    "convocacao para entrevista", "nomeacao", "nomeacoes", "lista de inscritos", "listas de inscritos",
+    "selecao de tutores a distancia", "selecao de tutores presenciais", "processo de selecao simplificada",
+    "processo seletivo", "normas e orientacoes", "clique aqui", "acesse aqui", "download", "arquivo",
+    "documento", "resultado provisorio: aqui", "inscricoes abertas", "aqui", "saiba mais", "leia mais",
+    "veja mais", "mais informacoes", "anexo", "anexos",
+)
+
+_STAGE_PREFIXES: Tuple[str, ...] = (
+    "convocacao", "convocacoes", "resultado preliminar", "resultado provisorio", "resultado parcial",
+    "resultado final", "retificacao", "homologacao", "nomeacao", "nomeacoes",
+)
+
+# Termos que caracterizam programa/curso/área e tornam um título de etapa específico.
+_TERMOS_ESPECIFICOS: Tuple[str, ...] = (
+    "monitoria", "mestrado", "doutorado", "especializacao", "residencia", "graduacao", "pos graduacao",
+    "extensao", "pesquisa", "iniciacao", "bolsa", "bolsas", "auxilio", "estagio", "vestibular",
+    "transferencia", "concurso", "curso", "disciplina", "projeto", "intercambio", "mobilidade",
+    "moradia", "alimentacao", "premio", "idiomas", "pibic", "pibiti", "pibex", "pibid", "proic",
+    "capes", "cnpq", "fapdf", "uab", "enem", "sisu", "tutoria", "tutores",
+)
+
+# Rótulos de etapa/ato úteis preservados ao reconstruir títulos vagos.
+_ROTULOS_UTEIS: Tuple[Tuple[str, str], ...] = (
+    ("processo de selecao simplificada", "Processo de Seleção Simplificada"),
+    ("selecao de tutores a distancia", "Seleção de Tutores a Distância"),
+    ("selecao de tutores presenciais", "Seleção de Tutores Presenciais"),
+    ("convocacao para entrevista", "Convocação para Entrevista"),
+    ("convocacao para matricula", "Convocação para Matrícula"),
+    ("resultado preliminar", "Resultado Preliminar"),
+    ("resultado provisorio", "Resultado Provisório"),
+    ("resultado parcial", "Resultado Parcial"),
+    ("resultado final", "Resultado Final"),
+    ("listas de inscritos", "Lista de Inscritos"),
+    ("lista de inscritos", "Lista de Inscritos"),
+    ("edital complementar", "Edital Complementar"),
+    ("normas e orientacoes", "Normas e Orientações"),
+    ("inscricoes abertas", "Inscrições Abertas"),
+    ("processo seletivo", "Processo Seletivo"),
+    ("chamada publica", "Chamada Pública"),
+    ("convocacoes", "Convocações"),
+    ("convocacao", "Convocação"),
+    ("nomeacoes", "Nomeações"),
+    ("nomeacao", "Nomeação"),
+    ("retificacao", "Retificação"),
+    ("homologacao", "Homologação"),
+    ("comunicado", "Comunicado"),
+    ("resultado", "Resultado"),
+    ("aviso", "Aviso"),
+)
+
+# Siglas com grafia oficial preservada no Title Case.
+_SIGLAS_EXTRA: Dict[str, str] = {
+    "UNB": "UnB", "CNPQ": "CNPq", "Nº": "Nº", "N°": "Nº",
+    "PIBIC": "PIBIC", "PIBITI": "PIBITI", "PIBIC-AF": "PIBIC-AF", "PIBIC-EM": "PIBIC-EM",
+    "PIBEX": "PIBEX", "PIBID": "PIBID", "FAPDF": "FAPDF", "UAB": "UAB", "MEI": "MEI", "PGD": "PGD",
+    "CAPES": "CAPES", "EBSERH": "EBSERH", "FGA": "FGA", "FCE": "FCE", "EAD": "EaD", "TCC": "TCC",
+    "PET": "PET", "ENEM": "ENEM", "SISU": "SiSU", "PAS": "PAS", "DF": "DF", "IA": "IA", "PPG": "PPG",
+}
+SIGLAS_PRESERVADAS: Dict[str, str] = {
+    **{k: k for k in ORGAOS_UNB if "_" not in k},
+    **_SIGLAS_EXTRA,
+}
+_PROGRAMAS_ROTULO = {"PIBIC", "PIBITI", "PIBIC-AF", "PIBIC-EM", "PIBEX", "PIBID", "PROIC", "PET", "MEI", "PGD"}
+
+_MINUSCULAS_PT = {
+    "a", "o", "as", "os", "e", "ou", "de", "da", "do", "das", "dos", "em", "no", "na", "nos", "nas",
+    "para", "por", "pelo", "pela", "pelos", "pelas", "com", "sem", "ao", "aos", "à", "às", "um", "uma",
+    "sob", "sobre", "entre",
+}
+_ROMANO_RE = re.compile(r"^(?=[IVXL])L?X{0,3}(?:IX|IV|V?I{0,3})$")
+
+
+def _norm_key(texto: Optional[str]) -> str:
+    """Chave de comparação: sem acentos, minúscula, só alfanuméricos separados por espaço."""
+    if not texto:
+        return ""
+    return re.sub(r"[^a-z0-9]+", " ", _strip_accents(texto)).strip()
+
+
+_TITULOS_GENERICOS = frozenset(_norm_key(t) for t in _TITULOS_GENERICOS_RAW)
+
+
+def truncar_texto(texto: Optional[str], max_chars: int, ellipsis: str = "…") -> str:
+    """Trunca o texto em até ``max_chars`` priorizando fim de frase e, depois, fim de palavra."""
+    if not texto:
+        return ""
+    clean = " ".join(texto.split())
+    if len(clean) <= max_chars:
+        return clean
+
+    janela = clean[: max_chars + 1]
+    melhor = -1
+    for m in re.finditer(r"[\.!?;](?=\s|$)", janela):
+        if m.start() + 1 <= max_chars:
+            melhor = m.start()
+    if melhor >= int(max_chars * 0.4):
+        corte = clean[: melhor + 1]
+        return corte[:-1] + "." if corte.endswith(";") else corte
+
+    limite = max(1, max_chars - len(ellipsis))
+    espaco = clean[: limite + 1].rfind(" ")
+    base = clean[:espaco] if espaco > 0 else clean[:limite]
+    return base.rstrip(" ,;:-–—/") + ellipsis
+
+
+def truncar_titulo(texto: str, max_chars: int) -> str:
+    """Trunca títulos em fronteira de palavra, sem reticências e sem separadores pendurados."""
+    clean = " ".join(texto.split())
+    if len(clean) <= max_chars:
+        return clean
+    espaco = clean[: max_chars + 1].rfind(" ")
+    base = clean[:espaco] if espaco > 0 else clean[:max_chars]
+    return base.rstrip(" ,;:-–—/(")
+
+
+def limpar_texto_documento(texto: Optional[str]) -> str:
+    """Remove cabeçalhos/rodapés do SEI/DOU, numeração de páginas e linhas vazias redundantes."""
+    if not texto:
+        return ""
+    clean = texto.replace("\x00", "").replace("\r\n", "\n").replace("\r", "\n")
+    clean = _NOISE_LINE_RE.sub("", clean)
+    clean = re.sub(r"[ \t]+", " ", clean)
+    clean = re.sub(r"\n\s*\n+", "\n", clean)
+    return clean.strip()
+
+
+def _juntar_linhas(trecho: str) -> str:
+    """Une quebras de linha duras (inclusive hifenização) em texto corrido."""
+    trecho = _SUBITEM_RE.sub("", trecho)
+    trecho = re.sub(r"(\w)-\n(\w)", r"\1\2", trecho)
+    return " ".join(trecho.split())
+
+
+def extrair_objeto_edital(texto: Optional[str], max_chars: int = MAX_RESUMO_CHARS) -> Optional[str]:
+    """Extrai um resumo legível a partir da seção de objeto/finalidade do edital (Issue #77).
+
+    Procura, em ordem de prioridade, seções padronizadas dos editais da UnB
+    (``1. DO OBJETO``, ``DO OBJETIVO``, ``DA FINALIDADE``, ``DO PROGRAMA``,
+    ``DAS DISPOSIÇÕES PRELIMINARES``), limpa o ruído do SEI/DOU e retorna até
+    ``max_chars`` caracteres. Sem seção reconhecível, tenta a fórmula
+    "torna pública ..."; caso nada seja encontrado retorna ``None``.
+    """
+    if not texto or not str(texto).strip():
+        return None
+
+    clean = limpar_texto_documento(str(texto))
+
+    for termo in _SECOES_OBJETO:
+        secao_re = re.compile(
+            rf"^[ \t]*(?:(?:CAP[ÍI]TULO\s+)?{_ENUM}\s*{_SEP}?\s*)?D[OA]S?\s+{termo}\b[ \t]*[:\.\-–—]?[ \t]*",
+            re.IGNORECASE | re.MULTILINE,
+        )
+        m = secao_re.search(clean)
+        if not m:
+            continue
+        restante = clean[m.end():]
+        # Cabeçalho composto em caixa alta ("DO OBJETO, HABILITAÇÃO E ...") não faz parte do corpo.
+        primeira, _, resto_linhas = restante.partition("\n")
+        letras = [c for c in primeira if c.isalpha()]
+        if letras and sum(c.isupper() for c in letras) / len(letras) > 0.8:
+            restante = resto_linhas
+        fim = _PROXIMA_SECAO_RE.search(restante)
+        corpo = restante[: fim.start()] if fim else restante[:2000]
+        corpo = re.sub(r"\s+\d{1,2}(?:\.\d{1,2})*\.?\s*$", "", corpo)
+        corpo = _juntar_linhas(corpo)
+        corpo = _CAIXA_ALTA_INICIAL_RE.sub("", corpo)
+        if len(corpo) >= 20:
+            return truncar_texto(corpo, max_chars)
+
+    corrido = " ".join(clean.split())
+    m_pub = _TORNA_PUBLICO_RE.search(corrido)
+    if m_pub:
+        frase = _PRESENTE_INSTRUMENTO_RE.sub("", m_pub.group(1).strip())
+        frase = _BOILERPLATE_FINAL_RE.split(frase, maxsplit=1)[0].strip(" ,;:")
+        if len(frase) >= 20:
+            frase = frase[0].upper() + frase[1:]
+            if not frase.endswith("."):
+                frase += "."
+            return truncar_texto(frase, max_chars)
+
+    return None
+
+
+def _tem_termo_especifico(titulo: str) -> bool:
+    key = f" {_norm_key(titulo)} "
+    if any(f" {termo} " in key for termo in _TERMOS_ESPECIFICOS):
+        return True
+    siglas = {s.lower() for s in ORGAOS_UNB if "_" not in s}
+    return any(f" {sigla} " in key for sigla in siglas)
+
+
+def is_vague_title(titulo: Optional[str]) -> bool:
+    """Indica se o título é vago/genérico demais para identificar o edital (Issue #106)."""
+    if titulo is None:
+        return True
+    clean = " ".join(str(titulo).split())
+    if len(clean) < 15:
+        return True
+
+    key = _norm_key(clean)
+    if not key or key in _TITULOS_GENERICOS:
+        return True
+
+    # Código técnico sem espaços (HE_UNB_22_2) ou nome de arquivo.
+    if re.fullmatch(r"[A-Z0-9_\-]{4,40}", clean) and re.search(r"[_\d]", clean):
+        return True
+    if " " not in clean and "_" in clean:
+        return True
+    if re.search(r"\.(?:pdf|docx?|odt|xlsx?)$", clean, re.IGNORECASE):
+        return True
+
+    # Etapa administrativa isolada, curta e sem número de edital nem programa/área.
+    if (
+        any(key == p or key.startswith(p + " ") for p in _STAGE_PREFIXES)
+        and len(clean) < 35
+        and not _NUMERO_EDITAL_RE.search(clean)
+        and not _tem_termo_especifico(clean)
+    ):
+        return True
+
+    return False
+
+
+def _case_palavra(core: str, primeira: bool, preservar_maiusculas: bool) -> str:
+    if not core:
+        return core
+    upper = core.upper()
+    if upper in SIGLAS_PRESERVADAS:
+        return SIGLAS_PRESERVADAS[upper]
+    if re.search(r"[/\-–]", core):
+        partes = re.split(r"([/\-–])", core)
+        return "".join(
+            p if p in "/-–" else _case_palavra(p, primeira and i == 0, preservar_maiusculas)
+            for i, p in enumerate(partes)
+        )
+    if any(ch.isdigit() for ch in core):
+        return core
+    if core.isupper() and len(core) <= 5 and _ROMANO_RE.match(core):
+        return core
+    if preservar_maiusculas and core.isupper() and len(core) >= 2:
+        return core
+    lower = core.lower()
+    if not primeira and lower in _MINUSCULAS_PT:
+        return lower
+    return lower[0].upper() + lower[1:]
+
+
+def title_case_pt(texto: str) -> str:
+    """Title Case em português preservando siglas oficiais (UnB, CNPq, PIBIC-AF, Nº...)."""
+    texto = re.sub(r"\bN\s*\.?\s*[º°]\.?", "Nº", texto, flags=re.IGNORECASE)
+    letras = [c for c in texto if c.isalpha()]
+    maioria_maiuscula = bool(letras) and sum(c.isupper() for c in letras) / len(letras) > 0.6
+    preservar = not maioria_maiuscula
+
+    resultado: List[str] = []
+    inicio_segmento = True
+    for token in texto.split():
+        if token in ("-", "–", "—", "|", ":"):
+            resultado.append(token)
+            inicio_segmento = True
+            continue
+        m = re.match(r"^([\(\[\"'«]*)(.*?)([\)\]\"'».,;:!?]*)$", token)
+        lead, core, trail = m.groups() if m else ("", token, "")
+        resultado.append(lead + _case_palavra(core, inicio_segmento, preservar) + trail)
+        inicio_segmento = trail.endswith(":")
+    return " ".join(resultado)
+
+
+def _rotulo_util(titulo: Optional[str]) -> Optional[str]:
+    """Retorna o rótulo de etapa/ato útil do título original (ou None para lixo como '.', 'AQUI')."""
+    if not titulo:
+        return None
+    clean = " ".join(str(titulo).split()).strip()
+    upper = re.sub(r"\s+", "-", clean.upper())
+    if upper in _PROGRAMAS_ROTULO:
+        return SIGLAS_PRESERVADAS.get(upper, upper)
+    for prog in ("PIBIC-AF", "PIBIC-EM", "PIBIC", "PIBITI", "PIBEX", "PIBID", "PROIC"):
+        prog_space = prog.replace("-", " ")
+        if clean.upper().startswith((prog + " ", prog_space + " ")):
+            resto = clean[len(prog):].strip(" -–")
+            return f"{prog} {title_case_pt(resto)}".strip()
+    key = _norm_key(clean)
+    for prefixo, rotulo in _ROTULOS_UTEIS:
+        if key == prefixo or key.startswith(prefixo + " "):
+            return rotulo
+    return None
+
+
+def _limpar_assunto(assunto: Optional[str], titulo_original: Optional[str] = None) -> Optional[str]:
+    """Higieniza o assunto do scraper, descartando valores genéricos e truncando textos longos."""
+    if not assunto:
+        return None
+    clean = " ".join(str(assunto).split()).strip(" -–|:;,.")
+    key = _norm_key(clean)
+    if len(clean) < 4 or not key or key in _TITULOS_GENERICOS:
+        return None
+    if re.fullmatch(r"edital(?: [a-z0-9]{2,15})?", key):
+        return None
+    if titulo_original and key == _norm_key(titulo_original):
+        return None
+    return truncar_titulo(clean, _MAX_ASSUNTO_TITULO_CHARS)
+
+
+def _titulo_do_arquivo(url_pdf: Optional[str]) -> Optional[str]:
+    """Deriva um título legível do nome do arquivo do PDF (decodificando URL encoding)."""
+    if not url_pdf:
+        return None
+    try:
+        path = urlparse(str(url_pdf)).path
+    except ValueError:
+        return None
+    nome = unquote(path.rsplit("/", 1)[-1])
+    nome = re.sub(r"\.(?:pdf|docx?|odt|xlsx?)$", "", nome, flags=re.IGNORECASE)
+    nome = " ".join(re.sub(r"[-_+]+", " ", nome).split())
+    palavras = [p for p in nome.split() if re.fullmatch(r"[^\W\d_]{3,}", p)]
+    if len(palavras) < 2:
+        return None
+    return truncar_titulo(nome, _MAX_ASSUNTO_TITULO_CHARS)
+
+
+def _assunto_do_objeto(objeto: Optional[str]) -> Optional[str]:
+    """Converte o trecho do objeto em um assunto curto para compor o título."""
+    if not objeto:
+        return None
+    s = re.sub(
+        r"^(?:o|a)\s+presente\s+(?:edital|chamada|processo)[^,]*?\s+"
+        r"(?:tem\s+(?:por|como)\s+(?:objeto|objetivo|finalidade)|visa|destina-se|objetiva)\s+(?:[aà]\s+|o\s+)?",
+        "",
+        objeto.strip(),
+        flags=re.IGNORECASE,
+    )
+    s = re.sub(r"^(?:o|a|os|as)\s+", "", s, flags=re.IGNORECASE)
+    s = re.split(r"[,;.(:]", s, maxsplit=1)[0].strip()
+    s = truncar_titulo(s, _MAX_SUBJECT_CHARS)
+    palavras = s.split()
+    while palavras and palavras[-1].lower() in _MINUSCULAS_PT:
+        palavras.pop()
+    s = " ".join(palavras)
+    if len(s) < 8:
+        return None
+    return s[0].upper() + s[1:]
+
+
+def _cabecalho_eh_numerico(cabecalho: str) -> bool:
+    """True quando o cabeçalho só traz tipo + número (ex.: 'EDITAL Nº 158/2024')."""
+    resto = re.sub(r"\d+|[/\.\-–—º°:]", " ", cabecalho)
+    ignorar = {"edital", "chamada", "publica", "aviso", "portaria", "n", "no", "unb", "de", "do", "da"}
+    ignorar |= {s.lower() for s in ORGAOS_UNB}
+    palavras = [p for p in _norm_key(resto).split() if len(p) >= 3 and p not in ignorar]
+    return not palavras
+
+
+def _extrair_cabecalho(texto: Optional[str]) -> Optional[str]:
+    """Localiza o cabeçalho oficial (ex.: 'EDITAL DEG/UnB Nº 12/2025 - ...') no início do texto."""
+    if not texto:
+        return None
+    clean = limpar_texto_documento(str(texto)[: _CABECALHO_JANELA_CHARS * 2])[:_CABECALHO_JANELA_CHARS]
+    for m in _CABECALHO_RE.finditer(clean):
+        cabecalho = " ".join(m.group(1).split()).strip(" -–:;,.")
+        tem_numero = bool(_NUMERO_EDITAL_RE.search(cabecalho) or re.search(r"N\s*\.?\s*[º°]", cabecalho))
+        if len(cabecalho) < 10 or (not tem_numero and len(cabecalho.split()) < 3):
+            continue
+        if not _cabecalho_eh_numerico(cabecalho):
+            return cabecalho
+        # Cabeçalho só numérico: tenta a linha seguinte (comumente o assunto em caixa alta).
+        seguinte = clean[m.end():].lstrip("\n").split("\n", 1)[0].strip()
+        letras = [c for c in seguinte if c.isalpha()]
+        if (
+            10 <= len(seguinte) <= 140
+            and letras
+            and sum(c.isupper() for c in letras) / len(letras) > 0.8
+            and not _PROXIMA_SECAO_RE.match(seguinte)
+            and not re.match(rf"^\s*{_ENUM}\s*{_SEP}", seguinte)
+        ):
+            return f"{cabecalho} - {seguinte.strip(' -–:;,.')}"
+        return cabecalho
+    return None
+
+
+def _contem_orgao(titulo: str, orgao: str) -> bool:
+    key_titulo = f" {_norm_key(titulo)} "
+    key_orgao = _norm_key(orgao.replace("_", " "))
+    return bool(key_orgao) and f" {key_orgao} " in key_titulo
+
+
+def reconstruir_titulo_edital(
+    titulo_original: Optional[str],
+    texto_extraido: Optional[str] = None,
+    assunto: Optional[str] = None,
+    orgao_emissor: Optional[str] = None,
+    url_pdf: Optional[str] = None,
+) -> str:
+    """Reconstrói um título claro para editais com título vago/genérico (Issue #106).
+
+    Títulos já informativos são devolvidos sem alterações (apenas ``strip``). Para
+    títulos vagos, compõe: rótulo útil da etapa (``Resultado Final``...), cabeçalho
+    oficial do PDF (combinado com o objeto quando só numérico), ``assunto`` higienizado,
+    nome do arquivo do PDF e, por fim, o órgão emissor — em Title Case com siglas
+    preservadas e no máximo ``MAX_TITULO_CHARS`` caracteres.
+    """
+    if not is_vague_title(titulo_original):
+        return str(titulo_original).strip()
+
+    rotulo = _rotulo_util(titulo_original)
+    assunto_limpo = _limpar_assunto(assunto, titulo_original)
+
+    contexto: Optional[str] = None
+    cabecalho = _extrair_cabecalho(texto_extraido)
+    if cabecalho:
+        contexto = title_case_pt(cabecalho)
+        if _cabecalho_eh_numerico(cabecalho):
+            subject = _assunto_do_objeto(extrair_objeto_edital(texto_extraido)) or assunto_limpo
+            if subject:
+                contexto = f"{contexto} - {title_case_pt(subject)}"
+    elif assunto_limpo:
+        contexto = title_case_pt(assunto_limpo)
+    else:
+        subject = _assunto_do_objeto(extrair_objeto_edital(texto_extraido))
+        if subject:
+            contexto = title_case_pt(subject)
+        else:
+            nome_arquivo = _titulo_do_arquivo(url_pdf)
+            if nome_arquivo:
+                contexto = title_case_pt(nome_arquivo)
+
+    if rotulo and contexto:
+        key_ctx = _norm_key(contexto)
+        key_rot = _norm_key(rotulo)
+        titulo = contexto if key_ctx.startswith(key_rot) else f"{rotulo} - {contexto}"
+    else:
+        titulo = rotulo or contexto or "Edital"
+
+    sufixo = ""
+    orgao = (orgao_emissor or "").strip()
+    if orgao and not _contem_orgao(titulo, orgao):
+        sufixo = f" - {orgao.replace('_', ' ')}"
+    titulo = truncar_titulo(titulo, MAX_TITULO_CHARS - len(sufixo)) + sufixo
+
+    if titulo == "Edital" and not orgao:
+        return "Edital sem título"
+    return titulo
