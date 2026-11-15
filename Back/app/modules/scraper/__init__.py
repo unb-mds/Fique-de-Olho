@@ -60,6 +60,7 @@ from app.modules.scraper.pdf import (
     normalize_extracted_text,
 )
 from app.modules.scraper.pipeline import run_periodic_pipeline, run_pipeline, upsert_edital
+from app.modules.scraper.service import sync_orgaos_editais
 
 # Registro centralizado de scrapers por órgão da UnB
 SCRAPERS_REGISTRY: Dict[str, BaseScraper] = {
@@ -183,6 +184,7 @@ __all__ = [
     "run_pipeline",
     "run_periodic_pipeline",
     "upsert_edital",
+    "sync_orgaos_editais",
     "extract_pdf",
     "extract_pdf_from_bytes",
     "extract_pdf_from_file",
