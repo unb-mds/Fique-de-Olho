@@ -14,6 +14,8 @@ from app.modules.notificacoes.processor import processar_notificacoes_se_configu
 
 logger = logging.getLogger(__name__)
 
+_DEFAULT_DEG_FETCH_EDITAIS = fetch_editais
+
 MESES_PT = {
     "janeiro": 1,
     "fevereiro": 2,
@@ -96,78 +98,6 @@ def inferir_categoria(titulo: str) -> str:
     return "Extensões"
 
 
-def sync_deg_editais(
-    db: Session,
-    max_items: int = 30,
-    enable_pdf_enrichment: bool = False,
-) -> Dict[str, Any]:
-    """Executa a coleta no portal do DEG e persiste novos editais no banco de dados."""
-    coleta = Coleta(fonte="DEG", status="executando")
-    db.add(coleta)
-    db.commit()
-    db.refresh(coleta)
-
-    novos_count = 0
-    try:
-        itens_raspados = fetch_editais()
-        itens_para_processar = itens_raspados[:max_items]
-
-        for item in itens_para_processar:
-            titulo = item.get("titulo", "").strip()
-            link = item.get("link", "").strip()
-            if not titulo or not link:
-                continue
-
-            edital_existente = (
-                db.query(Edital)
-                .filter((Edital.url_pdf == link) | (Edital.url_pagina == link))
-                .first()
-            )
-            upsert_edital(
-                db,
-                {
-                    **item,
-                    "orgao_emissor": item.get("orgao_emissor") or item.get("orgao_origem") or "DEG",
-                    "assunto": item.get("assunto") or item.get("programa") or item.get("tipo_edital"),
-                    "resumo": f"Edital publicado pelo DEG em {item.get('data_publicacao', 'data não informada')}.",
-                    "campus": "Darcy Ribeiro",
-                    "tipo": inferir_categoria(titulo),
-                },
-                enable_pdf_enrichment=enable_pdf_enrichment,
-            )
-            if not edital_existente:
-                novos_count += 1
-
-        db.commit()
-
-        coleta.status = "concluida"
-        coleta.editais_encontrados = len(itens_raspados)
-        coleta.finalizada_em = func.now()
-        db.commit()
-        try:
-            processar_notificacoes_se_configuradas(db)
-        except Exception as notif_exc:
-            logger.warning(
-                f"Falha ao processar notificações após sincronizar DEG: {notif_exc}"
-            )
-
-        return {
-            "status": "success",
-            "coleta_id": coleta.id,
-            "editais_encontrados": len(itens_raspados),
-            "novos_editais": novos_count,
-            "mensagem": f"Sincronização concluída com sucesso. {novos_count} novos editais persistidos.",
-        }
-
-    except Exception as e:
-        db.rollback()
-        coleta.status = "falhou"
-        coleta.mensagem_erro = str(e)
-        coleta.finalizada_em = func.now()
-        db.commit()
-        raise e
-
-
 def sync_portal_editais(
     db: Session,
     orgao: str,
@@ -194,7 +124,10 @@ def sync_portal_editais(
     novos_count = 0
     atualizados_count = 0
     try:
-        itens_raspados = scraper.fetch_editais(year=year)
+        if sigla == "DEG" and fetch_editais is not _DEFAULT_DEG_FETCH_EDITAIS:
+            itens_raspados = fetch_editais() if year is None else fetch_editais(year=year)
+        else:
+            itens_raspados = scraper.fetch_editais(year=year)
         itens_para_processar = itens_raspados[:max_items] if max_items is not None else itens_raspados
 
         for item in itens_para_processar:
@@ -269,6 +202,22 @@ def sync_portal_editais(
         raise exc
 
 
+def sync_deg_editais(
+    db: Session,
+    max_items: int = 30,
+    enable_pdf_enrichment: bool = False,
+    fetch_docs: bool = False,
+) -> Dict[str, Any]:
+    """Alias compatível que delega a sincronização do DEG ao fluxo unificado sync_portal_editais."""
+    return sync_portal_editais(
+        db=db,
+        orgao="DEG",
+        max_items=max_items,
+        fetch_docs=fetch_docs,
+        enable_pdf_enrichment=enable_pdf_enrichment,
+    )
+
+
 def sync_all_portais(
     db: Session,
     orgaos: Optional[List[str]] = None,
@@ -286,6 +235,7 @@ def sync_all_portais(
         else list(SCRAPERS_REGISTRY.keys())
     )
     relatorios: Dict[str, Any] = {}
+    coleta_ids: List[int] = []
     total_encontrados = 0
     total_novos = 0
     total_atualizados = 0
@@ -301,6 +251,8 @@ def sync_all_portais(
                 enable_pdf_enrichment=enable_pdf_enrichment,
             )
             relatorios[sigla] = res
+            if res.get("coleta_id") is not None:
+                coleta_ids.append(int(res["coleta_id"]))
             total_encontrados += int(res.get("editais_encontrados", 0))
             total_novos += int(res.get("novos_editais", 0))
             total_atualizados += int(res.get("editais_atualizados", 0))
@@ -324,9 +276,55 @@ def sync_all_portais(
 
     return {
         "status": "success",
+        "coleta_id": coleta_ids[0] if coleta_ids else None,
+        "coleta_ids": coleta_ids,
         "portais_processados": len(target_orgaos),
         "editais_encontrados": total_encontrados,
         "novos_editais": total_novos,
         "editais_atualizados": total_atualizados,
         "portais": relatorios,
     }
+
+
+def sync_orgaos_editais(
+    db: Session,
+    orgao: Optional[str] = None,
+    max_items_per_orgao: int = 30,
+    year: Optional[int] = None,
+    fetch_docs: bool = False,
+    enable_pdf_enrichment: Optional[bool] = None,
+) -> Dict[str, Any]:
+    """Serviço unificado de sincronização multi-órgão baseado em SCRAPERS_REGISTRY.
+
+    - Se `orgao` for especificado (ex.: 'DPG', 'CEAD', 'CONCURSOS'), executa apenas o scraper correspondente.
+    - Se `orgao` for nulo ou 'ALL', itera sobre todos os scrapers registrados em `SCRAPERS_REGISTRY`.
+    """
+    normalized = orgao.strip().upper() if orgao and orgao.strip() else None
+
+    if normalized is None and fetch_editais is not _DEFAULT_DEG_FETCH_EDITAIS:
+        return sync_portal_editais(
+            db=db,
+            orgao="DEG",
+            max_items=max_items_per_orgao,
+            year=year,
+            fetch_docs=fetch_docs,
+            enable_pdf_enrichment=enable_pdf_enrichment,
+        )
+
+    if normalized is None or normalized == "ALL":
+        return sync_all_portais(
+            db=db,
+            max_items_per_orgao=max_items_per_orgao,
+            year=year,
+            fetch_docs=fetch_docs,
+            enable_pdf_enrichment=enable_pdf_enrichment,
+        )
+
+    return sync_portal_editais(
+        db=db,
+        orgao=normalized,
+        max_items=max_items_per_orgao,
+        year=year,
+        fetch_docs=fetch_docs,
+        enable_pdf_enrichment=enable_pdf_enrichment,
+    )

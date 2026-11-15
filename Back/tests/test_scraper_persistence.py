@@ -510,3 +510,81 @@ def test_7_idempotencia_skip_de_reprocessamento_pdf(db_session, monkeypatch):
     assert e2.texto_extraido == e1.texto_extraido
     assert e2.vagas == 5
     assert e2.status_processamento == "processado"
+
+
+# ============================================================================
+# Testes TDD da Issue #72 — Persistência de url_pdf vs url_pagina e Documentos
+# ============================================================================
+
+
+def test_issue_72_url_pdf_direta_e_url_pagina_preservada(db_session):
+    """Valida que edital.url_pdf recebe a URL direta do PDF (.pdf) e edital.url_pagina preserva a página web."""
+    pagina_web = "https://deg.unb.br/editais/monitoria-graduacao-2026"
+    pdf_abertura = "https://deg.unb.br/arquivos/edital_abertura_01_2026.pdf"
+    pdf_retificacao = "https://deg.unb.br/arquivos/retificacao_01_2026.pdf"
+    pdf_resultado = "https://deg.unb.br/arquivos/resultado_provisorio_01_2026.pdf"
+
+    edital = upsert_edital(
+        db=db_session,
+        edital_data={
+            "titulo": "Edital de Monitoria 01/2026",
+            "link": pagina_web,
+            "data_publicacao": "2026-09-10",
+        },
+        documentos_data=[
+            {"titulo": "Edital de Abertura", "link": pdf_abertura, "tipo": "original"},
+            {"titulo": "Retificação Nº 01", "link": pdf_retificacao, "tipo": "retificacao"},
+            {"titulo": "Resultado Provisório", "link": pdf_resultado, "tipo": "resultado_provisorio"},
+        ],
+    )
+
+    assert edital.url_pagina == pagina_web
+    assert edital.url_pdf == pdf_abertura
+    assert edital.url_pdf.endswith(".pdf")
+    assert len(edital.documentos) == 3
+
+    # Reexecução sem passar documentos não deve sobrescrever o url_pdf válido com None ou url_pagina
+    edital_reexec = upsert_edital(
+        db=db_session,
+        edital_data={
+            "titulo": "Edital de Monitoria 01/2026",
+            "link": pagina_web,
+            "data_publicacao": "2026-09-10",
+        },
+        documentos_data=[],
+    )
+    assert edital_reexec.id == edital.id
+    assert edital_reexec.url_pagina == pagina_web
+    assert edital_reexec.url_pdf == pdf_abertura
+    assert len(edital_reexec.documentos) == 3
+
+
+def test_issue_72_sem_pdf_nao_grava_url_pagina_em_url_pdf(db_session):
+    """Se não houver PDF nos anexos e a página for HTML, url_pdf permanece None (e atualiza quando PDF surge)."""
+    pagina_web = "https://dex.unb.br/noticias/chamada-extensao-2026"
+    edital = upsert_edital(
+        db=db_session,
+        edital_data={
+            "titulo": "Chamada de Extensão DEX 2026",
+            "link": pagina_web,
+            "data_publicacao": "2026-10-01",
+        },
+        documentos_data=[],
+    )
+    assert edital.url_pagina == pagina_web
+    assert edital.url_pdf is None
+
+    # Quando o documento PDF oficial é publicado posteriormente, url_pdf passa a armazenar o link .pdf
+    pdf_oficial = "https://dex.unb.br/arquivos/chamada_extensao_2026.pdf"
+    edital_atualizado = upsert_edital(
+        db=db_session,
+        edital_data={
+            "titulo": "Chamada de Extensão DEX 2026",
+            "link": pagina_web,
+            "data_publicacao": "2026-10-01",
+        },
+        documentos_data=[{"titulo": "Edital PDF", "link": pdf_oficial, "tipo": "original"}],
+    )
+    assert edital_atualizado.id == edital.id
+    assert edital_atualizado.url_pagina == pagina_web
+    assert edital_atualizado.url_pdf == pdf_oficial

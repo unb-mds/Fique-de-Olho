@@ -274,8 +274,15 @@ def _select_candidate_pdf_url(
     # Procura primeiro documento original com extensão .pdf
     for doc in effective_docs:
         doc_url = str(doc.get("link") or doc.get("url_pdf") or "").strip()
-        tipo = map_tipo_documento(doc.get("tipo", "original"), doc.get("titulo"))
+        raw_tipo = doc.get("tipo") or doc.get("tipo_documento") or "original"
+        tipo = map_tipo_documento(raw_tipo, doc.get("titulo"))
         if tipo == TipoDocumento.ORIGINAL and _is_likely_pdf_url(doc_url):
+            return doc_url
+
+    # Fallback: primeiro documento com extensão .pdf na lista de anexos
+    for doc in effective_docs:
+        doc_url = str(doc.get("link") or doc.get("url_pdf") or "").strip()
+        if _is_likely_pdf_url(doc_url):
             return doc_url
 
     # Se a própria url_pagina for um link direto .pdf
@@ -487,9 +494,12 @@ def _resolve_unique_url_pdf(
     candidate_pdf: Optional[str],
     url_pagina: str,
 ) -> Optional[str]:
-    """Evita violação da restrição UNIQUE em Edital.url_pdf caso dois editais compartilhem o mesmo PDF."""
+    """Evita violação da restrição UNIQUE em Edital.url_pdf caso dois editais compartilhem o mesmo PDF.
+
+    Garante que Edital.url_pdf contenha apenas URLs diretas de PDF válidas (nunca a página HTML).
+    """
     primary = (candidate_pdf or "").strip() or None
-    if not primary:
+    if not primary or not _is_likely_pdf_url(primary):
         return None
 
     collision = (
@@ -500,7 +510,7 @@ def _resolve_unique_url_pdf(
     if collision is None:
         return primary
 
-    if url_pagina and url_pagina != primary:
+    if url_pagina and url_pagina != primary and _is_likely_pdf_url(url_pagina):
         page_collision = (
             db.query(Edital.id)
             .filter(Edital.url_pdf == url_pagina, Edital.url_pagina != url_pagina)
@@ -521,7 +531,10 @@ def _hash_edital(edital_data: Dict[str, Any], documentos_data: List[Dict[str, An
         "inicio_inscricao": str(edital_data.get("inicio_inscricao", "")),
         "fim_inscricao": str(edital_data.get("fim_inscricao", "")),
         "documentos": sorted(
-            (doc.get("link") or doc.get("url_pdf", ""), doc.get("tipo", ""))
+            (
+                doc.get("link") or doc.get("url_pdf", ""),
+                doc.get("tipo") or doc.get("tipo_documento") or "",
+            )
             for doc in documentos_data
         ),
     }
@@ -594,7 +607,11 @@ def upsert_edital(
 
     # Determina se há resultado final nos documentos informados ou já persistidos
     tem_resultado_final = any(
-        map_tipo_documento(doc.get("tipo", ""), doc.get("titulo")) == TipoDocumento.RESULTADO_FINAL
+        map_tipo_documento(
+            doc.get("tipo") or doc.get("tipo_documento") or "",
+            doc.get("titulo"),
+        )
+        == TipoDocumento.RESULTADO_FINAL
         for doc in effective_docs
     )
     if edital and any(d.tipo_documento == TipoDocumento.RESULTADO_FINAL for d in edital.documentos):
@@ -609,6 +626,20 @@ def upsert_edital(
         # Atualiza dados existentes mantendo frescor em execuções periódicas
         edital.titulo = titulo
         edital.data_publicacao = data_pub
+        if candidate_pdf_url:
+            if (
+                not edital.url_pdf
+                or not _is_likely_pdf_url(edital.url_pdf)
+                or (
+                    edital_data.get("url_pdf")
+                    and _is_likely_pdf_url(str(edital_data.get("url_pdf")))
+                )
+            ):
+                safe_pdf = _resolve_unique_url_pdf(db, candidate_pdf_url, url_pagina)
+                if safe_pdf:
+                    edital.url_pdf = safe_pdf
+        elif edital.url_pdf and not _is_likely_pdf_url(edital.url_pdf):
+            edital.url_pdf = None
         if resumo:
             edital.resumo = resumo
         if tipo:
@@ -640,10 +671,10 @@ def upsert_edital(
         if hash_anterior != hash_conteudo:
             notificar_edital_atualizado(db, edital, hash_conteudo)
     else:
-        # Cria novo edital protegendo unicidade de url_pdf
+        # Cria novo edital protegendo unicidade de url_pdf (apenas URLs de PDF válidas)
         safe_url_pdf = _resolve_unique_url_pdf(
             db,
-            edital_data.get("url_pdf") or candidate_pdf_url or url_pagina,
+            candidate_pdf_url,
             url_pagina,
         )
         edital = Edital(
@@ -676,7 +707,8 @@ def upsert_edital(
         if not doc_url:
             continue
 
-        tipo_enum = map_tipo_documento(doc_data.get("tipo", "original"), doc_data.get("titulo"))
+        raw_doc_tipo = doc_data.get("tipo") or doc_data.get("tipo_documento") or "original"
+        tipo_enum = map_tipo_documento(raw_doc_tipo, doc_data.get("titulo"))
 
         if doc_url in docs_existentes:
             # Atualiza tipo se necessário
@@ -713,23 +745,54 @@ def run_pipeline(
     year: Optional[int] = None,
     fetch_docs: bool = True,
     enable_pdf_enrichment: bool = True,
+    scraper: Optional[Any] = None,
+    orgao: Optional[str] = None,
+    max_items: Optional[int] = None,
 ) -> List[Edital]:
-    """
-    Executa a coleta do scraper do DEG e persiste os resultados no banco de dados.
-    """
-    editais_coletados = deg.fetch_editais(year=year)
-    logger.info(f"Coletados {len(editais_coletados)} editais do portal DEG.")
+    """Executa a coleta de um scraper (instância de BaseScraper, sigla de órgão ou DEG por padrão) e persiste no banco."""
+    from app.modules.scraper import get_scraper
+
+    if scraper is not None:
+        if isinstance(scraper, str):
+            target_scraper = get_scraper(scraper)
+            if target_scraper is None:
+                raise ValueError(f"Portal '{scraper}' não registrado em SCRAPERS_REGISTRY.")
+            sigla = getattr(target_scraper, "orgao_origem", scraper.upper().strip())
+        else:
+            target_scraper = scraper
+            sigla = getattr(target_scraper, "orgao_origem", None) or (
+                orgao.upper().strip() if orgao else "DEG"
+            )
+    elif orgao is not None:
+        target_scraper = get_scraper(orgao)
+        if target_scraper is None:
+            raise ValueError(f"Portal '{orgao}' não registrado em SCRAPERS_REGISTRY.")
+        sigla = getattr(target_scraper, "orgao_origem", orgao.upper().strip())
+    else:
+        target_scraper = deg
+        sigla = "DEG"
+
+    editais_coletados = target_scraper.fetch_editais(year=year)
+    if max_items is not None:
+        editais_coletados = editais_coletados[:max_items]
+    logger.info(f"Coletados {len(editais_coletados)} editais do portal {sigla}.")
 
     editais_persistidos: List[Edital] = []
     for item in editais_coletados:
-        docs = []
-        if fetch_docs and item.get("link"):
+        if not item.get("link") or not item.get("titulo"):
+            continue
+        embedded_docs = item.get("documentos")
+        docs: List[Dict[str, Any]] = []
+        if fetch_docs and not embedded_docs and item.get("link"):
             try:
-                docs = deg.fetch_documentos(item["link"])
+                docs = target_scraper.fetch_documentos(item["link"])
             except Exception as exc:
-                logger.warning(f"Erro ao buscar documentos para {item['link']}: {exc}")
+                logger.warning(f"[{sigla}] Erro ao buscar documentos para {item['link']}: {exc}")
 
-        payload = {**item, "orgao_emissor": item.get("orgao_emissor") or item.get("orgao_origem") or "DEG"}
+        payload = {
+            **item,
+            "orgao_emissor": item.get("orgao_emissor") or item.get("orgao_origem") or sigla,
+        }
         try:
             edital_salvo = upsert_edital(
                 db=db,
@@ -740,7 +803,7 @@ def run_pipeline(
             editais_persistidos.append(edital_salvo)
         except Exception as item_exc:
             db.rollback()
-            logger.warning(f"[DEG] Falha ao persistir edital {item.get('link')}: {item_exc}")
+            logger.warning(f"[{sigla}] Falha ao persistir edital {item.get('link')}: {item_exc}")
 
     return editais_persistidos
 
