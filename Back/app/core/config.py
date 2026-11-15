@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     NOTIFICATION_SCHEDULER_ENABLED: bool = True
     NOTIFICATION_SCHEDULER_INTERVAL_SECONDS: int = 86400
 
+    # Agendador em segundo plano de coleta periódica de editais (Issue #74)
+    SCRAPER_SCHEDULER_ENABLED: bool = True
+    SCRAPER_SCHEDULER_INTERVAL_HOURS: int = 12
+    SCRAPER_SCHEDULER_RUN_ON_STARTUP: bool = False
+
     # Camada 2 (LLM) de resumo/normalização de títulos — Issues #77 e #106.
     # Opcional: sem chave, o pipeline usa apenas a heurística local (Camada 1).
     GEMINI_API_KEY: str = ""

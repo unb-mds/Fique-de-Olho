@@ -736,6 +736,26 @@ def _tem_termo_especifico(titulo: str) -> bool:
     return any(f" {sigla} " in key for sigla in siglas)
 
 
+def _parse_sigla_e_generico(clean: str) -> Optional[Tuple[str, str]]:
+    """Identifica títulos no formato 'SIGLA - Termo Genérico' (ex.: 'JURAPP - Edital')."""
+    partes = [p.strip() for p in re.split(r"\s*[-–—:|]\s*", clean) if p.strip()]
+    if len(partes) != 2:
+        return None
+    for sigla_cand, gen_cand in ((partes[0], partes[1]), (partes[1], partes[0])):
+        k_sigla, k_gen = _norm_key(sigla_cand), _norm_key(gen_cand)
+        if (
+            len(sigla_cand) <= 12
+            and " " not in sigla_cand
+            and k_sigla
+            and k_sigla not in _TITULOS_GENERICOS
+            and sigla_cand.upper() not in ORGAOS_UNB
+            and k_gen in _TITULOS_GENERICOS
+            and not _tem_termo_especifico(gen_cand)
+        ):
+            return sigla_cand, gen_cand
+    return None
+
+
 def is_vague_title(titulo: Optional[str]) -> bool:
     """Indica se o título é vago/genérico demais para identificar o edital (Issue #106)."""
     if titulo is None:
@@ -746,6 +766,10 @@ def is_vague_title(titulo: Optional[str]) -> bool:
 
     key = _norm_key(clean)
     if not key or key in _TITULOS_GENERICOS:
+        return True
+
+    # Sigla/acrônimo curto isolado com termo genérico (ex.: 'JURAPP - Edital', 'JURAPP – Inscrições abertas').
+    if _parse_sigla_e_generico(clean) is not None:
         return True
 
     # Código técnico sem espaços (HE_UNB_22_2) ou nome de arquivo.
@@ -826,6 +850,14 @@ def _rotulo_util(titulo: Optional[str]) -> Optional[str]:
         if clean.upper().startswith((prog + " ", prog_space + " ")):
             resto = clean[len(prog):].strip(" -–")
             return f"{prog} {title_case_pt(resto)}".strip()
+    par_sigla = _parse_sigla_e_generico(clean)
+    if par_sigla is not None:
+        sigla_raw, gen_raw = par_sigla
+        sigla_fmt = SIGLAS_PRESERVADAS.get(sigla_raw.upper(), sigla_raw.upper() if sigla_raw.isupper() else title_case_pt(sigla_raw))
+        rot_gen = _rotulo_util(gen_raw)
+        if sigla_raw.upper() in ORGAOS_UNB and sigla_raw.upper() not in _PROGRAMAS_ROTULO:
+            return rot_gen
+        return f"{sigla_fmt} - {rot_gen}" if rot_gen else sigla_fmt
     key = _norm_key(clean)
     for prefixo, rotulo in _ROTULOS_UTEIS:
         if key == prefixo or key.startswith(prefixo + " "):
