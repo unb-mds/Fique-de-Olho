@@ -232,6 +232,9 @@ def test_truncar_texto_respeita_limite():
         "edital_monitoria_versao_final.pdf",
         "Resultado Final da Seleção",
         "Retificação do Edital",
+        "JURAPP  - Edital",
+        "JURAPP – Edital",
+        "JURAPP – Inscrições abertas",
     ],
 )
 def test_is_vague_title_casos_reais(titulo):
@@ -782,4 +785,24 @@ def test_extrair_objeto_remove_cabecalho_composto_em_caixa_alta_e_numeracao_fina
     assert resumo.startswith("Para concorrer ao Edital de Seleção de Projetos")
     assert "HABILITAÇÃO" not in resumo
     assert not resumo.endswith("4.")
+
+
+def test_reconstruir_titulo_sigla_mais_generico_jurapp():
+    t1 = reconstruir_titulo_edital(
+        "JURAPP  - Edital",
+        assunto="Grupos de Pesquisa / Iniciação Científica",
+        orgao_emissor="DIREITO",
+        url_pdf="http://www.direito.unb.br/images/JURAPP_Edital_2023.pdf",
+    )
+    assert t1 == "JURAPP - Grupos de Pesquisa / Iniciação Científica - DIREITO"
+    assert not is_vague_title(t1)
+
+    t2 = reconstruir_titulo_edital(
+        "JURAPP – Inscrições abertas",
+        assunto="Grupos de Pesquisa / Iniciação Científica",
+        orgao_emissor="DIREITO",
+    )
+    assert t2 == "JURAPP - Inscrições Abertas - Grupos de Pesquisa / Iniciação Científica - DIREITO"
+    assert not is_vague_title(t2)
+
 
