@@ -11,23 +11,36 @@ from app.core.database import engine
 from app.modules.editais.router import router as editais_router
 from app.modules.usuarios.router import router as usuarios_router
 from app.modules.notificacoes.scheduler import executar_scheduler_notificacoes
+from app.modules.scraper.scheduler import executar_scheduler_scraper
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    scheduler_task = None
+    background_tasks = []
     if settings.NOTIFICATION_SCHEDULER_ENABLED:
-        scheduler_task = asyncio.create_task(
-            executar_scheduler_notificacoes(
-                settings.NOTIFICATION_SCHEDULER_INTERVAL_SECONDS
+        background_tasks.append(
+            asyncio.create_task(
+                executar_scheduler_notificacoes(
+                    settings.NOTIFICATION_SCHEDULER_INTERVAL_SECONDS
+                )
+            )
+        )
+    if settings.SCRAPER_SCHEDULER_ENABLED:
+        background_tasks.append(
+            asyncio.create_task(
+                executar_scheduler_scraper(
+                    settings.SCRAPER_SCHEDULER_INTERVAL_HOURS * 3600,
+                    run_on_startup=settings.SCRAPER_SCHEDULER_RUN_ON_STARTUP,
+                )
             )
         )
     try:
         yield
     finally:
-        if scheduler_task:
-            scheduler_task.cancel()
-            await asyncio.gather(scheduler_task, return_exceptions=True)
+        for task in background_tasks:
+            task.cancel()
+        if background_tasks:
+            await asyncio.gather(*background_tasks, return_exceptions=True)
 
 # Inicialização da aplicação FastAPI
 app = FastAPI(
