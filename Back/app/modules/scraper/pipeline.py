@@ -15,7 +15,8 @@ from app.core.database import (
     TipoDocumento,
 )
 from app.modules.scraper import deg
-from app.modules.scraper.parser import detect_orgao_emissor, parse_edital_metadados
+from app.modules.scraper.parser import detect_orgao_emissor, is_vague_title, parse_edital_metadados
+from app.modules.scraper.summarizer import enrich_title_and_summary, is_generic_summary
 from app.modules.scraper.pdf import (
     PDFCorruptedError,
     PDFDownloadError,
@@ -292,6 +293,64 @@ def _select_candidate_pdf_url(
     return None
 
 
+def _resolve_titulo_resumo(
+    edital_data: Dict[str, Any],
+    titulo: str,
+    existing_edital: Optional[Edital],
+    hash_conteudo: Optional[str],
+    texto_extraido: Optional[str],
+    assunto: Optional[str],
+    orgao_emissor: Optional[str],
+    candidate_pdf_url: Optional[str],
+) -> tuple[str, Optional[str]]:
+    """Determina o título e o resumo finais do edital (Issues #77 e #106).
+
+    - Nunca substitui um resumo informativo por um genérico (repetição do título ou
+      "Edital publicado pelo portal ...").
+    - Reprocessamentos idênticos (mesmo hash) de editais já normalizados preservam os
+      valores persistidos, evitando chamadas repetidas ao LLM.
+    - Editais legados com título vago ou resumo genérico são corrigidos mesmo em
+      reprocessamento redundante, reaproveitando ``texto_extraido``/``assunto`` já salvos.
+    """
+    if existing_edital is not None:
+        same_hash = bool(hash_conteudo and existing_edital.hash_conteudo == hash_conteudo)
+        existing_ok = not is_vague_title(existing_edital.titulo) and not is_generic_summary(
+            existing_edital.resumo, existing_edital.titulo
+        )
+        if same_hash and existing_ok:
+            return existing_edital.titulo, existing_edital.resumo
+
+    incoming_resumo = edital_data.get("resumo") or edital_data.get("descricao")
+    incoming_resumo = str(incoming_resumo).strip() if incoming_resumo else None
+    resumo_base: Optional[str] = incoming_resumo
+    if is_generic_summary(incoming_resumo, titulo):
+        resumo_base = None
+        if existing_edital is not None and not is_generic_summary(
+            existing_edital.resumo, existing_edital.titulo
+        ):
+            resumo_base = existing_edital.resumo
+
+    texto_base = texto_extraido or (existing_edital.texto_extraido if existing_edital is not None else None)
+    assunto_base = assunto or (existing_edital.assunto if existing_edital is not None else None)
+    orgao_base = orgao_emissor or (existing_edital.orgao_emissor if existing_edital is not None else None)
+    url_pdf_base = candidate_pdf_url or (existing_edital.url_pdf if existing_edital is not None else None)
+
+    titulo_final, resumo_final = enrich_title_and_summary(
+        titulo=titulo,
+        texto_extraido=texto_base,
+        assunto=assunto_base,
+        orgao_emissor=orgao_base,
+        url_pdf=url_pdf_base,
+        resumo_atual=resumo_base or incoming_resumo,
+    )
+
+    if not resumo_final:
+        fallback = edital_data.get("resumo_fallback")
+        resumo_final = str(fallback).strip() if fallback else None
+
+    return titulo_final or titulo or "Edital sem título", resumo_final
+
+
 def _enrich_edital_metadata(
     edital_data: Dict[str, Any],
     effective_docs: List[Dict[str, Any]],
@@ -437,7 +496,19 @@ def _enrich_edital_metadata(
         if detected:
             orgao_emissor = detected[:50]
 
-    # 3. Ciclo de status_processamento
+    # 3. Normalização de título e resumo (Issues #77 e #106) — após a extração de PDF/metadados
+    titulo_final, resumo_final = _resolve_titulo_resumo(
+        edital_data=edital_data,
+        titulo=titulo,
+        existing_edital=existing_edital,
+        hash_conteudo=hash_conteudo,
+        texto_extraido=texto_extraido,
+        assunto=assunto,
+        orgao_emissor=orgao_emissor,
+        candidate_pdf_url=candidate_pdf_url,
+    )
+
+    # 4. Ciclo de status_processamento
     has_complete_metadata = bool(
         (inicio_insc is not None or fim_insc is not None)
         and (vagas is not None or valor_bolsa is not None or campus is not None)
@@ -450,6 +521,7 @@ def _enrich_edital_metadata(
         status_processamento = "parcialmente_processado"
 
     return {
+        "titulo": titulo_final,
         "orgao_emissor": orgao_emissor,
         "assunto": assunto,
         "campus": campus,
@@ -458,7 +530,7 @@ def _enrich_edital_metadata(
         "inicio_inscricao": inicio_insc,
         "fim_inscricao": fim_insc,
         "texto_extraido": texto_extraido,
-        "resumo": resumo,
+        "resumo": resumo_final,
         "status_processamento": status_processamento,
         "candidate_pdf_url": candidate_pdf_url,
         "pdf_attempted": pdf_attempted,
@@ -522,11 +594,23 @@ def _resolve_unique_url_pdf(
     return None
 
 
+def _resumo_para_hash(edital_data: Dict[str, Any]) -> Any:
+    """Componente de resumo do hash, estável com o formato anterior do payload do service.
+
+    O service passou a enviar a frase genérica em ``resumo_fallback`` (em vez de ``resumo``);
+    usá-la no hash quando não há resumo real evita falsas "atualizações relevantes".
+    """
+    resumo = edital_data.get("resumo", "")
+    if not resumo and edital_data.get("resumo_fallback"):
+        return edital_data["resumo_fallback"]
+    return resumo
+
+
 def _hash_edital(edital_data: Dict[str, Any], documentos_data: List[Dict[str, Any]]) -> str:
     """Calcula um hash estável dos dados observáveis do edital."""
     payload = {
         "titulo": edital_data.get("titulo", ""),
-        "resumo": edital_data.get("resumo", ""),
+        "resumo": _resumo_para_hash(edital_data),
         "data_publicacao": str(edital_data.get("data_publicacao", "")),
         "inicio_inscricao": str(edital_data.get("inicio_inscricao", "")),
         "fim_inscricao": str(edital_data.get("fim_inscricao", "")),
@@ -595,6 +679,7 @@ def upsert_edital(
 
     inicio_insc = enriched["inicio_inscricao"]
     fim_insc = enriched["fim_inscricao"]
+    titulo = enriched["titulo"] or titulo
     orgao_emissor = enriched["orgao_emissor"]
     assunto = enriched["assunto"]
     campus = enriched["campus"]
