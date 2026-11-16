@@ -1,6 +1,6 @@
-# Backlog do Produto: Fique de Olho — Editais UnB
+# Backlog do Produto: Radar de Editais DEG UnB
 
-Este documento apresenta o **Backlog do Produto** para o sistema de busca, análise, filtragem e notificação de editais dos portais institucionais selecionados na [ADR 0004](../../adr/0004-escopo-Editais.md).
+Este documento apresenta o **Backlog do Produto** para o sistema de busca, análise, filtragem e notificação de editais do Decanato de Ensino de Graduação da Universidade de Brasília (DEG UnB).
 
 ---
 
@@ -8,9 +8,9 @@ Este documento apresenta o **Backlog do Produto** para o sistema de busca, anál
 
 > **Para** a comunidade discente da UnB (em especial cotistas, graduandos e alunos buscando oportunidades ou transferência),  
 > **Que** sofrem com a dispersão de editais em PDFs longos, perda de prazos e dificuldade de encontrar vagas relevantes para seu curso e campus,  
-> **O Fique de Olho** é uma plataforma centralizada e acessível (web/mobile)
-> **Que** coleta automaticamente os editais dos portais institucionais selecionados, extrai seus prazos, vagas e tipos (PIBIC, extensão, monitoria, bolsas), filtra por campus/curso e notifica os usuários sobre oportunidades de seu interesse,
-> **Diferente** da navegação manual pelos portais institucionais e murais físicos,
+> **O Radar de Editais DEG** é uma plataforma centralizada e acessível (web/mobile)  
+> **Que** coleta automaticamente os editais do DEG, extrai seus prazos, vagas e tipos (PIBIC, extensão, monitoria, bolsas), filtra por campus/curso e notifica os usuários sobre oportunidades de seu interesse,  
+> **Diferente** da navegação manual pelo portal institucional do DEG e murais físicos,  
 > **Nosso produto** oferece alertas proativos, leitura simplificada e busca focada no perfil de cada estudante.
 
 ---
@@ -19,9 +19,9 @@ Este documento apresenta o **Backlog do Produto** para o sistema de busca, anál
 
 ```mermaid
 mindmap
-  root((Fique de Olho))
+  root((Radar DEG UnB))
     Épico 1: Coleta e Processamento
-      Web Scraping dos Portais Institucionais
+      Web Scraping do Portal DEG
       Extração e Parsing de PDFs
       Classificação de Tipos de Edital
     Épico 2: Busca e Filtros Inteligentes
@@ -48,21 +48,21 @@ mindmap
 ---
 
 ### Épico 01 [EP01] - Coleta e Processamento Inteligente de Editais
-**Objetivo:** Automatizar a captura contínua das publicações dos portais selecionados na ADR 0004 e processar seus conteúdos (PDFs e páginas web), transformando dados não estruturados em informações organizadas e consultáveis.
+**Objetivo:** Automatizar a captura contínua das publicações no portal do DEG e processar seus conteúdos (PDFs e páginas web) transformando dados não estruturados em informações organizadas e consultáveis.
 
-#### [US01] - Coleta Automatizada de Editais dos Portais Institucionais
+#### [US01] - Coleta Automatizada de Editais do Portal DEG
 * **Prioridade:** Must Have
 * **Persona:** Todas as personas (Lucas, Mariana, Rafael)
 * **Descrição:**  
   > **Como** sistema / estudante,  
-  > **Eu quero** que a plataforma rastreie periodicamente os portais institucionais selecionados na ADR 0004 em busca de novos editais e anexos publicados,
+  > **Eu quero** que a plataforma rastreie periodicamente o site do DEG UnB em busca de novos editais e anexos publicados,  
   > **Para que** as informações da plataforma estejam sempre atualizadas sem necessidade de cadastro manual.
 
 * **Critérios de Aceitação:**
-  - [ ] O *crawler/scraper* deve verificar periodicamente cada portal selecionado (ex.: a cada 6 ou 12 horas).
+  - [ ] O *crawler/scraper* deve verificar o portal do DEG periodicamente (ex: a cada 6 ou 12 horas).
   - [ ] O sistema deve identificar novas publicações, minutas, editais completos, anexos e retificações.
   - [ ] Cada publicação coletada deve armazenar: título oficial, data de publicação, link para o documento original (PDF) e identificador único.
-  - [ ] Falhas temporárias de conexão com um portal não devem derrubar o serviço nem impedir a coleta das demais fontes.
+  - [ ] Falhas temporárias de conexão com o site do DEG não devem derrubar o serviço.
 
 ---
 
@@ -250,7 +250,7 @@ mindmap
 
 | ID | História de Usuário (US) | Épico | Prioridade | Complexidade Estimada |
 | :---: | :--- | :---: | :---: | :---: |
-| **US01** | Coleta automatizada de editais dos portais institucionais (Scraper) | EP01 | **Must Have** | Alta |
+| **US01** | Coleta automatizada de editais do portal DEG (Scraper) | EP01 | **Must Have** | Alta |
 | **US02** | Extração de metadados, prazos e vagas dos editais | EP01 | **Must Have** | Muito Alta |
 | **US03** | Classificação automática do tipo de oportunidade | EP01 | **Must Have** | Média |
 | **US04** | Busca textual por palavra-chave | EP02 | **Must Have** | Média |

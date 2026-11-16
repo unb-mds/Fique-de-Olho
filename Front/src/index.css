@@ -135,10 +135,6 @@ button {
   color: rgba(255, 255, 255, 0.5);
 }
 
-.header-search input:disabled {
-  cursor: not-allowed;
-}
-
 .header-actions {
   display: flex;
   align-items: center;

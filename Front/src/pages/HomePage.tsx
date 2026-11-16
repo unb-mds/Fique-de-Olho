@@ -5,6 +5,7 @@ import FilterBar from '@/components/FilterBar';
 import EditalCard from '@/components/EditalCard';
 import Footer from '@/components/Footer';
 import { getEditais } from '@/services/editaisService';
+import { searchEditaisPorTitulo } from '@/services/searchEditais';
 import type { Edital } from '@/services/types';
 
 export default function HomePage() {
@@ -12,6 +13,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [categoria, setCategoria] = useState<string | null>(null);
+  const [busca, setBusca] = useState('');
 
   useEffect(() => {
     getEditais()
@@ -36,17 +38,18 @@ export default function HomePage() {
     return Array.from(counts.entries()).map(([area, count]) => ({ area, count }));
   }, [editaisAbertos]);
 
-  // A busca por texto (barra do Header) ainda não está ligada a nada —
-  // fica para outra pessoa do time implementar.
+  // RF04: busca local por título (fase "mock" — sem chamada de API própria
+  // ainda; veja o comentário em searchEditaisPorTitulo para a troca futura).
   const filtrados = useMemo(() => {
-    return editais.filter((e) => {
+    const porTitulo = searchEditaisPorTitulo(editais, busca);
+    return porTitulo.filter((e) => {
       return categoria === null || (e.categoria ?? '').toLowerCase() === categoria.toLowerCase();
     });
-  }, [editais, categoria]);
+  }, [editais, categoria, busca]);
 
   return (
     <div>
-      <Header />
+      <Header searchValue={busca} onSearchChange={setBusca} />
       <Hero editaisAbertos={editaisAbertos} />
       <FilterBar
         areaCounts={areaCounts}
@@ -60,7 +63,11 @@ export default function HomePage() {
       {!loading && !error && (
         <>
           {filtrados.length === 0 ? (
-            <p className="empty-state">Nenhum edital encontrado para esse filtro.</p>
+            <p className="empty-state">
+              {busca.trim()
+                ? `Nenhum edital encontrado para "${busca.trim()}".`
+                : 'Nenhum edital encontrado para esse filtro.'}
+            </p>
           ) : (
             <div className="edital-list">
               {filtrados.map((edital) => (

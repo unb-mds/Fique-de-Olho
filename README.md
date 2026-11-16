@@ -63,7 +63,6 @@ Verifique se a API está funcionando:
 ```powershell
 Invoke-RestMethod http://localhost:8000/health
 ```
-
 Serviços disponíveis:
 
 - API: [http://localhost:8000](http://localhost:8000)
