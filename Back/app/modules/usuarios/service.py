@@ -1,6 +1,7 @@
 """Camada de serviço para regras de negócio do módulo de usuários."""
 
-from typing import Optional
+import secrets
+from typing import Any, Dict, Optional
 from sqlalchemy.orm import Session
 
 from app.core.database import Notificacao, Usuario, StatusNotificacao
@@ -35,6 +36,7 @@ def criar_usuario(
     return usuario
 
 
+
 def autenticar_usuario(
     db: Session,
     email: str,
@@ -66,3 +68,24 @@ def atualizar_preferencia_email(
     db.commit()
     db.refresh(usuario)
     return usuario
+
+
+def autenticar_ou_cadastrar_usuario_google(
+    db: Session,
+    google_data: Dict[str, Any],
+) -> Usuario:
+    """Autentica o usuário pelo e-mail do Google ou cadastra automaticamente."""
+    email = google_data["email"].lower().strip()
+    usuario = buscar_usuario_por_email(db, email)
+    if usuario is not None:
+        return usuario
+
+    nome = google_data.get("name") or email.split("@")[0]
+    senha_aleatoria = secrets.token_urlsafe(32)
+    return criar_usuario(
+        db=db,
+        nome=nome,
+        email=email,
+        senha=senha_aleatoria,
+    )
+

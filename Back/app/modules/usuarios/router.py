@@ -3,9 +3,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.database import Usuario, get_db
 from app.modules.usuarios.dependencies import get_current_user
+from app.modules.usuarios.google_auth import verificar_token_google
 from app.modules.usuarios.schemas import (
+    GoogleLoginRequest,
     TokenResposta,
     UsuarioCadastro,
     UsuarioLogin,
@@ -16,6 +19,7 @@ from app.modules.usuarios.security import create_access_token
 from app.modules.notificacoes.schemas import NotificacaoResposta
 from app.modules.notificacoes.service import listar_notificacoes_usuario
 from app.modules.usuarios.service import (
+    autenticar_ou_cadastrar_usuario_google,
     autenticar_usuario,
     buscar_usuario_por_email,
     criar_usuario,
@@ -74,6 +78,36 @@ def fazer_login(
         )
 
     # Gera token JWT contendo apenas informações públicas (sem senha ou hash)
+    access_token = create_access_token(
+        data={"sub": str(usuario.id), "email": usuario.email}
+    )
+
+    return TokenResposta(
+        access_token=access_token,
+        token_type="bearer",
+        usuario=usuario,
+    )
+
+
+@router.post(
+    "/google",
+    response_model=TokenResposta,
+    summary="Autenticar com Google OAuth2",
+    description="Autentica ou cadastra usuário a partir do ID Token (JWT) emitido pelo Google Identity Services.",
+)
+def login_google(
+    dados: GoogleLoginRequest,
+    db: Session = Depends(get_db),
+) -> TokenResposta:
+    google_info = verificar_token_google(
+        credential=dados.credential,
+        client_id=settings.GOOGLE_CLIENT_ID or None,
+    )
+    usuario = autenticar_ou_cadastrar_usuario_google(
+        db=db,
+        google_data=google_info,
+    )
+
     access_token = create_access_token(
         data={"sub": str(usuario.id), "email": usuario.email}
     )

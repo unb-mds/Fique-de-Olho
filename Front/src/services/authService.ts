@@ -40,6 +40,27 @@ export async function login(
 
   return response.json();
 }
+
+export async function loginWithGoogle(
+  credential: string
+): Promise<LoginResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/google`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      credential,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || "Falha na autenticação com o Google.");
+  }
+
+  return response.json();
+}
 export type RegisterResponse = {
   id: number;
   nome: string;

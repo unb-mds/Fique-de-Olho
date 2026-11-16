@@ -25,10 +25,12 @@ class Settings(BaseSettings):
                 return v.replace("postgresql://", "postgresql+psycopg2://", 1)
         return v
 
-    # Configurações de Autenticação JWT (Issue #63)
+    # Configurações de Autenticação JWT e Google OAuth
     JWT_SECRET_KEY: str = "insecure-secret-key-change-in-production-mds-2026"
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 horas
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
     SENDGRID_API_KEY: str = ""
     SENDGRID_FROM_EMAIL: str = ""
     NOTIFICATION_SCHEDULER_ENABLED: bool = True
