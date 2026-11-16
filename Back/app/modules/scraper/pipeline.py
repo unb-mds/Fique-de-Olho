@@ -123,6 +123,79 @@ def map_tipo_documento(tipo_str: str, titulo_str: Optional[str] = None) -> TipoD
 
     return mapped or TipoDocumento.ORIGINAL
 
+#------Wendell----
+# --- Campos extras do scraper: area, link_inscricao, numero e metadados (JSONB) ---------------
+
+# Chaves do dicionário do scraper que já têm coluna própria (ou são internas do pipeline) e,
+# por isso, NÃO entram em Edital.metadados.
+CHAVES_COM_COLUNA_OU_INTERNAS = frozenset(
+    {
+        "titulo", "link", "url_pagina", "url_pdf", "data_publicacao", "inicio_inscricao",
+        "fim_inscricao", "resumo", "resumo_fallback", "descricao", "assunto", "campus", "tipo",
+        "orgao_emissor", "orgao_origem", "vagas", "valor_bolsa", "valor", "texto_extraido",
+        "texto_completo", "documentos", "docs", "hash_conteudo", "identificador_origem",
+        "area", "link_inscricao", "numero",
+    }
+)
+MAX_METADADO_STR_CHARS = 500
+MAX_METADADO_LISTA = 20
+
+# Palavras-chave -> área. A primeira que casar vence; sem casar, a área fica vazia (NULL),
+# melhor do que chutar. Ajuste livremente conforme as áreas que o Front quiser exibir.
+REGRAS_AREA = (
+    ("Assistência Estudantil", ("auxílio", "auxilio", "moradia", "permanência", "permanencia", "restaurante universitário", "alimentação", "transporte")),
+    ("Pesquisa", ("pibic", "pibiti", "iniciação científica", "iniciacao cientifica", "pesquisa", "pós-graduação", "pos-graduacao", "mestrado", "doutorado")),
+    ("Extensão", ("extensão", "extensao", "pibex", "cultura", "esporte", "ocean")),
+    ("Ensino", ("monitoria", "graduação", "graduacao", "vestibular", "transferência", "transferencia", "tutoria", "residência", "residencia")),
+    ("Gestão de Pessoas", ("concurso público", "concurso publico", "docente", "servidor", "técnico-administrativo")),
+    ("Internacional", ("intercâmbio", "intercambio", "mobilidade", "internacional")),
+    ("Estágio", ("estágio", "estagio", "estagiário", "estagiario")),
+)
+
+
+def _limpar_texto(value: Any, max_len: int) -> Optional[str]:
+    """Converte para string aparada e truncada; devolve None se vazio."""
+    if value is None:
+        return None
+    texto = str(value).strip()
+    return texto[:max_len] if texto else None
+
+
+def inferir_area(*textos: Optional[str]) -> Optional[str]:
+    """Infere a área do edital por palavras-chave (título, tipo, assunto). None se nenhuma casar."""
+    combinado = " ".join(t for t in textos if t).lower()
+    if not combinado:
+        return None
+    for area, palavras in REGRAS_AREA:
+        if any(p in combinado for p in palavras):
+            return area
+    return None
+
+
+def _resolver_area(edital_data: Dict[str, Any], titulo: str, tipo: Optional[str], assunto: Optional[str]) -> Optional[str]:
+    """Área informada pelo scraper tem prioridade; senão, infere por palavras-chave."""
+    return _limpar_texto(edital_data.get("area"), 100) or inferir_area(titulo, tipo, assunto)
+
+
+def _extrair_metadados(edital_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Reúne em um dict JSON-seguro tudo o que o scraper devolveu e não tem coluna própria.
+
+    Mantém só valores simples (texto curto, número, bool e listas curtas desses tipos), para
+    não gravar HTML, textos de PDF ou estruturas internas dos scrapers no banco.
+    """
+    extras: Dict[str, Any] = {}
+    for chave, valor in edital_data.items():
+        if chave in CHAVES_COM_COLUNA_OU_INTERNAS or valor is None or valor == "":
+            continue
+        if isinstance(valor, bool) or isinstance(valor, (int, float)):
+            extras[chave] = valor
+        elif isinstance(valor, str):
+            if len(valor) <= MAX_METADADO_STR_CHARS:
+                extras[chave] = valor
+        elif isinstance(valor, (list, tuple)) and len(valor) <= MAX_METADADO_LISTA:
+            if all(isinstance(v, (str, int, float, bool)) and len(str(v)) <= MAX_METADADO_STR_CHARS for v in valor):
+                extras[chave] = list(valor)
+    return extras
 
 def _parse_optional_date(value: Any) -> Optional[date]:
     if not value:
@@ -705,6 +778,13 @@ def upsert_edital(
     # Recalcula status DEPOIS do enriquecimento via PDF
     novo_status = _resolve_edital_status(edital_data, tem_resultado_final, fim_insc)
     tipo = edital_data.get("tipo") or edital_data.get("tipo_edital")
+    #----Wendell---
+    # Campos extras: colunas que o Front usa (area, link_inscricao, numero) + metadados (JSONB)
+    link_inscricao = _limpar_texto(edital_data.get("link_inscricao"), 2000)
+    numero = _limpar_texto(edital_data.get("numero"), 100)
+    area = _resolver_area(edital_data, titulo, tipo, assunto)
+    identificador_origem = _limpar_texto(edital_data.get("identificador_origem"), 200)
+    metadados = _extrair_metadados(edital_data)
 
     if edital:
         hash_anterior = edital.hash_conteudo
@@ -741,6 +821,17 @@ def upsert_edital(
             edital.valor_bolsa = valor_bolsa
         if texto_extraido:
             edital.texto_extraido = texto_extraido
+        if area:
+            edital.area = area
+        if link_inscricao:
+            edital.link_inscricao = link_inscricao
+        if numero:
+            edital.numero = numero
+        if identificador_origem:
+            edital.identificador_origem = identificador_origem
+        if metadados:
+            # Reatribui (merge) para o SQLAlchemy registrar a mudança; chaves antigas são preservadas
+            edital.metadados = {**(edital.metadados or {}), **metadados}
         if inicio_insc is not None or "inicio_inscricao" in edital_data:
             edital.inicio_inscricao = inicio_insc
         if fim_insc is not None or "fim_inscricao" in edital_data:
@@ -780,6 +871,12 @@ def upsert_edital(
             texto_extraido=texto_extraido,
             status_processamento=status_processamento,
             hash_conteudo=hash_conteudo,
+            #----Wendell---
+            area=area,
+            link_inscricao=link_inscricao,
+            numero=numero,
+            identificador_origem=identificador_origem,
+            metadados=metadados or None,
         )
         db.add(edital)
         db.flush()
@@ -795,9 +892,13 @@ def upsert_edital(
         raw_doc_tipo = doc_data.get("tipo") or doc_data.get("tipo_documento") or "original"
         tipo_enum = map_tipo_documento(raw_doc_tipo, doc_data.get("titulo"))
 
+        doc_titulo = _limpar_texto(doc_data.get("titulo"), 500)
+        
         if doc_url in docs_existentes:
             # Atualiza tipo se necessário
             docs_existentes[doc_url].tipo_documento = tipo_enum
+            if doc_titulo:
+                docs_existentes[doc_url].titulo = doc_titulo
         else:
             # Adiciona novo documento vinculado
             novo_doc = EditalDocumento(
