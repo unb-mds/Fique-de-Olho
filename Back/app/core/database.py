@@ -39,6 +39,7 @@ class TipoDocumento(PyEnum):
 engine = create_engine(
     settings.DATABASE_URL,
     pool_pre_ping=True,  # Verifica se a conexão com o banco ainda está viva antes de usar
+    pool_recycle=300,  # Recicla conexões antes da janela de auto-suspend do Neon (5 min)
 )
 
 # Fábrica de sessões para requisições
@@ -115,11 +116,11 @@ class Edital(Base):
     valor_bolsa = Column(Numeric(10, 2), nullable=True)
 
     # Relacionamentos com documentos, favoritos e catálogos M:N
-    documentos = relationship("EditalDocumento", back_populates="edital", cascade="all, delete-orphan")
+    documentos = relationship("EditalDocumento", back_populates="edital", cascade="all, delete-orphan", lazy="selectin")
     favoritos = relationship("Favorito", back_populates="edital", cascade="all, delete-orphan")
     tipos = relationship("TipoEdital", secondary="edital_tipos", lazy="selectin")
     campi = relationship("Campus", secondary="edital_campi", lazy="selectin")
-    cursos = relationship("Curso", secondary="edital_cursos", lazy="selectin")
+    cursos = relationship("Curso", secondary="edital_cursos", lazy="select")
 
 
 class EditalDocumento(Base):

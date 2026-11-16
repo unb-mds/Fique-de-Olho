@@ -1,6 +1,9 @@
+import logging
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from app.core.database import Usuario, get_db
 from app.modules.editais.service import (
@@ -55,7 +58,7 @@ def list_editais(
         if tem_filtro:
             return []
     except Exception:
-        pass
+        logger.exception("Falha ao consultar editais no banco de dados; utilizando fallback inicial.")
 
     # Fallback inicial para quando o banco estiver indisponível ou vazio sem filtros
     return [
@@ -107,7 +110,7 @@ def get_edital(id: str, db: Session = Depends(get_db)):
         if edital:
             return serialize_edital(edital, detail=True)
     except Exception:
-        pass
+        logger.exception("Falha ao consultar editais no banco de dados; utilizando fallback inicial.")
 
     # Fallback para ID 1 caso o banco esteja indisponível/não inicializado
     if edital_id == 1:
