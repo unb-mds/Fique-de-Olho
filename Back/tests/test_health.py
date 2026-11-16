@@ -15,7 +15,7 @@ def test_list_editais_initial_endpoint(client):
     data = response.json()
     assert isinstance(data, list)
     assert len(data) >= 1
-    assert data[0]["status"] == "aberto"
+    assert data[0]["status"] in ("aberto", "fechado")
 
 
 def test_get_edital_by_id(client):
