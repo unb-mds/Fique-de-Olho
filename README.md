@@ -15,6 +15,17 @@ que acessam o serviço pelo celular, possuem pouco tempo para acompanhar
 publicações ou precisam de uma visão resumida antes de abrir o documento
 oficial.
 
+## 🚀 Acesso Rápido e Ambientes
+
+| Serviço | Plataforma | Link | Descrição |
+| :--- | :---: | :--- | :--- |
+| **Aplicação Web (Frontend)** | Vercel | [fique-de-olho.vercel.app](https://fique-de-olho.vercel.app) | Interface reativa React 18 + Vite |
+| **API REST & Swagger** | Render | [fique-de-olho-api.onrender.com/docs](https://fique-de-olho-api.onrender.com/docs) | Documentação interativa OpenAPI |
+| **Healthcheck da API** | Render | [fique-de-olho-api.onrender.com/health](https://fique-de-olho-api.onrender.com/health) | Verificação de integridade e banco |
+| **Banco de Dados** | Neon | AWS São Paulo (`sa-east-1`) | PostgreSQL 16 Serverless |
+| **Documentação Técnica** | GitHub Pages | [unb-mds.github.io/Fique-de-Olho/](https://unb-mds.github.io/Fique-de-Olho/) | Portal estático MkDocs Material |
+
+
 ## 📚 Documentação
 
 - [Documentação publicada](https://unb-mds.github.io/Fique-de-Olho/)

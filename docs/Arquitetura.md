@@ -40,6 +40,17 @@ Este documento descreve a arquitetura implementada e planejada no repositório d
 - **MkDocs Material** para geração do portal estático de documentação.
 - **GitHub Pages** para publicação automatizada através do GitHub Actions ([`.github/workflows/deploy-docs.yml`](../.github/workflows/deploy-docs.yml)).
 
+### Ambientes e URLs em Produção
+
+| Serviço | Provedor | URL Oficial | Observações |
+| :--- | :---: | :--- | :--- |
+| **Frontend Web** | Vercel | [fique-de-olho.vercel.app](https://fique-de-olho.vercel.app) | SPA React 18, roteamento com `vercel.json` |
+| **Backend REST** | Render | [fique-de-olho-api.onrender.com](https://fique-de-olho-api.onrender.com) | FastAPI em Docker, porta dinâmica `${PORT}` |
+| **Documentação da API** | Render | [fique-de-olho-api.onrender.com/docs](https://fique-de-olho-api.onrender.com/docs) | Swagger UI interativo |
+| **Healthcheck** | Render | [fique-de-olho-api.onrender.com/health](https://fique-de-olho-api.onrender.com/health) | Verificação de integridade e conectividade |
+| **Banco de Dados** | Neon | Região `sa-east-1` (São Paulo) | PostgreSQL 16 Serverless com connection pooler |
+
+
 ---
 
 ## Componentes

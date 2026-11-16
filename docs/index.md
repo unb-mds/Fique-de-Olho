@@ -20,6 +20,9 @@ da UnB — para que nenhum prazo passe despercebido.
 <div class="radar-hero__actions" markdown>
 [🎨 Ver protótipo no Figma](https://www.figma.com/make/yqHT0b3mk0T3EkHD2aUgns/UnB-Editais-Aggregator-Site?fullscreen=1){ .radar-btn .radar-btn--primary }
 [🧩 Board de planejamento](https://www.figma.com/board/Sw1R44AAXzZrW5eBolJybw/Template-MDS--c%C3%B3pia-limpa---c%C3%B3pia-?node-id=1-291){ .radar-btn .radar-btn--ghost }
+[🚀 Acessar Aplicação no Ar](https://fique-de-olho.vercel.app){ .radar-btn .radar-btn--primary }
+[⚙️ Swagger da API](https://fique-de-olho-api.onrender.com/docs){ .radar-btn .radar-btn--ghost }
+[🎨 Protótipo no Figma](https://www.figma.com/make/yqHT0b3mk0T3EkHD2aUgns/UnB-Editais-Aggregator-Site?fullscreen=1){ .radar-btn .radar-btn--ghost }
 [💻 GitHub](https://github.com/unb-mds/G4-2026-2){ .radar-btn .radar-btn--ghost }
 
 </div>
