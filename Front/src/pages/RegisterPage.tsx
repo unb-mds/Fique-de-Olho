@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { register } from "@/services/authService";
+import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 
 export default function RegisterPage() {
   const [nome, setNome] = useState("");
@@ -75,6 +76,15 @@ export default function RegisterPage() {
           {carregando ? "Cadastrando..." : "Cadastrar"}
         </button>
       </form>
+
+      <div style={{ margin: "16px 0", textAlign: "center" }}>
+        <span>ou</span>
+      </div>
+
+      <GoogleSignInButton
+        text="signup_with"
+        onError={(msg) => setErro(msg)}
+      />
     </main>
   );
 }

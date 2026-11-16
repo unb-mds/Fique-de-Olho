@@ -17,6 +17,14 @@ class UsuarioLogin(BaseModel):
     senha: str = Field(min_length=1, max_length=128, description="Senha do usuário")
 
 
+class GoogleLoginRequest(BaseModel):
+    """Dados para autenticação com o Google via ID Token."""
+    credential: str = Field(
+        min_length=1,
+        description="ID Token (JWT) emitido pelo Google Identity Services",
+    )
+
+
 class UsuarioResposta(BaseModel):
     """Representação pública de um usuário (sem dados sensíveis)."""
     id: int

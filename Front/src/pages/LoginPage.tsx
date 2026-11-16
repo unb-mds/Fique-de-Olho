@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { login } from "@/services/authService";
+import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -65,6 +66,12 @@ window.location.href = "/";
           {carregando ? "Entrando..." : "Entrar"}
         </button>
       </form>
+
+      <div style={{ margin: "16px 0", textAlign: "center" }}>
+        <span>ou</span>
+      </div>
+
+      <GoogleSignInButton onError={(msg) => setErro(msg)} />
 
       <p>
         Ainda não tem uma conta? <Link to="/register">Cadastre-se</Link>

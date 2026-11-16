@@ -5,6 +5,8 @@ pydantic-settings>=2.6.0
 email-validator>=2.2.0
 pwdlib[argon2]>=0.2.0
 pyjwt>=2.8.0
+google-auth>=2.20.0
+requests>=2.31.0
 
 # Banco de Dados & ORM
 sqlalchemy>=2.0.30
