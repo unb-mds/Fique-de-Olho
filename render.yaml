@@ -6,7 +6,7 @@ services:
     plan: free
     rootDir: Back
     dockerfilePath: Dockerfile
-    healthCheckPath: /health
+    healthCheckPath: /ping
     envVars:
       - key: PORT
         value: 8000

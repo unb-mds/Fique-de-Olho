@@ -1,6 +1,6 @@
 import logging
 from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
@@ -8,7 +8,8 @@ logger = logging.getLogger(__name__)
 from app.core.database import Usuario, get_db
 from app.modules.editais.service import (
     get_edital_by_id,
-    list_editais_com_filtros,
+    invalidar_cache_editais,
+    listar_editais_com_cache,
     serialize_edital,
 )
 from app.modules.favoritos.service import (
@@ -23,6 +24,7 @@ router = APIRouter(prefix="/editais", tags=["Editais"])
 
 @router.get("/", response_model=List[Dict[str, Any]])
 def list_editais(
+    background_tasks: BackgroundTasks,
     ano: Optional[int] = Query(None, description="Filtra editais pelo ano de publicação"),
     q: Optional[str] = Query(None, description="Busca textual por título"),
     busca: Optional[str] = Query(None, description="Alias para parâmetro de busca textual"),
@@ -39,12 +41,10 @@ def list_editais(
     - `categoria`: categoria/tipo do edital
     - `campus`: campus da UnB
     """
-    termo_busca = busca or q
-    tem_filtro = any(param is not None for param in (ano, termo_busca, status, categoria, campus))
-
     try:
-        editais_db = list_editais_com_filtros(
+        resultado = listar_editais_com_cache(
             db=db,
+            agendar_tarefa=background_tasks.add_task,
             ano=ano,
             q=q,
             busca=busca,
@@ -52,11 +52,8 @@ def list_editais(
             categoria=categoria,
             campus=campus,
         )
-        if editais_db:
-            return [serialize_edital(e) for e in editais_db]
-
-        if tem_filtro:
-            return []
+        if resultado is not None:
+            return resultado
     except Exception:
         logger.exception("Falha ao consultar editais no banco de dados; utilizando fallback inicial.")
 
@@ -150,11 +147,13 @@ def sync_editais(
     try:
         from app.modules.scraper.service import sync_orgaos_editais
 
-        return sync_orgaos_editais(
+        resultado = sync_orgaos_editais(
             db=db,
             orgao=orgao,
             max_items_per_orgao=max_itens,
         )
+        invalidar_cache_editais()
+        return resultado
     except ValueError as val_exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
