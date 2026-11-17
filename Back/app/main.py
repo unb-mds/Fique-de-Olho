@@ -71,6 +71,13 @@ def root():
     return RedirectResponse(url="/docs")
 
 
+@app.get("/ping", tags=["Health"])
+def ping():
+    """Endpoint leve de keep-alive que mantém o contêiner acordado sem consultar o banco."""
+    return {"status": "awake"}
+
+
+
 @app.get("/health", tags=["Health"])
 def health_check():
     """Endpoint de verificação de integridade do serviço (Healthcheck) e banco de dados."""

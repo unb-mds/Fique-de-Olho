@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     SCRAPER_SCHEDULER_INTERVAL_HOURS: int = 12
     SCRAPER_SCHEDULER_RUN_ON_STARTUP: bool = False
 
+    # Cache em memória Stale-While-Revalidate da listagem de editais (Issue #116)
+    EDITAIS_CACHE_TTL_SECONDS: int = 900
+
     # Camada 2 (LLM) de resumo/normalização de títulos — Issues #77 e #106.
     # Opcional: sem chave, o pipeline usa apenas a heurística local (Camada 1).
     GEMINI_API_KEY: str = ""

@@ -1,3 +1,6 @@
+from unittest.mock import patch
+
+
 def test_health_check_returns_200(client):
     """Verifica se o endpoint /health responde com HTTP 200 e status healthy."""
     response = client.get("/health")
@@ -6,6 +9,15 @@ def test_health_check_returns_200(client):
     assert data["status"] == "healthy"
     assert "version" in data
     assert data["database"] == "connected"
+
+
+def test_ping_endpoint_returns_awake_without_database_query(client):
+    """Verifica que /ping responde HTTP 200 com {'status': 'awake'} sem tocar no banco."""
+    with patch("app.main.engine.connect", side_effect=AssertionError("Nao deve consultar o banco")) as mock_connect:
+        response = client.get("/ping")
+        assert response.status_code == 200
+        assert response.json() == {"status": "awake"}
+        mock_connect.assert_not_called()
 
 
 def test_list_editais_initial_endpoint(client):

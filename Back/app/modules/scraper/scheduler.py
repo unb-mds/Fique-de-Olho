@@ -10,6 +10,7 @@ from typing import Any, List, Optional
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
+from app.modules.editais.service import invalidar_cache_editais
 from app.modules.scraper.service import sync_all_portais
 
 logger = logging.getLogger(__name__)
@@ -30,13 +31,15 @@ def executar_ciclo_scraping(
     """
     db = session_factory()
     try:
-        return sync_all_portais(
+        resultado = sync_all_portais(
             db=db,
             orgaos=orgaos,
             max_items_per_orgao=max_items_per_orgao,
             fetch_docs=fetch_docs,
             enable_pdf_enrichment=enable_pdf_enrichment,
         )
+        invalidar_cache_editais()
+        return resultado
     except Exception as exc:
         logger.exception("Falha no ciclo automático de coleta de editais.")
         return {
