@@ -4,12 +4,13 @@ from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event, inspect
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.core.database import Base, Campus, TipoEdital, get_db
+from app.core.database import Base, Campus, Edital, EditalDocumento, StatusEdital, TipoDocumento, TipoEdital, get_db
 from app.main import app
+from app.modules.editais.service import list_editais_com_filtros
 
 
 @pytest.fixture
@@ -123,3 +124,92 @@ def test_sync_editais_service(sync_client):
         data = response.json()
         assert data["status"] == "success"
         assert "coleta_id" in data
+
+
+def test_list_editais_avoids_n_plus_one_and_defers_texto_extraido():
+    """Garante que a listagem carrega relacionamentos em lote (sem N+1) e adia texto_extraido."""
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(bind=engine)
+    testing_session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+    session = testing_session_local()
+    campus = Campus(nome="Darcy Ribeiro")
+    tipo = TipoEdital(nome="Extensões")
+    session.add_all([campus, tipo])
+    session.flush()
+
+    for idx in range(15):
+        edital = Edital(
+            identificador_origem=f"edital-n1-{idx}",
+            titulo=f"Edital Performance {idx}",
+            url_pagina=f"https://deg.unb.br/edital-{idx}",
+            url_pdf=f"https://deg.unb.br/edital-{idx}.pdf",
+            texto_extraido="Conteudo extenso do PDF " * 200,
+            status=StatusEdital.ABERTO,
+            status_processamento="processado",
+        )
+        edital.campi.append(campus)
+        edital.tipos.append(tipo)
+        edital.documentos.append(
+            EditalDocumento(
+                url_pdf=f"https://deg.unb.br/edital-{idx}-anexo.pdf",
+                tipo_documento=TipoDocumento.ORIGINAL,
+            )
+        )
+        session.add(edital)
+    session.commit()
+    session.close()
+
+    def override_get_db():
+        db = testing_session_local()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    select_queries = []
+
+    def count_queries(_conn, _cursor, statement, _parameters, _context, _executemany):
+        if statement.lstrip().upper().startswith("SELECT"):
+            select_queries.append(statement)
+
+    event.listen(engine, "before_cursor_execute", count_queries)
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        with TestClient(app) as test_client:
+            # Verifica que texto_extraido fica adiado (deferred) na consulta de listagem
+            check_db = testing_session_local()
+            try:
+                editais_orm = list_editais_com_filtros(check_db)
+                assert len(editais_orm) == 15
+                assert "texto_extraido" in inspect(editais_orm[0]).unloaded
+            finally:
+                check_db.close()
+
+            select_queries.clear()
+            resp = test_client.get(
+                "/api/v1/editais/",
+                headers={"Accept-Encoding": "gzip"},
+            )
+            assert resp.status_code == 200
+            payload = resp.json()
+            assert len(payload) == 15
+            assert len(payload[0]["documentos"]) == 1
+            assert "texto_extraido" not in payload[0]
+            # 4 SELECTs esperados: editais + documentos + tipos + campi (sem N+1 por edital)
+            assert len(select_queries) <= 5
+
+            # Na rota de detalhe, texto_extraido continua sendo retornado normalmente
+            first_id = payload[0]["id"]
+            detail_resp = test_client.get(f"/api/v1/editais/{first_id}")
+            assert detail_resp.status_code == 200
+            assert "Conteudo extenso do PDF" in detail_resp.json()["texto_extraido"]
+    finally:
+        event.remove(engine, "before_cursor_execute", count_queries)
+        app.dependency_overrides.pop(get_db, None)
+        engine.dispose()
+

@@ -2,7 +2,7 @@
 
 from typing import Any, Dict, List
 from fastapi import HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, defer
 
 from app.core.database import Edital, Favorito
 
@@ -76,16 +76,7 @@ def listar_favoritos_usuario(db: Session, usuario_id: int) -> List[Edital]:
     """Recupera todos os editais que foram favoritados pelo usuário autenticado."""
     return (
         db.query(Edital)
-        .join(Favorito, Favorito.edital_id == Edital.id)
-        .filter(Favorito.usuario_id == usuario_id)
-        .all()
-    )
-
-
-def listar_favoritos_usuario(db: Session, usuario_id: int) -> List[Edital]:
-    """Recupera todos os editais que foram favoritados pelo usuário autenticado."""
-    return (
-        db.query(Edital)
+        .options(defer(Edital.texto_extraido))
         .join(Favorito, Favorito.edital_id == Edital.id)
         .filter(Favorito.usuario_id == usuario_id)
         .all()

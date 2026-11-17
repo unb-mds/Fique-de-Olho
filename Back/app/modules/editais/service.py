@@ -4,7 +4,7 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 from sqlalchemy import and_, extract, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, defer
 
 from app.core.database import Campus, Edital, StatusEdital, TipoEdital
 
@@ -223,11 +223,7 @@ def list_editais_com_filtros(
     limit: int = 100,
 ) -> List[Edital]:
     """Constrói dinamicamente a consulta SQLAlchemy aplicando filtros por ano, busca e categorias."""
-    # Se a tabela estiver vazia e for conexão real com postgresql, realiza seed inicial
-    if db.bind and db.bind.dialect.name == "postgresql" and db.query(Edital).count() == 0:
-        seed_initial_editais(db)
-
-    query = db.query(Edital)
+    query = db.query(Edital).options(defer(Edital.texto_extraido))
     today = date.today()
 
     termo_busca = busca or q
@@ -282,7 +278,16 @@ def list_editais_com_filtros(
             )
         )
 
-    return query.order_by(Edital.data_publicacao.desc().nullslast()).offset(skip).limit(limit).all()
+    ordered_query = query.order_by(Edital.data_publicacao.desc().nullslast()).offset(skip).limit(limit)
+    resultados = ordered_query.all()
+
+    # Se não houver resultados e a tabela estiver vazia no PostgreSQL, popula o seed inicial sem custo de count() nas chamadas comuns
+    if not resultados and db.bind and db.bind.dialect.name == "postgresql":
+        if db.query(Edital.id).limit(1).first() is None:
+            seed_initial_editais(db)
+            resultados = ordered_query.all()
+
+    return resultados
 
 
 def get_editais(

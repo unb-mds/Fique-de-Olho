@@ -3,7 +3,7 @@
 from datetime import date, timedelta
 from typing import Optional
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import Edital, Favorito, Notificacao, TipoNotificacao
 
@@ -16,6 +16,7 @@ def listar_notificacoes_usuario(
     """Lista as notificações mais recentes de um usuário."""
     return (
         db.query(Notificacao)
+        .options(joinedload(Notificacao.edital))
         .filter(Notificacao.usuario_id == usuario_id)
         .order_by(Notificacao.criada_em.desc(), Notificacao.id.desc())
         .limit(limite)
