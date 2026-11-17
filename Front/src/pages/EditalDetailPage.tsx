@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { getEditalById } from '@/services/editaisService';
 import type { Edital } from '@/services/types';
 import { categoryBadgeStyle, formatDate } from '@/utils/editalDisplay';
@@ -24,9 +24,9 @@ export default function EditalDetailPage() {
 
   return (
     <main className="detail-page">
-      <a className="detail-back-link" href="/">
+      <Link className="detail-back-link" to="/">
         Voltar para editais
-      </a>
+      </Link>
       <article className="detail-card">
         <div className="badge-group">
           {edital.categoria && (
