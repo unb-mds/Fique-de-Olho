@@ -6,23 +6,39 @@ import {
   favoritarEdital,
   desfavoritarEdital,
 } from "../services/favoritosService";
+import { updateEmailPreference } from "../services/authService";
+import NotificationPreferenceDialog from "./NotificationPreferenceDialog";
 
 interface FavoriteButtonProps {
   editalId: string | number;
+  initialFavorito?: boolean;
+  onChange?: (editalId: string | number, favorito: boolean) => void;
 }
 
-export default function FavoriteButton({ editalId }: FavoriteButtonProps) {
-  const [favorito, setFavorito] = useState(false);
+export default function FavoriteButton({
+  editalId,
+  initialFavorito = false,
+  onChange,
+}: FavoriteButtonProps) {
+  const [favorito, setFavorito] = useState(initialFavorito);
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState("");
+  const [exibirPreferencia, setExibirPreferencia] = useState(false);
+  const [salvandoPreferencia, setSalvandoPreferencia] = useState(false);
+  const [erroPreferencia, setErroPreferencia] = useState("");
 
-  const { autenticado } = useAuth();
+  const { autenticado, usuario, atualizarUsuario } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     async function verificarFavorito() {
       if (!autenticado) {
         setFavorito(false);
+        return;
+      }
+
+      if (initialFavorito) {
+        setFavorito(true);
         return;
       }
 
@@ -40,11 +56,17 @@ export default function FavoriteButton({ editalId }: FavoriteButtonProps) {
     }
 
     verificarFavorito();
-  }, [autenticado, editalId]);
+  }, [autenticado, editalId, initialFavorito]);
 
   async function alterarFavorito() {
     if (!autenticado) {
-      navigate("/login");
+      navigate("/login", {
+        state: {
+          fromFavorite: true,
+          returnTo: window.location.pathname,
+          pendingEditalId: String(editalId),
+        },
+      });
       return;
     }
 
@@ -55,10 +77,19 @@ export default function FavoriteButton({ editalId }: FavoriteButtonProps) {
       if (favorito) {
         await desfavoritarEdital(editalId);
         setFavorito(false);
+        onChange?.(editalId, false);
       } else {
         await favoritarEdital(editalId);
         setFavorito(true);
+        onChange?.(editalId, true);
+
+        const preferenceKey =
+          usuario ? `notification-preference:${usuario.id}` : null;
+        if (preferenceKey && !sessionStorage.getItem(preferenceKey)) {
+          setExibirPreferencia(true);
+        }
       }
+
     } catch {
       setErro("Não foi possível atualizar o favorito.");
     } finally {
@@ -66,10 +97,29 @@ export default function FavoriteButton({ editalId }: FavoriteButtonProps) {
     }
   }
 
+  async function definirPreferencia(receberEmails: boolean) {
+    setSalvandoPreferencia(true);
+    setErroPreferencia("");
+    try {
+      await updateEmailPreference(receberEmails);
+      await atualizarUsuario();
+      if (usuario) {
+        sessionStorage.setItem(`notification-preference:${usuario.id}`, 'chosen');
+      }
+      setExibirPreferencia(false);
+      navigate("/", { replace: true });
+    } catch {
+      setErroPreferencia("Não foi possível salvar sua escolha. Tente novamente.");
+    } finally {
+      setSalvandoPreferencia(false);
+    }
+  }
+
   return (
     <>
       <button
         type="button"
+        className="favorite-button"
         data-edital-id={editalId}
         onClick={alterarFavorito}
         disabled={carregando}
@@ -79,7 +129,17 @@ export default function FavoriteButton({ editalId }: FavoriteButtonProps) {
         {favorito ? "★" : "☆"}
       </button>
 
-      {erro && <span>{erro}</span>}
+      {erro && (
+        <span className="favorite-error" role="alert">
+          {erro}
+        </span>
+      )}
+      <NotificationPreferenceDialog
+        open={exibirPreferencia}
+        saving={salvandoPreferencia}
+        error={erroPreferencia}
+        onChoose={definirPreferencia}
+      />
     </>
   );
 }

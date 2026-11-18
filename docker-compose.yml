@@ -1,4 +1,21 @@
 services:
+  front:
+    build:
+      context: ./Front
+      dockerfile: Dockerfile
+    container_name: fique-de-olho-front
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_BASE_URL: http://localhost:8000
+    volumes:
+      - ./Front:/app
+      - /app/node_modules
+    depends_on:
+      api:
+        condition: service_started
+
   db:
     image: postgres:16-alpine
     container_name: fique-de-olho-db
@@ -34,6 +51,9 @@ services:
       PROJECT_NAME: ${PROJECT_NAME:-Fique de Olho API}
       VERSION: ${VERSION:-0.1.0}
       DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-fique_de_olho}:${POSTGRES_PASSWORD:-fique_de_olho_dev}@db:5432/${POSTGRES_DB:-fique_de_olho}
+      SCRAPER_SCHEDULER_ENABLED: "true"
+      SCRAPER_SCHEDULER_RUN_ON_STARTUP: "true"
+      SCRAPER_SCHEDULER_INTERVAL_HOURS: "12"
     depends_on:
       db:
         condition: service_healthy

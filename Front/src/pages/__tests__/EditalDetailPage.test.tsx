@@ -11,6 +11,20 @@ vi.mock("@/services/editaisService", () => ({
   getEditalById: vi.fn(),
 }));
 
+vi.mock("@/contexts/AuthContext", () => ({
+  useAuth: () => ({
+    usuario: null,
+    autenticado: false,
+    atualizarUsuario: vi.fn(),
+  }),
+}));
+
+vi.mock("@/services/favoritosService", () => ({
+  listarFavoritos: vi.fn().mockResolvedValue([]),
+  favoritarEdital: vi.fn(),
+  desfavoritarEdital: vi.fn(),
+}));
+
 const mockEdital: Edital = {
   id: "edital-123",
   titulo: "Edital de Monitoria",

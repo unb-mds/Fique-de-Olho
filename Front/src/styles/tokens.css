@@ -1,0 +1,26 @@
+:root {
+  --color-brand: #0131cd;
+  --color-brand-dark: #07143d;
+  --color-accent: #b9fc01;
+  --color-paper: #ffffff;
+  --color-muted: #596782;
+  --color-danger: #a21635;
+  --color-line: rgba(7, 20, 61, 0.2);
+
+  --font-display: 'Space Grotesk', 'Trebuchet MS', sans-serif;
+  --font-body: 'DM Sans', 'Trebuchet MS', sans-serif;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  --radius-sm: 9px;
+  --radius-md: 14px;
+  --radius-lg: 24px;
+  --shadow-offset: 5px 5px 0 var(--color-brand-dark);
+}

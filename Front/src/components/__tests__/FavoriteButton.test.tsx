@@ -57,7 +57,13 @@ describe("FavoriteButton Component", () => {
 
     fireEvent.click(button);
 
-    expect(navigateMock).toHaveBeenCalledWith("/login");
+    expect(navigateMock).toHaveBeenCalledWith("/login", {
+      state: {
+        fromFavorite: true,
+        returnTo: "/",
+        pendingEditalId: "1",
+      },
+    });
   });
 
   it("não deve chamar a API de favoritos quando usuário não está autenticado", () => {

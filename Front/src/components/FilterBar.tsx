@@ -9,18 +9,20 @@ interface FilterBarProps {
   areaCounts: AreaCount[];
   activeCategoria: string | null;
   onSelectCategoria: (categoria: string | null) => void;
+  onClearFilters: () => void;
 }
 
 export default function FilterBar({
   areaCounts,
   activeCategoria,
   onSelectCategoria,
+  onClearFilters,
 }: FilterBarProps) {
   return (
     <section className="filters-section">
       {areaCounts.length > 0 && (
-        <>
-          <p className="filters-label">Áreas em destaque</p>
+        <div className="area-filter">
+          <p className="filters-label">Unidades com oportunidades</p>
           <div className="area-pills">
             {areaCounts.map(({ area, count }) => (
               <span key={area} className="area-pill">
@@ -28,10 +30,11 @@ export default function FilterBar({
               </span>
             ))}
           </div>
-        </>
+        </div>
       )}
 
-      <div className="type-tabs">
+      <div className="type-filter">
+        <div className="type-tabs" aria-label="Filtros de categoria">
         <button
           type="button"
           className={`type-tab ${activeCategoria === null ? 'active' : ''}`}
@@ -50,6 +53,12 @@ export default function FilterBar({
             {categoria}
           </button>
         ))}
+        </div>
+        {(activeCategoria !== null || areaCounts.length > 0) && (
+          <button className="clear-filters-button" type="button" onClick={onClearFilters}>
+            Limpar filtros
+          </button>
+        )}
       </div>
     </section>
   );
