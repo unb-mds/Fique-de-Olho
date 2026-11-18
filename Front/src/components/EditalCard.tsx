@@ -5,15 +5,25 @@ import FavoriteButton from './FavoriteButton';
 
 interface EditalCardProps {
   edital: Edital;
+  favoriteInitially?: boolean;
+  onFavoriteChange?: (editalId: string | number, favorito: boolean) => void;
 }
 
-export default function EditalCard({ edital }: EditalCardProps) {
+export default function EditalCard({
+  edital,
+  favoriteInitially = false,
+  onFavoriteChange,
+}: EditalCardProps) {
   const restantes = daysUntil(edital.prazoFinal);
   const urgente = restantes !== null && restantes >= 0 && restantes <= 7;
 
   return (
     <article className="edital-card">
-   <FavoriteButton editalId={edital.id} />
+      <FavoriteButton
+        editalId={edital.id}
+        initialFavorito={favoriteInitially}
+        onChange={onFavoriteChange}
+      />
       <div className="edital-card-badges">
         <div className="badge-group">
           {edital.categoria && (
@@ -22,6 +32,7 @@ export default function EditalCard({ edital }: EditalCardProps) {
             </span>
           )}
           {edital.unidade && <span className="badge badge-campus">{edital.unidade}</span>}
+          {edital.orgaoEmissor && <span className="badge badge-orgao">{edital.orgaoEmissor}</span>}
         </div>
       </div>
 
@@ -31,15 +42,20 @@ export default function EditalCard({ edital }: EditalCardProps) {
       <p className="edital-card-desc">{edital.descricao}</p>
 
       <div className="edital-card-footer">
-        {urgente ? (
-          <span className="badge badge-urgent">{restantes}d restantes</span>
-        ) : (
-          <span>até {formatDate(edital.prazoFinal)}</span>
-        )}
-        <div className="edital-card-footer-right">
-          {edital.vagas !== undefined && <span>{edital.vagas} vagas</span>}
-          {edital.valor && <span className="edital-card-valor">{edital.valor}</span>}
+        <div className="edital-meta">
+          {urgente ? (
+            <span className="badge badge-urgent">{restantes}d restantes</span>
+          ) : (
+            <span><strong>Prazo</strong> {formatDate(edital.prazoFinal)}</span>
+          )}
+          <div className="edital-card-footer-right">
+            {edital.vagas !== undefined && <span>{edital.vagas} vagas</span>}
+            {edital.valor && <span className="edital-card-valor">{edital.valor}</span>}
+          </div>
         </div>
+        <Link className="card-link" to={`/editais/${edital.id}`}>
+          Ver edital <span aria-hidden="true">↗</span>
+        </Link>
       </div>
     </article>
   );

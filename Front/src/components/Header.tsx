@@ -1,79 +1,47 @@
-import { useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+
 export default function Header() {
-  const {
-    usuario,
-    autenticado,
-    atualizarPreferenciaEmail,
-    logout,
-  } = useAuth();
+  const { usuario, autenticado, logout } = useAuth();
   const navigate = useNavigate();
-  const [atualizandoPreferencia, setAtualizandoPreferencia] = useState(false);
-  const [erroPreferencia, setErroPreferencia] = useState<string | null>(null);
-
-  async function alternarPreferencia(receberEmails: boolean) {
-    setAtualizandoPreferencia(true);
-    setErroPreferencia(null);
-
-    try {
-      await atualizarPreferenciaEmail(receberEmails);
-    } catch (error) {
-      setErroPreferencia(
-        error instanceof Error
-          ? error.message
-          : "Não foi possível atualizar a preferência.",
-      );
-    } finally {
-      setAtualizandoPreferencia(false);
-    }
-  }
 
   return (
     <header className="site-header">
-      <div className="brand">
-        <span className="brand-mark">UnB</span>
-        <span className="brand-name">Portal de Editais</span>
-      </div>
+      <Link className="brand" to="/" aria-label="Portal de Editais UnB — início">
+        <span className="brand-mark" aria-hidden="true">U</span>
+        <span className="brand-name">Fique de Olho</span>
+      </Link>
 
-      {/* Busca ainda não implementada — fica para outra pessoa do time ligar isso à API. */}
-      <label className="header-search">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
-          <path d="m20 20-3.5-3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-        </svg>
-        <input type="text" placeholder="Buscar editais, áreas, campi..." disabled />
-      </label>
+      <nav className="primary-nav" aria-label="Navegação principal">
+        <a href="/#editais">Editais</a>
+        <a href="/#como-funciona">Como funciona</a>
+      </nav>
+
 
      <div className="header-actions">
-  <span className="header-link">Editais</span>
-
   {autenticado && usuario ? (
     <>
-      <span className="header-link">{usuario.nome}</span>
-      <button type="button" onClick={() => navigate("/notifications")}>
-        Notificações
-      </button>
-      <label className="email-preference">
-        <input
-          type="checkbox"
-          checked={usuario.receber_emails}
-          disabled={atualizandoPreferencia}
-          onChange={(event) => alternarPreferencia(event.target.checked)}
-        />
-        Receber emails
-      </label>
-      {erroPreferencia && (
-        <span className="header-error" role="alert">
-          {erroPreferencia}
+      <button
+        className="user-profile-button"
+        type="button"
+        onClick={() => navigate("/favoritos")}
+        aria-label={`Abrir perfil de ${usuario.nome} e ver editais favoritos`}
+      >
+        <span className="profile-avatar" aria-hidden="true">
+          {usuario.nome.trim().charAt(0).toUpperCase()}
         </span>
-      )}
+        <span className="profile-copy">
+          <strong>{usuario.nome}</strong>
+          <small>Meus editais</small>
+        </span>
+      </button>
 
       <button
+        className="button button-ghost"
         type="button"
         onClick={() => {
           logout();
-          navigate("/login");
+          navigate("/", { replace: true });
         }}
       >
         Sair
@@ -84,7 +52,7 @@ export default function Header() {
       <button type="button" onClick={() => navigate("/login")}>
         Entrar
       </button>
-      <button type="button" onClick={() => navigate("/register")}>
+      <button className="button button-accent" type="button" onClick={() => navigate("/register")}>
         Criar conta
       </button>
     </>

@@ -88,7 +88,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
         size: "large",
         text,
         shape: "rectangular",
-        width: "100%",
+        width: 400,
         locale: "pt-BR",
       });
     }

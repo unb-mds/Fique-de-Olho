@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { register } from "@/services/authService";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 
@@ -30,10 +30,22 @@ export default function RegisterPage() {
   }
 
   return (
-    <main>
-      <h1>Cadastrar</h1>
+    <main className="login-page">
+      <Link className="page-back-link auth-back-link" to="/">
+        ← Voltar para editais
+      </Link>
+      <section className="login-card">
+        <div className="login-card-header">
+          <Link className="brand" to="/">
+            <span className="brand-mark" aria-hidden="true">U</span>
+            <span className="brand-name">Fique de Olho</span>
+          </Link>
+          <p className="eyebrow">Nova conta</p>
+          <h1>Comece a acompanhar editais</h1>
+          <p>Crie seu perfil para salvar oportunidades e montar sua lista.</p>
+        </div>
 
-      <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit}>
         <div>
           <label htmlFor="nome">Nome</label>
           <input
@@ -77,14 +89,20 @@ export default function RegisterPage() {
         </button>
       </form>
 
-      <div style={{ margin: "16px 0", textAlign: "center" }}>
+      <div className="auth-divider">
         <span>ou</span>
       </div>
 
-      <GoogleSignInButton
-        text="signup_with"
-        onError={(msg) => setErro(msg)}
-      />
+      <div className="auth-google">
+        <GoogleSignInButton
+          text="signup_with"
+          onError={(msg) => setErro(msg)}
+        />
+      </div>
+      <p className="login-card-footer">
+        Já tem uma conta? <Link to="/login">Entrar</Link>
+      </p>
+      </section>
     </main>
   );
 }

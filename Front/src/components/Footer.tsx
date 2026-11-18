@@ -7,11 +7,11 @@ export default function Footer() {
     <footer className="site-footer">
       <div className="footer-brand">
         <div className="brand">
-          <span className="brand-mark">UnB</span>
-          <span className="brand-name">Portal de Editais UnB</span>
+          <span className="brand-mark">U</span>
+          <span className="brand-name">Fique de Olho</span>
         </div>
         <p className="footer-tagline">
-          Universidade de Brasília — Diretoria de Desenvolvimento Acadêmico
+          Oportunidades acadêmicas da UnB, reunidas e organizadas.
         </p>
       </div>
 

@@ -48,5 +48,18 @@ describe('EditalCard Component', () => {
     const titleLink = screen.getByRole('link', { name: /Edital de Monitoria/i });
     expect(titleLink).toHaveAttribute('href', '/editais/edital-123');
   });
+
+  it('exibe a ação principal "Ver edital" com foco acessível', () => {
+    render(
+      <MemoryRouter>
+        <EditalCard edital={mockEdital} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('link', { name: /ver edital/i })).toHaveAttribute(
+      'href',
+      '/editais/edital-123',
+    );
+  });
 });
 

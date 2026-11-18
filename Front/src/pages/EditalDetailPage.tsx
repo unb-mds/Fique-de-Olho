@@ -1,9 +1,10 @@
 
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { getEditalById } from "@/services/editaisService";
 import type { Edital } from "@/services/types";
 import { categoryBadgeStyle, formatDate } from "@/utils/editalDisplay";
+import FavoriteButton from "@/components/FavoriteButton";
 
 function formatarDataSegura(data?: string): string {
   if (!data) return "Não informado";
@@ -109,14 +110,16 @@ export default function EditalDetailPage() {
 
   return (
     <main className="detail-page">
-      <a className="detail-back-link" href="/">
-        Voltar para editais
-      </a>
+      <div className="detail-shell">
+        <Link className="page-back-link detail-back-link" to="/">
+          ← Voltar para editais
+        </Link>
 
-      <article className="detail-card">
+        <article className="detail-card">
 
         {/* Identificação do edital */}
-        <div className="badge-group">
+        <div className="detail-card-top">
+          <div className="badge-group">
           {edital.categoria && (
             <span
               className="badge"
@@ -137,6 +140,8 @@ export default function EditalDetailPage() {
               {edital.orgaoEmissor}
             </span>
           )}
+          </div>
+          <FavoriteButton editalId={edital.id} />
         </div>
 
         <h1>{edital.titulo}</h1>
@@ -281,7 +286,8 @@ export default function EditalDetailPage() {
             </div>
           )}
         </section>
-      </article>
+        </article>
+      </div>
     </main>
   );
 }
