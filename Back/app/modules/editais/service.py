@@ -1,12 +1,19 @@
 """Camada de serviço para operações de banco de dados do módulo de Editais."""
 
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+import logging
+from threading import Lock
+import time
+from typing import Any, Callable, Dict, List, Optional
 from sqlalchemy import and_, extract, or_
-from sqlalchemy.orm import Session, defer
+from sqlalchemy.orm import Session, defer, sessionmaker
 
+from app.core.config import settings
 from app.core.database import Campus, Edital, StatusEdital, TipoEdital
+
+logger = logging.getLogger(__name__)
 
 
 def _format_valor_bolsa_str(valor_bolsa: Any) -> Optional[str]:
@@ -239,7 +246,8 @@ def list_editais_com_filtros(
     if ano is not None:
         query = query.filter(extract("year", Edital.data_publicacao) == ano)
 
-    if status == "aberto":
+    status_norm = status.strip().lower() if status and status.strip() else None
+    if status_norm == "aberto":
         query = query.filter(
             or_(
                 Edital.fim_inscricao >= today,
@@ -249,7 +257,7 @@ def list_editais_com_filtros(
                 ),
             )
         )
-    elif status == "fechado":
+    elif status_norm == "fechado":
         query = query.filter(
             or_(
                 Edital.fim_inscricao < today,
@@ -319,3 +327,151 @@ def get_editais(
 def get_edital_by_id(db: Session, edital_id: int) -> Optional[Edital]:
     """Busca um edital específico pelo ID no PostgreSQL."""
     return db.query(Edital).filter(Edital.id == edital_id).first()
+
+
+EDITAIS_CACHE_TTL_SECONDS = settings.EDITAIS_CACHE_TTL_SECONDS
+
+
+def _normalizar_filtro(valor: Optional[str]) -> Optional[str]:
+    return valor.strip().lower() if valor and valor.strip() else None
+
+
+@dataclass(frozen=True)
+class _CacheKey:
+    bind_url: str
+    ano: Optional[int]
+    termo_busca: Optional[str]
+    status: Optional[str]
+    categoria: Optional[str]
+    campus: Optional[str]
+
+    @property
+    def tem_filtro(self) -> bool:
+        return any(
+            p is not None
+            for p in (self.ano, self.termo_busca, self.status, self.categoria, self.campus)
+        )
+
+
+@dataclass
+class _CacheEntry:
+    timestamp: float
+    payload: List[Dict[str, Any]]
+    refreshing: bool = False
+
+
+_EDITAIS_CACHE: Dict[_CacheKey, _CacheEntry] = {}
+_CACHE_LOCK = Lock()
+_CACHE_GENERATION = 0
+_ULTIMO_BIND_ID: Optional[int] = None
+
+
+def invalidar_cache_editais() -> None:
+    """Invalida o cache em memória de listagens de editais."""
+    global _CACHE_GENERATION
+    with _CACHE_LOCK:
+        _CACHE_GENERATION += 1
+        _EDITAIS_CACHE.clear()
+
+
+def _salvar_entrada_cache(chave: _CacheKey, geracao: int, payload: List[Dict[str, Any]]) -> None:
+    with _CACHE_LOCK:
+        if _CACHE_GENERATION == geracao:
+            _EDITAIS_CACHE[chave] = _CacheEntry(
+                timestamp=time.monotonic(),
+                payload=payload,
+                refreshing=False,
+            )
+
+
+def _revalidar_cache_editais(chave: _CacheKey, bind: Any, geracao: int) -> None:
+    """Atualiza o cache de editais em segundo plano sem bloquear a resposta ao usuário."""
+    session_factory = sessionmaker(autocommit=False, autoflush=False, bind=bind)
+    db = session_factory()
+    try:
+        editais_db = list_editais_com_filtros(
+            db=db,
+            ano=chave.ano,
+            q=chave.termo_busca,
+            busca=chave.termo_busca,
+            status=chave.status,
+            categoria=chave.categoria,
+            campus=chave.campus,
+        )
+        serializados = [serialize_edital(e) for e in editais_db] if editais_db else []
+        if serializados or chave.tem_filtro:
+            _salvar_entrada_cache(chave, geracao, serializados)
+        else:
+            with _CACHE_LOCK:
+                if _CACHE_GENERATION == geracao:
+                    _EDITAIS_CACHE.pop(chave, None)
+    except Exception:
+        logger.exception("Falha ao revalidar cache de editais em segundo plano.")
+        with _CACHE_LOCK:
+            if chave in _EDITAIS_CACHE:
+                _EDITAIS_CACHE[chave].refreshing = False
+    finally:
+        db.close()
+
+
+def listar_editais_com_cache(
+    db: Session,
+    agendar_tarefa: Optional[Callable[..., Any]] = None,
+    ano: Optional[int] = None,
+    q: Optional[str] = None,
+    busca: Optional[str] = None,
+    status: Optional[str] = None,
+    categoria: Optional[str] = None,
+    campus: Optional[str] = None,
+) -> Optional[List[Dict[str, Any]]]:
+    """Retorna editais serializados usando cache Stale-While-Revalidate (ou None se sem dados sem filtro)."""
+    global _ULTIMO_BIND_ID
+    bind = db.get_bind() if hasattr(db, "get_bind") else getattr(db, "bind", None)
+    bind_id = id(bind) if bind is not None else 0
+
+    with _CACHE_LOCK:
+        if _ULTIMO_BIND_ID != bind_id:
+            _ULTIMO_BIND_ID = bind_id
+            _EDITAIS_CACHE.clear()
+
+    chave_cache = _CacheKey(
+        bind_url=str(getattr(bind, "url", "")) if bind is not None else "",
+        ano=ano,
+        termo_busca=_normalizar_filtro(busca or q),
+        status=_normalizar_filtro(status),
+        categoria=_normalizar_filtro(categoria),
+        campus=_normalizar_filtro(campus),
+    )
+    agora = time.monotonic()
+
+    with _CACHE_LOCK:
+        entrada = _EDITAIS_CACHE.get(chave_cache)
+        geracao_atual = _CACHE_GENERATION
+        if entrada is not None:
+            if agora - entrada.timestamp >= EDITAIS_CACHE_TTL_SECONDS and not entrada.refreshing:
+                entrada.refreshing = True
+                if bind is not None and agendar_tarefa is not None:
+                    agendar_tarefa(_revalidar_cache_editais, chave_cache, bind, geracao_atual)
+            return entrada.payload
+
+    editais_db = list_editais_com_filtros(
+        db=db,
+        ano=chave_cache.ano,
+        q=chave_cache.termo_busca,
+        busca=chave_cache.termo_busca,
+        status=chave_cache.status,
+        categoria=chave_cache.categoria,
+        campus=chave_cache.campus,
+    )
+    if editais_db:
+        serializados = [serialize_edital(e) for e in editais_db]
+        _salvar_entrada_cache(chave_cache, geracao_atual, serializados)
+        return serializados
+
+    if chave_cache.tem_filtro:
+        _salvar_entrada_cache(chave_cache, geracao_atual, [])
+        return []
+
+    return None
+
+
