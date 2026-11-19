@@ -503,8 +503,12 @@ def _enrich_edital_metadata(
             logger.warning(f"Falha ao extrair/enriquecer PDF '{candidate_pdf_url}' para '{url_pagina}': {exc}")
 
     # 2.2 Fallback Camada 2 — LLM (Gemini) se datas ou bolsa essenciais ainda não foram encontradas
+    # Só aciona se o enriquecimento externo estiver habilitado (mesmo critério do fallback PDF)
+    # e não for reprocessamento redundante de edital já normalizado.
     if (
-        (inicio_insc is None or fim_insc is None or valor_bolsa is None)
+        enable_pdf_enrichment
+        and not is_redundant_reprocess
+        and (inicio_insc is None or fim_insc is None or valor_bolsa is None)
         and texto_extraido
         and getattr(settings, "GEMINI_API_KEY", None)
     ):
