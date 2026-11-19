@@ -19,6 +19,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Tuple
 
 import httpx
@@ -324,3 +325,148 @@ async def summarize_edital_async(
         titulo, texto_extraido, assunto, orgao_emissor, url_pdf, resumo_atual
     )
     return resumo
+
+
+# ---------------------------------------------------------------------------
+# Extração Estruturada de Metadados via LLM (Issue #121)
+# ---------------------------------------------------------------------------
+
+
+def _parse_llm_date(raw: Any) -> Optional[datetime]:
+    if not raw or not isinstance(raw, str):
+        return None
+    val = raw.strip()
+    if not val or val.lower() == "null":
+        return None
+    # YYYY-MM-DD
+    m_iso = re.match(r"^(\d{4})-(\d{1,2})-(\d{1,2})", val)
+    if m_iso:
+        try:
+            return datetime(int(m_iso.group(1)), int(m_iso.group(2)), int(m_iso.group(3)), tzinfo=timezone.utc)
+        except ValueError:
+            pass
+    # DD/MM/YYYY
+    m_slash = re.match(r"^(\d{1,2})/(\d{1,2})/(\d{4})", val)
+    if m_slash:
+        try:
+            return datetime(int(m_slash.group(3)), int(m_slash.group(2)), int(m_slash.group(1)), tzinfo=timezone.utc)
+        except ValueError:
+            pass
+    return None
+
+
+def _converter_metadados_llm(dados: Dict[str, Any]) -> Dict[str, Any]:
+    resultado: Dict[str, Any] = {}
+    if not isinstance(dados, dict):
+        return resultado
+
+    ini = _parse_llm_date(dados.get("inicio_inscricao"))
+    if ini:
+        resultado["inicio_inscricao"] = ini
+
+    fim = _parse_llm_date(dados.get("fim_inscricao"))
+    if fim:
+        resultado["fim_inscricao"] = fim
+
+    val = dados.get("valor_bolsa")
+    if isinstance(val, (int, float)) and 0 < val <= 15000:
+        resultado["valor_bolsa"] = float(val)
+        resultado["tem_bolsa"] = True
+    elif isinstance(val, str):
+        try:
+            cleaned_num = re.sub(r"[rR]\$\s*", "", val).replace(".", "").replace(",", ".").strip()
+            num = float(cleaned_num)
+            if 0 < num <= 15000:
+                resultado["valor_bolsa"] = num
+                resultado["tem_bolsa"] = True
+        except ValueError:
+            pass
+
+    if "tem_bolsa" not in resultado:
+        tb = dados.get("tem_bolsa")
+        if isinstance(tb, bool):
+            resultado["tem_bolsa"] = tb
+
+    vagas = dados.get("vagas")
+    if isinstance(vagas, int) and 0 < vagas < 100000:
+        resultado["vagas"] = vagas
+    elif isinstance(vagas, str) and vagas.isdigit():
+        iv = int(vagas)
+        if 0 < iv < 100000:
+            resultado["vagas"] = iv
+
+    org = dados.get("orgao_emissor")
+    if isinstance(org, str) and org.strip() and org.strip().lower() != "null":
+        resultado["orgao_emissor"] = org.strip().upper()
+
+    return resultado
+
+
+def _montar_prompt_metadados(texto_extraido: Optional[str], titulo: Optional[str]) -> str:
+    texto = truncar_texto(limpar_texto_documento(texto_extraido), MAX_TEXTO_PROMPT_CHARS) if texto_extraido else ""
+    return (
+        "Você analisa editais da Universidade de Brasília (UnB) e extrai metadados estruturados de oportunidades para estudantes.\n"
+        "Responda SOMENTE com um objeto JSON válido no formato:\n"
+        '{"inicio_inscricao": "YYYY-MM-DD ou null", '
+        '"fim_inscricao": "YYYY-MM-DD ou null", '
+        '"valor_bolsa": float_ou_null, '
+        '"tem_bolsa": boolean_ou_null, '
+        '"vagas": int_ou_null, '
+        '"orgao_emissor": "SIGLA_OU_NULL"}\n\n'
+        "Regras:\n"
+        '- "inicio_inscricao" e "fim_inscricao": prazo de inscrições no formato YYYY-MM-DD. Se houver apenas prazo limite final, preencha no "fim_inscricao".\n'
+        '- "valor_bolsa": valor monetário mensal de bolsa/estipêndio do discente (ex.: 700.0). NUNCA extraia taxas de inscrição (ex.: R$ 50,00) nem orçamento global de projeto.\n'
+        '- "tem_bolsa": true se houver bolsa remunerada/auxílio financeiro, false se voluntário/sem remuneração, null se não mencionado.\n'
+        '- "vagas": quantidade de vagas ofertadas.\n'
+        '- "orgao_emissor": sigla do decanato ou unidade responsável (ex.: DEG, DEX, DPG, DPI, DAC, BCE, CAL, etc.).\n\n'
+        f"Título do edital: {titulo or '(vazio)'}\n"
+        f'Conteúdo do edital (trecho):\n"""\n{texto or "(indisponível)"}\n"""\n'
+    )
+
+
+def enrich_metadata_with_llm(
+    texto_extraido: Optional[str],
+    titulo: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Extrai metadados estruturados (datas, bolsa, vagas, órgão) via Gemini (Camada 2).
+
+    Fallback gracioso: se a API não estiver configurada, ocorrer erro de rede, timeout
+    ou resposta malformada, captura a exceção e retorna dicionário vazio {}.
+    """
+    if not settings.GEMINI_API_KEY:
+        return {}
+    if not texto_extraido or not texto_extraido.strip():
+        return {}
+
+    try:
+        prompt = _montar_prompt_metadados(texto_extraido, titulo)
+        url, headers, body = _request_args(prompt)
+        with _build_client(settings.GEMINI_TIMEOUT_SECONDS) as client:
+            resp = client.post(url, headers=headers, json=body)
+            dados = _parse_resposta(resp)
+            return _converter_metadados_llm(dados)
+    except Exception as exc:
+        logger.warning(f"Falha ao enriquecer metadados com Gemini ({type(exc).__name__}: {exc}); usando dados locais.")
+        return {}
+
+
+async def enrich_metadata_with_llm_async(
+    texto_extraido: Optional[str],
+    titulo: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Versão assíncrona de :func:`enrich_metadata_with_llm`."""
+    if not settings.GEMINI_API_KEY:
+        return {}
+    if not texto_extraido or not texto_extraido.strip():
+        return {}
+
+    try:
+        prompt = _montar_prompt_metadados(texto_extraido, titulo)
+        url, headers, body = _request_args(prompt)
+        async with _build_async_client(settings.GEMINI_TIMEOUT_SECONDS) as client:
+            resp = await client.post(url, headers=headers, json=body)
+            dados = _parse_resposta(resp)
+            return _converter_metadados_llm(dados)
+    except Exception as exc:
+        logger.warning(f"Falha assíncrona ao enriquecer metadados com Gemini ({type(exc).__name__}: {exc}); usando dados locais.")
+        return {}

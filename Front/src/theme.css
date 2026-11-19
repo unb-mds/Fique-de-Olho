@@ -601,18 +601,47 @@ a {
   background: var(--brand-soft);
   border: 2px solid var(--ink);
   border-radius: 22px;
-  display: grid;
-  gap: 24px;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
   margin-top: 24px;
   padding: 24px;
 }
 
 .type-filter {
-  align-items: flex-end;
+  align-items: flex-start;
   display: flex;
+  flex-direction: column;
   gap: 12px;
+  min-width: 0;
   max-width: 100%;
+}
+
+.status-filter {
+  margin-bottom: 0;
+}
+
+.status-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.status-tab {
+  border: 1.5px solid var(--ink);
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  min-height: 38px;
+  padding: 8px 13px;
+}
+
+.status-tab.active {
+  background: var(--accent);
+  box-shadow: 3px 3px 0 var(--ink);
 }
 
 .type-tabs {
@@ -620,6 +649,7 @@ a {
   overflow-x: auto;
   scrollbar-width: thin;
   padding: 2px;
+  width: 100%;
 }
 
 .clear-filters-button {
@@ -1829,11 +1859,14 @@ main:not(.catalog-section):not(.detail-page):not(.notification-history):not(.fav
   }
 
   .filters-section {
-    grid-template-columns: minmax(0, 1fr);
+    display: flex;
+    flex-direction: column;
     width: 100%;
   }
 
   .area-filter,
+  .status-filter,
+  .status-tabs,
   .type-filter,
   .type-tabs {
     width: 100%;

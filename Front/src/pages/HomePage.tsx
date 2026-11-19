@@ -4,29 +4,45 @@ import Hero from '@/components/Hero';
 import FilterBar from '@/components/FilterBar';
 import EditalCard from '@/components/EditalCard';
 import Footer from '@/components/Footer';
-import { getEditais } from '@/services/editaisService';
+import { getEditais, getEditaisStats } from '@/services/editaisService';
 import type { Edital } from '@/services/types';
-
-function normalizeSearch(value: string) {
-  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-}
 
 export default function HomePage() {
   const PAGE_SIZE = 12;
   const [editais, setEditais] = useState<Edital[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [categoria, setCategoria] = useState<string | null>(null);
+  const [situacao, setSituacao] = useState<'aberto' | 'fechado' | null>(null);
+  const [totalAbertos, setTotalAbertos] = useState(0);
+  const [destaquesAbertos, setDestaquesAbertos] = useState<Edital[]>([]);
   const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [pagina, setPagina] = useState(1);
   const deferredSearch = useDeferredValue(search);
 
   useEffect(() => {
-    getEditais()
-      .then(setEditais)
+    getEditaisStats().then((stats) => setTotalAbertos(stats.abertos)).catch(() => setTotalAbertos(0));
+    getEditais({ status: 'aberto', limit: 3 }).then(setDestaquesAbertos).catch(() => setDestaquesAbertos([]));
+  }, []);
+
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    getEditais({
+      q: deferredSearch,
+      categoria,
+      status: situacao,
+      skip: 0,
+      limit: PAGE_SIZE,
+    })
+      .then((dados) => {
+        setEditais(dados);
+        setHasMore(dados.length === PAGE_SIZE);
+      })
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [deferredSearch, categoria, situacao]);
 
   const editaisAbertos = useMemo(
     () => editais.filter((e) => e.status === 'aberto'),
@@ -44,48 +60,35 @@ export default function HomePage() {
     return Array.from(counts.entries()).map(([area, count]) => ({ area, count }));
   }, [editaisAbertos]);
 
-  const filtrados = useMemo(() => {
-    const searchTerm = normalizeSearch(deferredSearch);
-    return editais.filter((e) => {
-      const matchesCategory =
-        categoria === null ||
-        (e.categoria ?? '').toLowerCase() === categoria.toLowerCase();
-      const searchableContent = normalizeSearch(
-        [e.titulo, e.descricao, e.unidade, e.categoria].filter(Boolean).join(' '),
-      );
-      return matchesCategory &&
-        (!searchTerm || searchableContent.includes(searchTerm));
-    });
-  }, [editais, categoria, deferredSearch]);
-
-  const totalPaginas = Math.max(1, Math.ceil(filtrados.length / PAGE_SIZE));
-  const editaisPagina = useMemo(() => {
-    const inicio = (pagina - 1) * PAGE_SIZE;
-    return filtrados.slice(inicio, inicio + PAGE_SIZE);
-  }, [filtrados, pagina]);
-
-  useEffect(() => {
-    setPagina(1);
-  }, [deferredSearch, categoria]);
-
-  useEffect(() => {
-    if (pagina > totalPaginas) setPagina(totalPaginas);
-  }, [pagina, totalPaginas]);
-
-  function mudarPagina(novaPagina: number) {
-    setPagina(novaPagina);
-    document.getElementById('editais')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  async function carregarMais() {
+    setLoadingMore(true);
+    try {
+      const dados = await getEditais({
+        q: deferredSearch,
+        categoria,
+        status: situacao,
+        skip: editais.length,
+        limit: PAGE_SIZE,
+      });
+      setEditais((atuais) => [...atuais, ...dados]);
+      setHasMore(dados.length === PAGE_SIZE);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível carregar mais editais.');
+    } finally {
+      setLoadingMore(false);
+    }
   }
 
   function clearSearchAndFilters() {
     setCategoria(null);
+    setSituacao(null);
     setSearch('');
   }
 
   return (
     <div>
       <Header />
-      <Hero editaisAbertos={editaisAbertos} />
+      <Hero editaisAbertos={destaquesAbertos} totalAbertos={totalAbertos} />
       <main className="catalog-section" id="editais">
         <div className="section-heading">
           <div>
@@ -121,7 +124,9 @@ export default function HomePage() {
         <FilterBar
           areaCounts={areaCounts}
           activeCategoria={categoria}
+          activeStatus={situacao}
           onSelectCategoria={setCategoria}
+          onSelectStatus={setSituacao}
           onClearFilters={clearSearchAndFilters}
         />
 
@@ -142,7 +147,7 @@ export default function HomePage() {
           </p>
         )}
         {!loading && !error && (
-          filtrados.length === 0 ? (
+          editais.length === 0 ? (
             <div className="empty-state">
               <strong>Nenhum edital encontrado</strong>
               <span>Não encontramos resultados para os termos e filtros selecionados.</span>
@@ -150,30 +155,20 @@ export default function HomePage() {
             </div>
           ) : (
             <div className="edital-list">
-              {editaisPagina.map((edital) => (
+              {editais.map((edital) => (
                 <EditalCard key={edital.id} edital={edital} />
               ))}
             </div>
           )
         )}
-        {!loading && !error && filtrados.length > PAGE_SIZE && (
-          <nav className="pagination" aria-label="Paginação dos editais">
+        {!loading && !error && hasMore && (
+          <nav className="pagination" aria-label="Mais editais">
             <button
               type="button"
-              onClick={() => mudarPagina(pagina - 1)}
-              disabled={pagina === 1}
-              aria-label="Página anterior"
+              onClick={carregarMais}
+              disabled={loadingMore}
             >
-              ← Anterior
-            </button>
-            <span aria-live="polite">Página {pagina} de {totalPaginas}</span>
-            <button
-              type="button"
-              onClick={() => mudarPagina(pagina + 1)}
-              disabled={pagina === totalPaginas}
-              aria-label="Próxima página"
-            >
-              Próxima →
+              {loadingMore ? 'Carregando...' : 'Carregar mais'}
             </button>
           </nav>
         )}

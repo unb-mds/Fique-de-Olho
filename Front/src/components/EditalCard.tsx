@@ -16,6 +16,7 @@ export default function EditalCard({
 }: EditalCardProps) {
   const restantes = daysUntil(edital.prazoFinal);
   const urgente = restantes !== null && restantes >= 0 && restantes <= 7;
+  const orgao = edital.orgaoEmissor || (edital as any).orgao_emissor;
 
   return (
     <article className="edital-card">
@@ -32,7 +33,7 @@ export default function EditalCard({
             </span>
           )}
           {edital.unidade && <span className="badge badge-campus">{edital.unidade}</span>}
-          {edital.orgaoEmissor && <span className="badge badge-orgao">{edital.orgaoEmissor}</span>}
+          {orgao && <span className="badge badge-orgao">{orgao}</span>}
         </div>
       </div>
 

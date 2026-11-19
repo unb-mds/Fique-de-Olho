@@ -98,6 +98,12 @@ def upgrade() -> None:
         existing_type=sa.String(length=500),
         nullable=True,
     )
+    op.alter_column(
+        "editais",
+        "url_pdf",
+        existing_type=sa.String(length=500),
+        nullable=True,
+    )
 
     # 4) Colunas de reconciliação do schema
     op.add_column("editais", sa.Column("identificador_origem", sa.String(length=200), nullable=True))

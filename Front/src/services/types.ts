@@ -19,6 +19,7 @@ export interface Edital {
 
   // Metadados adicionais
   orgaoEmissor?: string;
+  orgao_emissor?: string;
   assunto?: string;
   inicioInscricao?: string;
   documentos?: EditalDocumento[];

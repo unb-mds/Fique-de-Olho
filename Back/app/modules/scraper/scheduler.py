@@ -20,8 +20,8 @@ def executar_ciclo_scraping(
     session_factory: Callable[[], Session] = SessionLocal,
     orgaos: Optional[List[str]] = None,
     max_items_per_orgao: Optional[int] = 100,
-    fetch_docs: bool = False,
-    enable_pdf_enrichment: Optional[bool] = None,
+    fetch_docs: bool = True,
+    enable_pdf_enrichment: Optional[bool] = True,
 ) -> dict[str, Any]:
     """Executa um ciclo completo de sincronização periódica dos portais configurados.
 

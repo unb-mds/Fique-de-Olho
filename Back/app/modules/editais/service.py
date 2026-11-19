@@ -29,6 +29,43 @@ def _format_valor_bolsa_str(valor_bolsa: Any) -> Optional[str]:
         return str(valor_bolsa)
 
 
+def _infer_categoria(edital: Edital) -> str:
+    """Classifica uma oportunidade a partir do texto disponível no registro."""
+    partes = [
+        edital.titulo or "",
+        edital.resumo or "",
+        edital.assunto or "",
+        edital.tipo or "",
+        " ".join(tipo.nome for tipo in (edital.tipos or [])),
+    ]
+    texto = _normalizar_texto_busca(" ".join(partes))
+
+    regras = (
+        ("Pós-graduação", ("pos-graduacao", "mestrado", "doutorado", "stricto sensu", "decanato de pos")),
+        ("Intercâmbio", ("intercambio", "mobilidade", "exchange", "estudante internacional")),
+        ("Evento", ("evento", "palestra", "seminario", "workshop", "congresso", "festival", "simpósio", "simposio")),
+        ("Bolsa", ("bolsa", "bolsista", "auxilio", "auxílio", "pibic", "pibiti", "pibex")),
+        ("Graduação", ("graduacao", "graduação", "licenciatura", "monitoria")),
+        ("Pesquisa", ("pesquisa", "cientifica", "científica", "proic")),
+        ("Estágio", ("estagio", "estágio")),
+        ("Extensão", ("extensao", "extensão")),
+        ("Vestibular", ("vestibular", "processo seletivo", "concurso")),
+    )
+    for categoria, termos in regras:
+        if any(_normalizar_texto_busca(termo) in texto for termo in termos):
+            return categoria
+
+    tipo_nome = edital.tipo or ((edital.tipos or [None])[0].nome if edital.tipos else None)
+    return tipo_nome or "Geral"
+
+
+def _normalizar_texto_busca(valor: str) -> str:
+    import unicodedata
+
+    normalizado = unicodedata.normalize("NFD", valor)
+    return "".join(char for char in normalizado if unicodedata.category(char) != "Mn").lower()
+
+
 def serialize_edital(edital: Edital, detail: bool = False) -> Dict[str, Any]:
     """Serializa uma entidade Edital para formato compatível com o schema e o frontend."""
     today = date.today()
@@ -46,7 +83,7 @@ def serialize_edital(edital: Edital, detail: bool = False) -> Dict[str, Any]:
     docs_list = getattr(edital, "documentos", []) or []
 
     campus_nome = edital.campus or (campi_list[0].nome if campi_list else "Geral")
-    tipo_nome = edital.tipo or (tipos_list[0].nome if tipos_list else "Geral")
+    tipo_nome = _infer_categoria(edital)
 
     data_pub = edital.data_publicacao
     if isinstance(data_pub, datetime):
@@ -97,6 +134,7 @@ def serialize_edital(edital: Edital, detail: bool = False) -> Dict[str, Any]:
         "categoria": tipo_nome,
         "tipo": tipo_nome,
         "orgao_emissor": edital.orgao_emissor,
+        "orgaoEmissor": edital.orgao_emissor,
         "assunto": edital.assunto,
         "url_pagina": edital.url_pagina,
         "url_pdf": url_doc,
@@ -240,6 +278,8 @@ def list_editais_com_filtros(
             or_(
                 Edital.titulo.ilike(search_pattern),
                 Edital.resumo.ilike(search_pattern),
+                Edital.assunto.ilike(search_pattern),
+                Edital.orgao_emissor.ilike(search_pattern),
             )
         )
 
@@ -269,13 +309,32 @@ def list_editais_com_filtros(
         )
 
     if categoria and categoria.strip():
-        cat_pattern = f"%{categoria.strip()}%"
-        query = query.filter(
-            or_(
-                Edital.tipo.ilike(cat_pattern),
-                Edital.tipos.any(TipoEdital.nome.ilike(cat_pattern)),
-            )
-        )
+        categoria_normalizada = _normalizar_texto_busca(categoria)
+        alias_categoria: Dict[str, tuple[str, ...]] = {
+            "pos-graduacao": ("pós-graduação", "pos-graduacao", "mestrado", "doutorado", "stricto sensu", "ppg"),
+            "graduacao": ("graduação", "graduacao", "licenciatura", "monitoria"),
+            "intercambio": ("intercâmbio", "intercambio", "mobilidade", "exchange"),
+            "evento": ("evento", "palestra", "seminário", "seminario", "workshop", "congresso", "festival"),
+            "bolsa": ("bolsa", "bolsista", "auxílio", "auxilio", "pibic", "pibiti", "pibex"),
+            "pesquisa": ("pesquisa", "científica", "cientifica", "proic"),
+            "estagio": ("estágio", "estagio"),
+            "extensao": ("extensão", "extensao"),
+            "vestibular": ("vestibular", "concurso"),
+            "monitoria": ("monitoria", "monitor"),
+        }
+        termos = alias_categoria.get(categoria_normalizada, (categoria.strip(),))
+        filtros_categoria = []
+        for termo in termos:
+            pattern = f"%{termo}%"
+            filtros_categoria.extend([
+                Edital.titulo.ilike(pattern),
+                Edital.resumo.ilike(pattern),
+                Edital.assunto.ilike(pattern),
+                Edital.tipo.ilike(pattern),
+                Edital.tipos.any(TipoEdital.nome.ilike(pattern)),
+            ])
+        if filtros_categoria:
+            query = query.filter(or_(*filtros_categoria))
 
     if campus and campus.strip():
         campus_pattern = f"%{campus.strip()}%"
@@ -344,13 +403,15 @@ class _CacheKey:
     status: Optional[str]
     categoria: Optional[str]
     campus: Optional[str]
+    skip: int
+    limit: int
 
     @property
     def tem_filtro(self) -> bool:
         return any(
             p is not None
             for p in (self.ano, self.termo_busca, self.status, self.categoria, self.campus)
-        )
+        ) or self.skip > 0
 
 
 @dataclass
@@ -397,6 +458,8 @@ def _revalidar_cache_editais(chave: _CacheKey, bind: Any, geracao: int) -> None:
             status=chave.status,
             categoria=chave.categoria,
             campus=chave.campus,
+            skip=chave.skip,
+            limit=chave.limit,
         )
         serializados = [serialize_edital(e) for e in editais_db] if editais_db else []
         if serializados or chave.tem_filtro:
@@ -423,6 +486,8 @@ def listar_editais_com_cache(
     status: Optional[str] = None,
     categoria: Optional[str] = None,
     campus: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 24,
 ) -> Optional[List[Dict[str, Any]]]:
     """Retorna editais serializados usando cache Stale-While-Revalidate (ou None se sem dados sem filtro)."""
     global _ULTIMO_BIND_ID
@@ -441,6 +506,8 @@ def listar_editais_com_cache(
         status=_normalizar_filtro(status),
         categoria=_normalizar_filtro(categoria),
         campus=_normalizar_filtro(campus),
+        skip=skip,
+        limit=limit,
     )
     agora = time.monotonic()
 
@@ -462,6 +529,8 @@ def listar_editais_com_cache(
         status=chave_cache.status,
         categoria=chave_cache.categoria,
         campus=chave_cache.campus,
+        skip=chave_cache.skip,
+        limit=chave_cache.limit,
     )
     if editais_db:
         serializados = [serialize_edital(e) for e in editais_db]
@@ -473,5 +542,3 @@ def listar_editais_com_cache(
         return []
 
     return None
-
-

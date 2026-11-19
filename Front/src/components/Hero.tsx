@@ -5,9 +5,10 @@ import FollowingEyes from './FollowingEyes';
 
 interface HeroProps {
   editaisAbertos: Edital[];
+  totalAbertos?: number;
 }
 
-export default function Hero({ editaisAbertos }: HeroProps) {
+export default function Hero({ editaisAbertos, totalAbertos }: HeroProps) {
   const destaques = editaisAbertos.slice(0, 3);
 
   return (
@@ -25,7 +26,7 @@ export default function Hero({ editaisAbertos }: HeroProps) {
               Explorar editais <span aria-hidden="true">↘</span>
             </a>
             <span className="hero-count">
-              <strong>{editaisAbertos.length}</strong>
+              <strong>{totalAbertos ?? editaisAbertos.length}</strong>
               oportunidades abertas
             </span>
           </div>

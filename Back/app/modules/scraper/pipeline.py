@@ -7,6 +7,7 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.database import (
     Edital,
     EditalDocumento,
@@ -16,7 +17,11 @@ from app.core.database import (
 )
 from app.modules.scraper import deg
 from app.modules.scraper.parser import detect_orgao_emissor, is_vague_title, parse_edital_metadados
-from app.modules.scraper.summarizer import enrich_title_and_summary, is_generic_summary
+from app.modules.scraper.summarizer import (
+    enrich_metadata_with_llm,
+    enrich_title_and_summary,
+    is_generic_summary,
+)
 from app.modules.scraper.pdf import (
     PDFCorruptedError,
     PDFDownloadError,
@@ -449,7 +454,14 @@ def _enrich_edital_metadata(
                 texto_extraido = extracted_txt
 
             ano_ref = edital_data.get("ano") if isinstance(edital_data.get("ano"), int) else None
-            parsed = parse_edital_metadados(extraction, ano_referencia=ano_ref)
+            data_pub_raw = edital_data.get("data_publicacao")
+            data_pub_dt = None
+            if data_pub_raw:
+                parsed_pub = _parse_optional_date(data_pub_raw)
+                if parsed_pub:
+                    data_pub_dt = datetime(parsed_pub.year, parsed_pub.month, parsed_pub.day, tzinfo=timezone.utc)
+
+            parsed = parse_edital_metadados(extraction, ano_referencia=ano_ref, data_publicacao=data_pub_dt)
             pdf_succeeded = True
 
             # Preenche apenas campos ausentes (scraper > parser do PDF)
@@ -489,6 +501,29 @@ def _enrich_edital_metadata(
         except (PDFExtractionError, PDFDownloadError, PDFCorruptedError, Exception) as exc:
             pdf_failed = True
             logger.warning(f"Falha ao extrair/enriquecer PDF '{candidate_pdf_url}' para '{url_pagina}': {exc}")
+
+    # 2.2 Fallback Camada 2 — LLM (Gemini) se datas ou bolsa essenciais ainda não foram encontradas
+    # Só aciona se o enriquecimento externo estiver habilitado (mesmo critério do fallback PDF)
+    # e não for reprocessamento redundante de edital já normalizado.
+    if (
+        enable_pdf_enrichment
+        and not is_redundant_reprocess
+        and (inicio_insc is None or fim_insc is None or valor_bolsa is None)
+        and texto_extraido
+        and getattr(settings, "GEMINI_API_KEY", None)
+    ):
+        llm_meta = enrich_metadata_with_llm(texto_extraido=texto_extraido, titulo=titulo)
+        if inicio_insc is None and llm_meta.get("inicio_inscricao"):
+            inicio_insc = _parse_optional_date(llm_meta["inicio_inscricao"])
+        if fim_insc is None and llm_meta.get("fim_inscricao"):
+            fim_insc = _parse_optional_date(llm_meta["fim_inscricao"])
+        if valor_bolsa is None and llm_meta.get("valor_bolsa") is not None:
+            valor_bolsa = _coerce_valor_bolsa(llm_meta["valor_bolsa"])
+        if vagas is None and llm_meta.get("vagas") is not None:
+            vagas = _coerce_vagas(llm_meta["vagas"])
+        if not orgao_emissor and llm_meta.get("orgao_emissor"):
+            orgao_emissor = str(llm_meta["orgao_emissor"]).strip()[:50]
+        inicio_insc, fim_insc = _sanitize_periodo_inscricao(inicio_insc, fim_insc, context=url_pagina or titulo)
 
     # Se ainda não identificou órgão emissor no PDF nem veio estruturado, tenta detectar pelo título/resumo
     if not orgao_emissor:
