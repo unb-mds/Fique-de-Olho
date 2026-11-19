@@ -6,12 +6,15 @@ describe('FilterBar', () => {
   it('indica o filtro ativo e limpa todos os filtros', () => {
     const onSelectCategoria = vi.fn();
     const onClearFilters = vi.fn();
+    const onSelectStatus = vi.fn();
 
     render(
       <FilterBar
         areaCounts={[{ area: 'Darcy Ribeiro', count: 20 }]}
         activeCategoria="Pesquisa"
+        activeStatus={null}
         onSelectCategoria={onSelectCategoria}
+        onSelectStatus={onSelectStatus}
         onClearFilters={onClearFilters}
       />,
     );

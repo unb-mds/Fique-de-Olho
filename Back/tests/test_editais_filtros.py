@@ -142,3 +142,24 @@ def test_list_editais_prefix_api_v1(client_editais):
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 1
+
+
+def test_list_editais_filtro_por_situacao(client_editais):
+    abertos = client_editais.get("/api/v1/editais/?status=aberto")
+    encerrados = client_editais.get("/api/v1/editais/?status=fechado")
+
+    assert abertos.status_code == 200
+    assert encerrados.status_code == 200
+    assert {item["id"] for item in abertos.json()} == {1, 3}
+    assert {item["id"] for item in encerrados.json()} == {2}
+
+
+def test_editais_stats_retorna_contagens_reais(client_editais):
+    response = client_editais.get("/api/v1/editais/stats")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "total": 3,
+        "abertos": 2,
+        "encerrados": 1,
+    }

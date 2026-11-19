@@ -17,7 +17,7 @@ from __future__ import annotations
 import logging
 import re
 import unicodedata
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.parse import unquote, urlparse
 
@@ -152,6 +152,10 @@ def parse_data_interval(text: str, default_year: Optional[int] = None) -> Tuple[
     - '23 de setembro a 14 de outubro de 2026'
     - '23 a 30 de setembro de 2026'
     - '15/09/2026 a 30/09/2026' ou '15/09 a 30/09/2026'
+    - '02 a 06/03/2026' (dia1 a dia2/mes/ano)
+    - '05 a 12 de mar de 2026' (meses abreviados)
+    - 'até às 18h do dia 15 de dezembro de 2026' (limite extenso)
+    - 'inscrições até 23:59 do dia 20/11/2026' (limite numérico)
     - '14 de outubro de 2026' (data única -> início e fim iguais)
     - '14/10/2026'
     """
@@ -159,6 +163,48 @@ def parse_data_interval(text: str, default_year: Optional[int] = None) -> Tuple[
         return None, None
 
     clean = text.strip()
+
+    # 0a. Limite por extenso: 'até às 18h do dia 15 de dezembro de 2026'
+    p_lim_ext = re.search(
+        r"at[eé]\s+(?:[aà]s\s+)?(?:\d{1,2}[:h]\d{0,2})?\s*(?:h(?:oras)?)?\s*(?:do\s+dia\s+)?(\d{1,2})\s+de\s+([a-zçáéíóúãõâêîôû]+)\s+de\s+(\d{4})",
+        clean,
+        re.I,
+    )
+    if p_lim_ext:
+        d, m, y = p_lim_ext.groups()
+        dt_fim = parse_date_pt(d, m, y)
+        return None, dt_fim
+
+    # 0b. Limite numérico: 'inscrições até 23:59 do dia 20/11/2026'
+    p_lim_num = re.search(
+        r"at[eé]\s+(?:[aà]s\s+)?(?:\d{1,2}[:h]\d{0,2})?\s*(?:h(?:oras)?)?\s*(?:do\s+dia\s+)?(\d{1,2})/(\d{1,2})/(\d{2,4})",
+        clean,
+        re.I,
+    )
+    if p_lim_num:
+        d, m, y = p_lim_num.groups()
+        dt_fim = parse_date_pt(d, m, y)
+        return None, dt_fim
+
+    # 0c. '01/04/2026 a 15/04/2026' (duas datas completas)
+    p_slash_full = re.search(
+        r"(\d{1,2})/(\d{1,2})/(\d{2,4})\s+(?:a|ate|até)\s+(\d{1,2})/(\d{1,2})/(\d{2,4})",
+        clean,
+        re.I,
+    )
+    if p_slash_full:
+        d1, m1, y1, d2, m2, y2 = p_slash_full.groups()
+        return parse_date_pt(d1, m1, y1), parse_date_pt(d2, m2, y2)
+
+    # 0d. '02 a 06/03/2026' (dia1 a dia2/mes/ano)
+    p_slash_compact = re.search(
+        r"(\d{1,2})\s+(?:a|ate|até)\s+(\d{1,2})/(\d{1,2})/(\d{2,4})",
+        clean,
+        re.I,
+    )
+    if p_slash_compact:
+        d1, d2, m, y = p_slash_compact.groups()
+        return parse_date_pt(d1, m, y), parse_date_pt(d2, m, y)
 
     # 1. '23 de setembro a 14 de outubro de 2026'
     p1 = re.search(
@@ -173,7 +219,7 @@ def parse_data_interval(text: str, default_year: Optional[int] = None) -> Tuple[
         dt_fim = parse_date_pt(d2, m2, y2)
         return dt_ini, dt_fim
 
-    # 2. '23 a 30 de setembro de 2026' (mesmo mês)
+    # 2. '23 a 30 de setembro de 2026' ou '05 a 12 de mar de 2026' (mesmo mês)
     p2 = re.search(
         r"(\d{1,2})\s+(?:a|ate|até)\s+(\d{1,2})\s+de\s+([a-zçáéíóúãõâêîôû]+)\s+de\s+(\d{4})",
         clean,
@@ -303,28 +349,92 @@ def detect_vagas(text: str) -> Optional[int]:
 
 
 def detect_bolsa(text: str) -> Tuple[Optional[bool], Optional[float]]:
-    """Identifica se há oferta de bolsa remunerada e seu valor monetário."""
+    """Identifica se há oferta de bolsa remunerada e seu valor monetário.
+
+    Filtra taxas de inscrição, multas e orçamentos globais de projetos por contexto
+    e teto de valor (R$ 15.000,00). Detecta também menções qualitativas a bolsas
+    (PIBIC, auxílio financeiro) ou declarações de trabalho voluntário/sem remuneração.
+    """
     clean = text.lower()
     valor_bolsa: Optional[float] = None
     tem_bolsa: Optional[bool] = None
 
-    # Procura valor monetário em R$
-    m_val = re.search(r"r\$\s*([\d\.]+,\d{2})", clean)
-    if m_val:
-        raw_val = m_val.group(1).replace(".", "").replace(",", ".")
+    termos_desqualificadores = (
+        "taxa", "inscricao", "inscrição", "inscricoes", "inscrições",
+        "gru", "recolhimento", "orcamento", "orçamento", "custo", "multa",
+        "total do projeto", "orcamento global", "orçamento global",
+    )
+    termos_qualificadores = (
+        "bolsa", "bolsista", "auxilio", "auxílio", "remuneracao", "remuneração",
+        "mensal", "mensais", "retribuicao", "retribuição", "estipendio", "estipêndio",
+        "beneficio", "benefício", "valor mensal", "concessao de bolsa", "concessão de bolsa",
+    )
+
+    candidatos_validos: List[Tuple[float, bool]] = []
+    for m in re.finditer(r"r\$\s*([\d\.]+,\d{2})", clean):
+        raw_val = m.group(1).replace(".", "").replace(",", ".")
         try:
-            valor_bolsa = float(raw_val)
-            tem_bolsa = True
+            val = float(raw_val)
         except ValueError:
-            pass
+            continue
+
+        if val > 15000.0 or val <= 0:
+            continue
+
+        start_ctx = max(
+            clean.rfind("\n", 0, m.start()),
+            clean.rfind(".", 0, m.start()),
+            clean.rfind(";", 0, m.start()),
+        )
+        end_ctx = len(clean)
+        for separator in ("\n", ".", ";"):
+            pos = clean.find(separator, m.end())
+            if pos != -1:
+                end_ctx = min(end_ctx, pos)
+        contexto = clean[max(0, start_ctx):end_ctx]
+
+        tem_desqualificador = any(td in contexto for td in termos_desqualificadores)
+        tem_qualificador = any(tq in contexto for tq in termos_qualificadores)
+
+        if tem_qualificador and not tem_desqualificador:
+            candidatos_validos.append((val, True))
+        elif not tem_desqualificador:
+            candidatos_validos.append((val, False))
+
+    if candidatos_validos:
+        qualificados = [c for c in candidatos_validos if c[1]]
+        if qualificados:
+            valor_bolsa = qualificados[0][0]
+            tem_bolsa = True
 
     if tem_bolsa is None:
-        if any(w in clean for w in ["bolsa remunerada", "bolsista remunerado", "auxílio financeiro", "auxilio financeiro"]):
-            tem_bolsa = True
-        elif any(w in clean for w in ["voluntário", "voluntario", "sem remuneração", "nao remunerado"]):
+        termos_sem_remuneracao = (
+            "voluntário", "voluntario", "sem remuneração", "sem remuneracao",
+            "nao remunerado", "não remunerado", "sem bolsa", "sem ônus", "sem onus",
+        )
+        termos_com_bolsa = (
+            "bolsa remunerada", "bolsista remunerado", "auxílio financeiro", "auxilio financeiro",
+            "bolsa de pesquisa", "bolsa de extensao", "bolsa de extensão", "bolsa de monitoria",
+            "bolsa de iniciacao", "bolsa de iniciação", "concessao de bolsa", "concessão de bolsa",
+            "pibic", "pibiti", "pibex", "auxilio permanencia", "auxílio permanência",
+        )
+        if any(w in clean for w in termos_sem_remuneracao):
             tem_bolsa = False
+        elif any(w in clean for w in termos_com_bolsa):
+            tem_bolsa = True
 
     return tem_bolsa, valor_bolsa
+
+
+def _add_business_days(start_date: datetime, n_days: int) -> datetime:
+    """Soma N dias úteis (segunda a sexta) a uma data inicial."""
+    current = start_date
+    added = 0
+    while added < n_days:
+        current += timedelta(days=1)
+        if current.weekday() < 5:
+            added += 1
+    return current
 
 
 def parse_cronograma_from_tables(tables: List[List[List[Optional[str]]]]) -> List[CronogramaEtapa]:
@@ -372,12 +482,14 @@ def parse_cronograma_from_tables(tables: List[List[List[Optional[str]]]]) -> Lis
 def parse_edital_metadados(
     doc: Union[PDFDocumentExtraction, str],
     ano_referencia: Optional[int] = None,
+    data_publicacao: Optional[datetime] = None,
 ) -> EditalMetadados:
     """Extrai metadados completos de um documento de edital.
 
     Args:
         doc: Objeto PDFDocumentExtraction (contendo texto e tabelas) ou string de texto simples.
         ano_referencia: Ano do edital para desambiguação de datas quando não explícito no texto.
+        data_publicacao: Data de publicação do edital para cálculo de prazos relativos.
 
     Returns:
         EditalMetadados: Modelo preenchido com todos os campos identificados com segurança.
@@ -439,6 +551,30 @@ def parse_edital_metadados(
             inicio_inscricao = dt_ini_txt
         if not fim_inscricao:
             fim_inscricao = dt_fim_txt or dt_ini_txt
+
+    # 5. Cálculo de prazo relativo (dias úteis ou corridos) a partir da data de publicação
+    if not fim_inscricao and data_publicacao:
+        m_dias_uteis = re.search(
+            r"(\d+)\s+dias\s+[uú]teis\s+(?:a\s+contar|contados|a\s+partir|ap[oó]s)",
+            full_text,
+            re.I,
+        )
+        if m_dias_uteis:
+            qtd_dias = int(m_dias_uteis.group(1))
+            fim_inscricao = _add_business_days(data_publicacao, qtd_dias)
+            if not inicio_inscricao:
+                inicio_inscricao = data_publicacao
+        else:
+            m_dias_corridos = re.search(
+                r"(\d+)\s+dias\s+corridos\s+(?:a\s+contar|contados|a\s+partir|ap[oó]s)",
+                full_text,
+                re.I,
+            )
+            if m_dias_corridos:
+                qtd_dias = int(m_dias_corridos.group(1))
+                fim_inscricao = data_publicacao + timedelta(days=qtd_dias)
+                if not inicio_inscricao:
+                    inicio_inscricao = data_publicacao
 
     return EditalMetadados(
         orgao_emissor=orgao,

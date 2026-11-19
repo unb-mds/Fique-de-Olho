@@ -42,7 +42,7 @@ services:
       dockerfile: Dockerfile
     container_name: fique-de-olho-api
     restart: unless-stopped
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: sh -c "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
     ports:
       - "8000:8000"
     volumes:
@@ -52,7 +52,7 @@ services:
       VERSION: ${VERSION:-0.1.0}
       DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-fique_de_olho}:${POSTGRES_PASSWORD:-fique_de_olho_dev}@db:5432/${POSTGRES_DB:-fique_de_olho}
       SCRAPER_SCHEDULER_ENABLED: "true"
-      SCRAPER_SCHEDULER_RUN_ON_STARTUP: "true"
+      SCRAPER_SCHEDULER_RUN_ON_STARTUP: "false"
       SCRAPER_SCHEDULER_INTERVAL_HOURS: "12"
     depends_on:
       db:

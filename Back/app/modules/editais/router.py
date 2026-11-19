@@ -1,11 +1,13 @@
 import logging
+from datetime import date
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
+from sqlalchemy import and_, or_
 
 logger = logging.getLogger(__name__)
 
-from app.core.database import Usuario, get_db
+from app.core.database import Edital, StatusEdital, Usuario, get_db
 from app.modules.editais.service import (
     get_edital_by_id,
     invalidar_cache_editais,
@@ -22,6 +24,26 @@ from app.modules.usuarios import get_current_user
 router = APIRouter(prefix="/editais", tags=["Editais"])
 
 
+@router.get("/stats", response_model=Dict[str, int])
+def editais_stats(db: Session = Depends(get_db)):
+    today = date.today()
+    total = db.query(Edital).count()
+    abertos = db.query(Edital).filter(
+        or_(
+            Edital.fim_inscricao >= today,
+            and_(
+                Edital.fim_inscricao.is_(None),
+                or_(Edital.status.is_(None), Edital.status == StatusEdital.ABERTO),
+            ),
+        )
+    ).count()
+    return {
+        "total": total,
+        "abertos": abertos,
+        "encerrados": total - abertos,
+    }
+
+
 @router.get("/", response_model=List[Dict[str, Any]])
 def list_editais(
     background_tasks: BackgroundTasks,
@@ -31,6 +53,8 @@ def list_editais(
     status: Optional[str] = Query(None, description="Filtra por status ('aberto' ou 'fechado')"),
     categoria: Optional[str] = Query(None, description="Filtra por categoria/tipo"),
     campus: Optional[str] = Query(None, description="Filtra por campus"),
+    skip: int = Query(0, ge=0, description="Quantidade de registros a ignorar"),
+    limit: int = Query(24, ge=1, le=100, description="Quantidade máxima de registros"),
     db: Session = Depends(get_db),
 ):
     """
@@ -51,6 +75,8 @@ def list_editais(
             status=status,
             categoria=categoria,
             campus=campus,
+            skip=skip,
+            limit=limit,
         )
         if resultado is not None:
             return resultado
@@ -151,6 +177,8 @@ def sync_editais(
             db=db,
             orgao=orgao,
             max_items_per_orgao=max_itens,
+            fetch_docs=True,
+            enable_pdf_enrichment=True,
         )
         invalidar_cache_editais()
         return resultado

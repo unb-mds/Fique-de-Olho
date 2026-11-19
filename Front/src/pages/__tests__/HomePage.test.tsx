@@ -2,11 +2,12 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import HomePage from '../HomePage';
-import { getEditais } from '@/services/editaisService';
+import { getEditais, getEditaisStats } from '@/services/editaisService';
 import type { Edital } from '@/services/types';
 
 vi.mock('@/services/editaisService', () => ({
   getEditais: vi.fn(),
+  getEditaisStats: vi.fn(),
 }));
 
 vi.mock('@/contexts/AuthContext', () => ({
@@ -42,10 +43,23 @@ function criarEditais(qtd: number): Edital[] {
 describe('HomePage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(getEditaisStats).mockResolvedValue({
+      total: 25,
+      abertos: 20,
+      encerrados: 5,
+    });
   });
 
-  it('renderiza apenas 12 cards na primeira página e navega para a segunda', async () => {
-    vi.mocked(getEditais).mockResolvedValue(criarEditais(25));
+  it('renderiza 12 cards iniciais e permite carregar mais', async () => {
+    vi.mocked(getEditais).mockImplementation(async (params) => {
+      if (params?.limit === 3) return criarEditais(3);
+      if (params?.skip) return criarEditais(13).map((edital, index) => ({
+        ...edital,
+        id: String(index + 13),
+        titulo: `Edital ${index + 13}`,
+      }));
+      return criarEditais(12);
+    });
 
     render(
       <MemoryRouter>
@@ -56,16 +70,20 @@ describe('HomePage', () => {
     await screen.findByText('Edital 1');
     const cards = document.querySelectorAll('.edital-card');
     expect(cards).toHaveLength(12);
-    expect(screen.getByText('Página 1 de 3')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Carregar mais' })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Próxima página' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Carregar mais' }));
 
     expect(await screen.findByText('Edital 13')).toBeInTheDocument();
-    expect(screen.getByText('Página 2 de 3')).toBeInTheDocument();
   });
 
-  it('reinicia a paginação ao aplicar uma busca', async () => {
-    vi.mocked(getEditais).mockResolvedValue(criarEditais(25));
+  it('atualiza os resultados ao aplicar uma busca', async () => {
+    vi.mocked(getEditais).mockImplementation(async (params) => {
+      if (params?.limit === 3) return criarEditais(3);
+      const dados = criarEditais(25);
+      if (params?.q) return dados.filter((edital) => edital.titulo.includes(params.q as string));
+      return dados.slice(0, 12);
+    });
 
     render(
       <MemoryRouter>
@@ -74,18 +92,20 @@ describe('HomePage', () => {
     );
 
     await screen.findByText('Edital 1');
-    fireEvent.click(screen.getByRole('button', { name: 'Próxima página' }));
     fireEvent.change(
       screen.getByRole('searchbox', { name: 'Buscar editais' }),
       { target: { value: 'Edital 20' } },
     );
 
     expect(await screen.findByText('Edital 20')).toBeInTheDocument();
-    expect(screen.queryByText('Edital 13')).not.toBeInTheDocument();
   });
 
   it('exibe estado vazio quando nenhum edital corresponde', async () => {
-    vi.mocked(getEditais).mockResolvedValue(criarEditais(3));
+    vi.mocked(getEditais).mockImplementation(async (params) => {
+      if (params?.limit === 3) return criarEditais(3);
+      if (params?.q) return [];
+      return criarEditais(3);
+    });
 
     render(
       <MemoryRouter>

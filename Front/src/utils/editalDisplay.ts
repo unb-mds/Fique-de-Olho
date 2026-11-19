@@ -7,6 +7,11 @@ const CATEGORY_STYLES: Record<string, { bgVar: string; fgVar: string }> = {
   estagio: { bgVar: '--pill-estagio-bg', fgVar: '--pill-estagio-fg' },
   extensao: { bgVar: '--pill-extensao-bg', fgVar: '--pill-extensao-fg' },
   pesquisa: { bgVar: '--pill-pesquisa-bg', fgVar: '--pill-pesquisa-fg' },
+  'pos-graduacao': { bgVar: '--pill-pesquisa-bg', fgVar: '--pill-pesquisa-fg' },
+  graduacao: { bgVar: '--pill-vestibular-bg', fgVar: '--pill-vestibular-fg' },
+  intercambio: { bgVar: '--pill-extensao-bg', fgVar: '--pill-extensao-fg' },
+  evento: { bgVar: '--pill-extensao-bg', fgVar: '--pill-extensao-fg' },
+  bolsa: { bgVar: '--pill-pesquisa-bg', fgVar: '--pill-pesquisa-fg' },
 };
 
 function normalizeCategoria(categoria: string | null | undefined): string {
@@ -32,6 +37,11 @@ export function categoryBadgeStyle(categoria: string | null | undefined): CSSPro
 }
 
 export const KNOWN_CATEGORIES = [
+  'Pós-graduação',
+  'Graduação',
+  'Intercâmbio',
+  'Evento',
+  'Bolsa',
   'Pesquisa',
   'Estágio',
   'Extensão',
