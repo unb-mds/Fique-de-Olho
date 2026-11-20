@@ -45,6 +45,65 @@ MAX_TITULO_LLM_CHARS = 110
 MAX_TEXTO_PROMPT_CHARS = 6000
 MIN_RESUMO_INFORMATIVO_CHARS = 25
 
+_TRECHO_RELEVANTE_RE = re.compile(
+    r"(?:cronograma|calend[aá]rio|das\s+inscri[cç][oõ]es|per[ií]odo\s+de\s+inscri[cç][aã]o|"
+    r"prazo\s+(?:de|para)\s+inscri[cç][oõaã]e?s?|prorroga[cç][aã]o|retifica[cç][aã]o|"
+    r"valor\s+da\s+bolsa|bolsas?\s+e\s+aux[ií]lios?|das\s+vagas)",
+    re.IGNORECASE,
+)
+
+
+def selecionar_trechos_relevantes_prompt(
+    texto_extraido: Optional[str],
+    max_chars: int = MAX_TEXTO_PROMPT_CHARS,
+) -> str:
+    """Seleciona trechos de maior valor (início, cronograma/inscrições e fim) dentro do limite."""
+    if not texto_extraido or not texto_extraido.strip():
+        return ""
+
+    limpo = limpar_texto_documento(texto_extraido)
+    if len(limpo) <= max_chars:
+        return limpo
+
+    # Orçamento: 45% cabeçalho/objeto, 40% janelas de cronograma/inscrições/bolsa, 15% trecho final
+    head_budget = int(max_chars * 0.45)
+    tail_budget = int(max_chars * 0.15)
+    mid_budget = max_chars - head_budget - tail_budget
+
+    partes: list[str] = [limpo[:head_budget].rstrip()]
+    restante = limpo[head_budget:]
+    tail_start = max(head_budget, len(limpo) - tail_budget)
+
+    # Coleta janelas não sobrepostas em torno de menções a cronograma/inscrições/bolsa após o cabeçalho
+    intervalos: list[tuple[int, int]] = []
+    for match in _TRECHO_RELEVANTE_RE.finditer(limpo, pos=head_budget, endpos=tail_start):
+        ini = max(head_budget, match.start() - 120)
+        fim = min(tail_start, match.end() + 700)
+        if intervalos and ini <= intervalos[-1][1]:
+            intervalos[-1] = (intervalos[-1][0], max(intervalos[-1][1], fim))
+        else:
+            intervalos.append((ini, fim))
+
+    usado_mid = 0
+    for ini, fim in intervalos:
+        if usado_mid >= mid_budget:
+            break
+        trecho = limpo[ini:fim].strip()
+        if not trecho:
+            continue
+        disp = mid_budget - usado_mid
+        if len(trecho) > disp:
+            trecho = trecho[:disp].rstrip()
+        partes.append(f"[...]\n{trecho}")
+        usado_mid += len(trecho)
+
+    tail = limpo[tail_start:].strip()
+    if tail and restante:
+        partes.append(f"[...]\n{tail}")
+
+    combinado = "\n\n".join(partes)
+    return truncar_texto(combinado, max_chars) or combinado[:max_chars]
+
 _RESUMOS_GENERICOS_PREFIXOS: Tuple[str, ...] = (
     "edital publicado pelo portal",
     "edital publicado no portal",
@@ -129,7 +188,7 @@ def _montar_prompt(
         formato = '{"resumo": "..."}'
         regra_titulo = ""
 
-    texto = truncar_texto(limpar_texto_documento(texto_extraido), MAX_TEXTO_PROMPT_CHARS) if texto_extraido else ""
+    texto = selecionar_trechos_relevantes_prompt(texto_extraido, MAX_TEXTO_PROMPT_CHARS) if texto_extraido else ""
     return (
         "Você organiza editais da Universidade de Brasília (UnB) para estudantes.\n"
         f"Responda SOMENTE com um objeto JSON válido no formato {formato}.\n"
@@ -403,7 +462,7 @@ def _converter_metadados_llm(dados: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _montar_prompt_metadados(texto_extraido: Optional[str], titulo: Optional[str]) -> str:
-    texto = truncar_texto(limpar_texto_documento(texto_extraido), MAX_TEXTO_PROMPT_CHARS) if texto_extraido else ""
+    texto = selecionar_trechos_relevantes_prompt(texto_extraido, MAX_TEXTO_PROMPT_CHARS) if texto_extraido else ""
     return (
         "Você analisa editais da Universidade de Brasília (UnB) e extrai metadados estruturados de oportunidades para estudantes.\n"
         "Responda SOMENTE com um objeto JSON válido no formato:\n"
@@ -422,6 +481,152 @@ def _montar_prompt_metadados(texto_extraido: Optional[str], titulo: Optional[str
         f"Título do edital: {titulo or '(vazio)'}\n"
         f'Conteúdo do edital (trecho):\n"""\n{texto or "(indisponível)"}\n"""\n'
     )
+
+
+def _montar_prompt_unificado(
+    *,
+    titulo: str,
+    texto_extraido: Optional[str],
+    assunto: Optional[str],
+    orgao_emissor: Optional[str],
+    url_pdf: Optional[str],
+    pedir_titulo: bool,
+    pedir_resumo: bool,
+    pedir_metadados: bool,
+) -> str:
+    campos_json: list[str] = []
+    regras: list[str] = []
+
+    if pedir_titulo:
+        campos_json.append('"titulo": "string"')
+        regras.append(
+            f'- "titulo": título claro e padronizado em português (máx. {MAX_TITULO_LLM_CHARS} caracteres), '
+            "incluindo órgão emissor, programa/número do edital e etapa quando aplicável. "
+            "Nunca use termos vagos isolados como Edital, Aqui ou Download."
+        )
+    if pedir_resumo:
+        campos_json.append('"resumo": "string"')
+        regras.append(
+            f'- "resumo": no máximo 2 frases (até {MAX_RESUMO_CHARS} caracteres) explicando a oportunidade e o '
+            "público-alvo para estudantes da UnB. Não invente informações que não estejam no conteúdo."
+        )
+    if pedir_metadados:
+        campos_json.extend(
+            [
+                '"inicio_inscricao": "YYYY-MM-DD ou null"',
+                '"fim_inscricao": "YYYY-MM-DD ou null"',
+                '"valor_bolsa": float_ou_null',
+                '"tem_bolsa": boolean_ou_null',
+                '"vagas": int_ou_null',
+                '"orgao_emissor": "SIGLA_OU_NULL"',
+            ]
+        )
+        regras.extend(
+            [
+                '- "inicio_inscricao" e "fim_inscricao": prazo de inscrições no formato YYYY-MM-DD. Se houver apenas prazo limite final, preencha em "fim_inscricao".',
+                '- "valor_bolsa": valor monetário mensal da bolsa/auxílio ao estudante (ex.: 700.0). NUNCA extraia taxa de inscrição ou orçamento global.',
+                '- "tem_bolsa": true se houver bolsa/auxílio, false se voluntário/sem remuneração, null se não informado.',
+                '- "vagas": quantidade total de vagas ofertadas.',
+                '- "orgao_emissor": sigla da unidade/decanato responsável (ex.: DEG, DEX, DPG, DPI, DAC, CEAD).',
+            ]
+        )
+
+    texto = selecionar_trechos_relevantes_prompt(texto_extraido, MAX_TEXTO_PROMPT_CHARS) if texto_extraido else ""
+    formato = "{" + ", ".join(campos_json) + "}"
+    regras_str = "\n".join(regras)
+    return (
+        "Você analisa e organiza editais da Universidade de Brasília (UnB) para estudantes.\n"
+        f"Responda SOMENTE com um objeto JSON válido no formato {formato}.\n"
+        "Regras:\n"
+        f"{regras_str}\n\n"
+        f"Título atual: {titulo or '(vazio)'}\n"
+        f"Órgão emissor: {orgao_emissor or '(não informado)'}\n"
+        f"Assunto: {assunto or '(não informado)'}\n"
+        f"Link do PDF: {url_pdf or '(não informado)'}\n"
+        f'Conteúdo do edital (trechos relevantes):\n"""\n{texto or "(indisponível)"}\n"""\n'
+    )
+
+
+def enrich_edital_with_llm(
+    *,
+    titulo: Optional[str],
+    texto_extraido: Optional[str] = None,
+    assunto: Optional[str] = None,
+    orgao_emissor: Optional[str] = None,
+    url_pdf: Optional[str] = None,
+    resumo_atual: Optional[str] = None,
+    pedir_metadados: bool = True,
+) -> Dict[str, Any]:
+    """Segunda passada unificada (Camada 2): extrai título/resumo e metadados ausentes em 1 única chamada.
+
+    Sempre calcula a Camada 1 local para título/resumo. Só chama a Gemini API se houver
+    ``GEMINI_API_KEY``, conteúdo textual/assunto e algum campo pendente (título vago,
+    resumo genérico ou metadados solicitados). Nunca propaga exceções.
+    """
+    global _missing_key_warned
+
+    titulo_str = (titulo or "").strip()
+    titulo_vago = is_vague_title(titulo_str)
+    titulo_heur = reconstruir_titulo_edital(titulo_str, texto_extraido, assunto, orgao_emissor, url_pdf)
+    resumo_heur = _resumo_heuristico(titulo_str, texto_extraido, assunto, resumo_atual)
+    pedir_resumo = is_generic_summary(resumo_atual, titulo_str)
+
+    resultado: Dict[str, Any] = {
+        "titulo": titulo_heur,
+        "resumo": resumo_heur,
+    }
+
+    tem_conteudo = bool((texto_extraido and texto_extraido.strip()) or (assunto and assunto.strip()))
+    precisa_llm = tem_conteudo and (titulo_vago or pedir_resumo or pedir_metadados)
+    if not precisa_llm:
+        return resultado
+
+    if not settings.GEMINI_API_KEY:
+        if not _missing_key_warned:
+            logger.warning(
+                "GEMINI_API_KEY não configurada; títulos/resumos e metadados usarão apenas a Camada 1 local."
+            )
+            _missing_key_warned = True
+        return resultado
+
+    prompt = _montar_prompt_unificado(
+        titulo=titulo_str,
+        texto_extraido=texto_extraido,
+        assunto=assunto,
+        orgao_emissor=orgao_emissor,
+        url_pdf=url_pdf,
+        pedir_titulo=titulo_vago,
+        pedir_resumo=pedir_resumo,
+        pedir_metadados=pedir_metadados,
+    )
+
+    try:
+        url, headers, body = _request_args(prompt)
+        with _build_client(settings.GEMINI_TIMEOUT_SECONDS) as client:
+            dados = _parse_resposta(client.post(url, headers=headers, json=body))
+    except Exception as exc:
+        _log_falha(exc)
+        return resultado
+
+    if titulo_vago:
+        titulo_llm = dados.get("titulo")
+        titulo_llm = " ".join(titulo_llm.split()).strip(" \"'") if isinstance(titulo_llm, str) else ""
+        if titulo_llm and not is_vague_title(titulo_llm):
+            resultado["titulo"] = truncar_titulo(titulo_llm, MAX_TITULO_CHARS)
+        else:
+            logger.warning(f"Gemini retornou título vago/inválido ({titulo_llm!r}); usando heurística local.")
+
+    if pedir_resumo:
+        resumo_llm = dados.get("resumo")
+        if isinstance(resumo_llm, str) and not is_generic_summary(resumo_llm, resultado["titulo"]):
+            resultado["resumo"] = truncar_texto(resumo_llm, MAX_RESUMO_CHARS)
+        else:
+            logger.warning("Gemini retornou resumo vazio/genérico; usando heurística local.")
+
+    if pedir_metadados:
+        resultado.update(_converter_metadados_llm(dados))
+
+    return resultado
 
 
 def enrich_metadata_with_llm(

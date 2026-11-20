@@ -28,3 +28,7 @@ services:
         value: "true"
       - key: NOTIFICATION_SCHEDULER_INTERVAL_SECONDS
         value: "3600"
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
