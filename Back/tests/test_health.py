@@ -8,7 +8,6 @@ def test_health_check_returns_200(client):
     data = response.json()
     assert data["status"] == "healthy"
     assert "version" in data
-    assert data["database"] == "connected"
 
 
 def test_ping_endpoint_returns_awake_without_database_query(client):

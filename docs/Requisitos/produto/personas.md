@@ -1,6 +1,6 @@
-# Personas do Projeto: Fique de Olho — Editais UnB
+# Personas do Projeto: NotificaDEG / Radar DEG UnB
 
-Este documento apresenta as personas desenvolvidas para o sistema de busca, análise, filtragem e notificação de editais dos portais institucionais selecionados na ADR 0004.
+Este documento apresenta as personas desenvolvidas para o sistema de busca, análise, filtragem e notificação de editais do Decanato de Ensino de Graduação da Universidade de Brasília (DEG UnB).
 
 As personas foram elaboradas com base no público heterogêneo da UnB, cobrindo diferentes perfis socioeconômicos, demandas acadêmicas e necessidades de acessibilidade.
 O veículo de notificação do "Fique de Olho" será o email de escolha do usuário.
@@ -19,7 +19,7 @@ O veículo de notificação do "Fique de Olho" será o email de escolha do usuá
 #### Perfil e Rotina
 > *"Concilio disciplinas puxadas com a busca constante por bolsas para me manter em Brasília. Se eu perder um prazo de edital por falta de aviso, coloco meu semestre em risco."*
 
-Lucas mora em uma região administrativa distante do campus e passa cerca de 3 horas diárias no transporte público. Sua permanência na universidade depende diretamente de bolsas (permanência, alimentação, extensão ou monitoria remunerada). Devido à rotina exaustiva, ele não tem tempo de acompanhar diariamente os portais institucionais para checar se saíram novos editais ou retificações de prazos.
+Lucas mora em uma região administrativa distante do campus e passa cerca de 3 horas diárias no transporte público. Sua permanência na universidade depende diretamente de bolsas (permanência, alimentação, extensão ou monitoria remunerada). Devido à rotina exaustiva, ele não tem tempo de abrir o site do DEG diariamente para checar se saíram novos editais ou retificações de prazos.
 
 #### Objetivos e Metas
 * Encontrar rapidamente editais que ofereçam **bolsas remuneradas** e auxílios de permanência.
@@ -60,8 +60,8 @@ Mariana frequenta aulas em tempo integral e participa de ligas acadêmicas. Ela 
 * Salvar editais em uma lista de "Favoritos" para acompanhar o status (aberto, homologação, resultado final).
 
 #### Dores e Frustrações
-* Dificuldade de saber se um edital geral contempla o seu curso específico ou se é voltado a outras áreas.
-* Perder editais de monitoria porque foram divulgados apenas em murais físicos ou em links ocultos nos portais institucionais.
+* Dificuldade de saber se um edital geral do DEG contempla o seu curso específico ou se é voltado a outras áreas.
+* Perder editais de monitoria porque foram divulgados apenas em murais físicos ou em links ocultos na página do DEG.
 * Falta de clareza sobre o cronograma das fases (inscrição, recurso, divulgação do resultado).
 
 #### Como o sistema resolve a dor da Mariana:
