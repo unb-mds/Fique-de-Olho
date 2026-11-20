@@ -34,9 +34,12 @@ def executar_ciclo_notificacoes(
 
 async def executar_scheduler_notificacoes(
     intervalo_segundos: int = 60 * 60,
+    initial_delay_seconds: int = 30,
 ) -> None:
-    """Executa o ciclo na inicialização e uma vez a cada intervalo configurado sem bloquear o loop."""
+    """Executa o ciclo periodicamente após pequeno atraso inicial para não competir com o cold start."""
     try:
+        if initial_delay_seconds > 0:
+            await asyncio.sleep(initial_delay_seconds)
         while True:
             try:
                 await asyncio.to_thread(executar_ciclo_notificacoes)

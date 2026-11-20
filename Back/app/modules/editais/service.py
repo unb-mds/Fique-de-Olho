@@ -7,7 +7,7 @@ import logging
 from threading import Lock
 import time
 from typing import Any, Callable, Dict, List, Optional
-from sqlalchemy import and_, extract, or_
+from sqlalchemy import and_, case, extract, func, or_
 from sqlalchemy.orm import Session, defer, sessionmaker
 
 from app.core.config import settings
@@ -422,17 +422,100 @@ class _CacheEntry:
 
 
 _EDITAIS_CACHE: Dict[_CacheKey, _CacheEntry] = {}
+_STATS_CACHE: Dict[str, _CacheEntry] = {}
 _CACHE_LOCK = Lock()
 _CACHE_GENERATION = 0
 _ULTIMO_BIND_ID: Optional[int] = None
 
 
 def invalidar_cache_editais() -> None:
-    """Invalida o cache em memória de listagens de editais."""
+    """Invalida o cache em memória de listagens e estatísticas de editais."""
     global _CACHE_GENERATION
     with _CACHE_LOCK:
         _CACHE_GENERATION += 1
         _EDITAIS_CACHE.clear()
+        _STATS_CACHE.clear()
+
+
+def _consultar_stats_editais(db: Session) -> Dict[str, int]:
+    """Calcula total, abertos e encerrados em uma única consulta agregada."""
+    today = date.today()
+    condicao_aberto = or_(
+        Edital.fim_inscricao >= today,
+        and_(
+            Edital.fim_inscricao.is_(None),
+            or_(Edital.status.is_(None), Edital.status == StatusEdital.ABERTO),
+        ),
+    )
+    row = db.query(
+        func.count(Edital.id),
+        func.coalesce(func.sum(case((condicao_aberto, 1), else_=0)), 0),
+    ).one()
+    total = int(row[0] or 0)
+    abertos = int(row[1] or 0)
+    return {
+        "total": total,
+        "abertos": abertos,
+        "encerrados": max(0, total - abertos),
+    }
+
+
+def _revalidar_stats_cache(chave: str, bind: Any, geracao: int) -> None:
+    session_factory = sessionmaker(autocommit=False, autoflush=False, bind=bind)
+    db = session_factory()
+    try:
+        stats = _consultar_stats_editais(db)
+        with _CACHE_LOCK:
+            if _CACHE_GENERATION == geracao:
+                _STATS_CACHE[chave] = _CacheEntry(
+                    timestamp=time.monotonic(),
+                    payload=[stats],
+                    refreshing=False,
+                )
+    except Exception:
+        logger.exception("Falha ao revalidar cache de estatísticas em segundo plano.")
+        with _CACHE_LOCK:
+            if chave in _STATS_CACHE:
+                _STATS_CACHE[chave].refreshing = False
+    finally:
+        db.close()
+
+
+def obter_stats_editais_com_cache(
+    db: Session,
+    agendar_tarefa: Optional[Callable[..., Any]] = None,
+) -> Dict[str, int]:
+    """Retorna estatísticas agregadas de editais com cache Stale-While-Revalidate."""
+    global _ULTIMO_BIND_ID
+    bind = db.get_bind() if hasattr(db, "get_bind") else getattr(db, "bind", None)
+    bind_id = id(bind) if bind is not None else 0
+    chave = str(getattr(bind, "url", "")) if bind is not None else ""
+
+    with _CACHE_LOCK:
+        if _ULTIMO_BIND_ID != bind_id:
+            _ULTIMO_BIND_ID = bind_id
+            _EDITAIS_CACHE.clear()
+            _STATS_CACHE.clear()
+
+        entrada = _STATS_CACHE.get(chave)
+        geracao_atual = _CACHE_GENERATION
+        agora = time.monotonic()
+        if entrada is not None and entrada.payload:
+            if agora - entrada.timestamp >= EDITAIS_CACHE_TTL_SECONDS and not entrada.refreshing:
+                entrada.refreshing = True
+                if bind is not None and agendar_tarefa is not None:
+                    agendar_tarefa(_revalidar_stats_cache, chave, bind, geracao_atual)
+            return dict(entrada.payload[0])
+
+    stats = _consultar_stats_editais(db)
+    with _CACHE_LOCK:
+        if _CACHE_GENERATION == geracao_atual:
+            _STATS_CACHE[chave] = _CacheEntry(
+                timestamp=time.monotonic(),
+                payload=[stats],
+                refreshing=False,
+            )
+    return stats
 
 
 def _salvar_entrada_cache(chave: _CacheKey, geracao: int, payload: List[Dict[str, Any]]) -> None:
