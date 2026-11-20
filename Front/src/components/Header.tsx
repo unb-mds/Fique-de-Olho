@@ -1,10 +1,8 @@
-
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Header() {
   const { usuario, autenticado, logout } = useAuth();
-
   const navigate = useNavigate();
 
   return (
@@ -13,6 +11,7 @@ export default function Header() {
         <span className="brand-mark" aria-hidden="true">U</span>
         <span className="brand-name">Fique de Olho</span>
       </Link>
+
       <nav className="primary-nav" aria-label="Navegação principal">
         <a href="/#editais">Editais</a>
         <a href="/#como-funciona">Como funciona</a>
@@ -59,7 +58,6 @@ export default function Header() {
     </>
   )}
 </div>
-
     </header>
   );
 }

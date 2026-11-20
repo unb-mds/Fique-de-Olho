@@ -4,9 +4,7 @@ import Hero from '@/components/Hero';
 import FilterBar from '@/components/FilterBar';
 import EditalCard from '@/components/EditalCard';
 import Footer from '@/components/Footer';
-
 import { getEditais, getEditaisStats } from '@/services/editaisService';
-
 import type { Edital } from '@/services/types';
 
 export default function HomePage() {
@@ -16,7 +14,6 @@ export default function HomePage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [categoria, setCategoria] = useState<string | null>(null);
-
   const [situacao, setSituacao] = useState<'aberto' | 'fechado' | null>(null);
   const [totalAbertos, setTotalAbertos] = useState(0);
   const [destaquesAbertos, setDestaquesAbertos] = useState<Edital[]>([]);
@@ -28,7 +25,6 @@ export default function HomePage() {
     getEditaisStats().then((stats) => setTotalAbertos(stats.abertos)).catch(() => setTotalAbertos(0));
     getEditais({ status: 'aberto', limit: 3 }).then(setDestaquesAbertos).catch(() => setDestaquesAbertos([]));
   }, []);
-
 
   useEffect(() => {
     setLoading(true);
@@ -63,7 +59,6 @@ export default function HomePage() {
     });
     return Array.from(counts.entries()).map(([area, count]) => ({ area, count }));
   }, [editaisAbertos]);
-
 
   async function carregarMais() {
     setLoadingMore(true);
@@ -126,7 +121,6 @@ export default function HomePage() {
           </div>
         </label>
 
-
         <FilterBar
           areaCounts={areaCounts}
           activeCategoria={categoria}
@@ -135,7 +129,6 @@ export default function HomePage() {
           onSelectStatus={setSituacao}
           onClearFilters={clearSearchAndFilters}
         />
-
 
         {loading && (
           <div className="edital-list skeleton-list" aria-label="Carregando editais" aria-busy="true">
@@ -160,7 +153,6 @@ export default function HomePage() {
               <span>Não encontramos resultados para os termos e filtros selecionados.</span>
               <button type="button" onClick={clearSearchAndFilters}>Limpar busca e filtros</button>
             </div>
-
           ) : (
             <div className="edital-list">
               {editais.map((edital) => (

@@ -114,9 +114,7 @@ button {
   margin-left: auto;
 }
 
-
 .header-nav {
-
   display: flex;
   align-items: center;
   gap: 24px;
