@@ -1,0 +1,2827 @@
+
+<!doctype html>
+<html lang="pt" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentação do projeto G4 — plataforma que centraliza, filtra e notifica editais UnB.">
+      
+      
+      
+        <link rel="canonical" href="https://unb-mds.github.io/G4-2026-2/Estudos/estudo_plataformas_deploy/">
+      
+      
+        <link rel="prev" href="../sprint00/Scrun/">
+      
+      
+        <link rel="next" href="../relatorio_decisoes_infraestrutura_deploy/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
+    
+    
+      
+        <title>Plataformas de Deploy - Fique de Olho - UnB editais</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#estudo-plataformas-de-hospedagem-e-deploy-para-o-projeto-fique-de-olho" class="md-skip">
+          Pular para conteúdo
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Cabeçalho">
+    <a href="../.." title="Fique de Olho - UnB editais" class="md-header__button md-logo" aria-label="Fique de Olho - UnB editais" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Fique de Olho - UnB editais
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Plataformas de Deploy
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Mudar para modo escuro"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Mudar para modo escuro" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Mudar para modo claro"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Mudar para modo claro" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Buscar" placeholder="Buscar" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Pesquisar">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Limpar" aria-label="Limpar" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Inicializando busca
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/unb-mds/G4-2026-2" title="Ir para repositório" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    unb-mds/G4-2026-2
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Abas" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Início
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../Arquitetura/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Arquitetura
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../fontes-de-dados/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Fontes de Dados
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../sprint00/agentes_IA/" class="md-tabs__link">
+          
+  
+  
+  Estudos
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../Requisitos/Requisitos/" class="md-tabs__link">
+          
+  
+  
+  Requisitos
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../Requisitos/produto/personas/" class="md-tabs__link">
+          
+  
+  
+  Produto
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../RealiseNotes/release-1.md" class="md-tabs__link">
+          
+  
+  
+  Apresentação & Releases
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../back/" class="md-tabs__link">
+          
+  
+  
+  Implementação
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../adr/0001-stack-backend/" class="md-tabs__link">
+          
+  
+  
+  Decisões Arquiteturais
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navegação" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Fique de Olho - UnB editais" class="md-nav__button md-logo" aria-label="Fique de Olho - UnB editais" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Fique de Olho - UnB editais
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/unb-mds/G4-2026-2" title="Ir para repositório" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    unb-mds/G4-2026-2
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Início
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Arquitetura/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Arquitetura
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../fontes-de-dados/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fontes de Dados
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Estudos
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Estudos
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sprint00/agentes_IA/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agentes de IA
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sprint00/arquitetura/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Arquitetura
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sprint00/Cyber_Security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cyber Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sprint00/docker/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docker
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sprint00/estudo_GitGtHub/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Git e GitHub
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sprint00/Requisitos_software/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Requisitos de software
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sprint00/Scrun/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scrum
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plataformas de Deploy
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plataformas de Deploy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Índice">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Índice
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-frontend-e-hospedagem-estatica" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Frontend e Hospedagem Estática
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Frontend e Hospedagem Estática">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#11-vercel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.1. Vercel
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.1. Vercel">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#como-funciona" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Como Funciona
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#vantagens" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vantagens
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#desvantagens" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Desvantagens
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#12-netlify" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.2. Netlify
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.2. Netlify">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#como-funciona_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Como Funciona
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#vantagens_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vantagens
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#desvantagens_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Desvantagens
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#13-github-pages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.3. GitHub Pages
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.3. GitHub Pages">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#como-funciona_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Como Funciona
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#vantagens_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vantagens
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#desvantagens_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Desvantagens
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-backend-e-containers-fastapi" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Backend e Containers (FastAPI)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Backend e Containers (FastAPI)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-render-web-services" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1. Render (Web Services)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.1. Render (Web Services)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#como-funciona_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Como Funciona
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#vantagens_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vantagens
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#desvantagens_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Desvantagens
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-koyeb" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2. Koyeb
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.2. Koyeb">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#como-funciona_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Como Funciona
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#vantagens_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vantagens
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#desvantagens_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Desvantagens
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-banco-de-dados-gerenciado-postgresql" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Banco de Dados Gerenciado (PostgreSQL)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Banco de Dados Gerenciado (PostgreSQL)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-supabase" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1. Supabase
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3.1. Supabase">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#como-funciona_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Como Funciona
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#vantagens_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vantagens
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#desvantagens_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Desvantagens
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-neon" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2. Neon
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3.2. Neon">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#como-funciona_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Como Funciona
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#vantagens_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vantagens
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#desvantagens_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Desvantagens
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-render-postgresql" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.3. Render PostgreSQL
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3.3. Render PostgreSQL">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#como-funciona_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Como Funciona
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#vantagens_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vantagens
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#desvantagens_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Desvantagens
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-matriz-comparativa-e-sintese-de-decisao" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Matriz Comparativa e Síntese de Decisão
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-referencias-fontes-primarias" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Referências (Fontes Primárias)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../relatorio_decisoes_infraestrutura_deploy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Relatório de Decisões de Deploy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Requisitos
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Requisitos
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Requisitos/Requisitos/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Requisitos
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Requisitos/Vis%C3%A3o%20de%20produto/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visão de produto
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Requisitos/Criterios%20de%20aceitacao/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Critérios de aceitação
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Requisitos/StoryMap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Story Map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Requisitos/Wireframe/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Wireframe
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Requisitos/Prot%C3%B3tipo%20de%20altafidelidade/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Protótipo de alta fidelidade
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Produto
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Produto
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Requisitos/produto/personas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Personas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Requisitos/produto/backlog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backlog do Produto
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Apresentação & Releases
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Apresentação & Releases
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../RealiseNotes/release-1.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release Notes (R1)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementação
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Implementação
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../back/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backend
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../front/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Frontend
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decisões Arquiteturais
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Decisões Arquiteturais
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0001-stack-backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR 0001 - Stack do Backend
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0002-stack-frontend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR 0002 - Stack do Frontend
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0003-database-schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR 0003 - Schema do Banco de Dados
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0004-plataformas-de-deploy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR 0004 - Plataformas de Hospedagem e Deploy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Índice">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Índice
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-frontend-e-hospedagem-estatica" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Frontend e Hospedagem Estática
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Frontend e Hospedagem Estática">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#11-vercel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.1. Vercel
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.1. Vercel">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#como-funciona" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Como Funciona
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#vantagens" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vantagens
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#desvantagens" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Desvantagens
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#12-netlify" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.2. Netlify
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.2. Netlify">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#como-funciona_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Como Funciona
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#vantagens_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vantagens
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#desvantagens_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Desvantagens
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#13-github-pages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.3. GitHub Pages
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.3. GitHub Pages">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#como-funciona_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Como Funciona
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#vantagens_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vantagens
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#desvantagens_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Desvantagens
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-backend-e-containers-fastapi" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Backend e Containers (FastAPI)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Backend e Containers (FastAPI)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-render-web-services" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1. Render (Web Services)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.1. Render (Web Services)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#como-funciona_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Como Funciona
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#vantagens_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vantagens
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#desvantagens_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Desvantagens
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-koyeb" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2. Koyeb
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.2. Koyeb">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#como-funciona_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Como Funciona
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#vantagens_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vantagens
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#desvantagens_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Desvantagens
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-banco-de-dados-gerenciado-postgresql" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Banco de Dados Gerenciado (PostgreSQL)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Banco de Dados Gerenciado (PostgreSQL)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-supabase" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1. Supabase
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3.1. Supabase">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#como-funciona_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Como Funciona
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#vantagens_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vantagens
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#desvantagens_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Desvantagens
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-neon" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2. Neon
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3.2. Neon">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#como-funciona_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Como Funciona
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#vantagens_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vantagens
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#desvantagens_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Desvantagens
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-render-postgresql" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.3. Render PostgreSQL
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3.3. Render PostgreSQL">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#como-funciona_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Como Funciona
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#vantagens_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vantagens
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#desvantagens_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Desvantagens
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-matriz-comparativa-e-sintese-de-decisao" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Matriz Comparativa e Síntese de Decisão
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-referencias-fontes-primarias" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Referências (Fontes Primárias)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="estudo-plataformas-de-hospedagem-e-deploy-para-o-projeto-fique-de-olho">Estudo: Plataformas de Hospedagem e Deploy para o Projeto Fique de Olho</h1>
+<p>Este documento consolida a investigação técnica realizada com base na skill de <strong>research</strong>, fundamentando-se exclusivamente em <strong>fontes primárias</strong> (documentações oficiais e especificações dos provedores). O objetivo é avaliar a viabilidade, funcionamento, vantagens e desvantagens de ferramentas de hospedagem gratuitas ou acessíveis para o ecossistema do projeto (Frontend React/Vite, Backend FastAPI em Docker e Banco de Dados PostgreSQL).</p>
+<hr />
+<h2 id="1-frontend-e-hospedagem-estatica">1. Frontend e Hospedagem Estática</h2>
+<h3 id="11-vercel">1.1. Vercel</h3>
+<p><em>Fonte primária: <a href="https://vercel.com/docs">Vercel Documentation</a></em></p>
+<h4 id="como-funciona">Como Funciona</h4>
+<p>A Vercel é uma plataforma de nuvem focada na experiência do desenvolvedor frontend e na entrega otimizada de conteúdo estático e serverless. Ela se integra nativamente ao repositório GitHub através de webhooks. A cada <code>git push</code> na branch monitorada (ex: <code>main</code>), a Vercel inicializa um container de build, detecta o framework (Vite/React), executa <code>npm run build</code> e distribui os arquivos resultantes (<code>dist/</code>) por sua rede global de borda (<em>Edge Network CDN</em>).</p>
+<h4 id="vantagens">Vantagens</h4>
+<ul>
+<li><strong>Otimização nativa para Single Page Applications (SPAs):</strong> Tratamento simplificado de rotas клиент-side (React Router) via configuração de reescritas (<em>rewrites</em>).</li>
+<li><strong>Deploy Previews automáticos:</strong> Cria um ambiente isolado com URL única para cada Pull Request aberto no GitHub.</li>
+<li><strong>Integração contínua zero-config:</strong> Reconhece automaticamente o Vite e define os comandos de build e output directory.</li>
+<li><strong>Rede global de borda (CDN):</strong> Latência mínima para usuários no Brasil.</li>
+</ul>
+<h4 id="desvantagens">Desvantagens</h4>
+<ul>
+<li><strong>Restrição de uso no plano gratuito (Hobby):</strong> O plano gratuito é estritamente não-comercial.</li>
+<li><strong>Limitações de execução contínua:</strong> Não foi projetada para executar processos de longa duração ou containers Docker tradicionais (foco em Serverless/Edge).</li>
+</ul>
+<hr />
+<h3 id="12-netlify">1.2. Netlify</h3>
+<p><em>Fonte primária: <a href="https://docs.netlify.com/">Netlify Documentation</a></em></p>
+<h4 id="como-funciona_1">Como Funciona</h4>
+<p>O Netlify funciona como uma plataforma completa de automação de frontend e computação serverless. Ao conectar o repositório GitHub, a cada commit o Netlify clona o repositório, instala dependências e executa o empacotamento estático. Os artefatos finais são propagados para nós de CDN globais (<em>Netlify Edge</em>). O roteamento de SPAs com React Router é tratado por meio de um arquivo <code>_redirects</code> ou <code>netlify.toml</code>.</p>
+<h4 id="vantagens_1">Vantagens</h4>
+<ul>
+<li><strong>Deploy Previews e Branches de Staging:</strong> Permite visualizar alterações de PRs e branches secundárias (como a branch <code>Dev</code>).</li>
+<li><strong>Gerenciamento simples de variáveis de ambiente:</strong> Interface intuitiva para configurar <code>VITE_API_BASE_URL</code>.</li>
+<li><strong>Generoso plano gratuito:</strong> Inclui 100 GB de largura de banda mensal e 300 minutos de build.</li>
+</ul>
+<h4 id="desvantagens_1">Desvantagens</h4>
+<ul>
+<li><strong>Consumo de minutos de build:</strong> Builds lentos ou complexos podem consumir a cota mensal de minutos gratuitos.</li>
+<li><strong>Não executa backend persistente:</strong> Assim como a Vercel, não serve para rodar a API FastAPI como processo contínuo nem o banco PostgreSQL.</li>
+</ul>
+<hr />
+<h3 id="13-github-pages">1.3. GitHub Pages</h3>
+<p><em>Fonte primária: <a href="https://docs.github.com/en/pages">GitHub Pages Documentation</a></em></p>
+<h4 id="como-funciona_2">Como Funciona</h4>
+<p>O GitHub Pages é o serviço nativo de hospedagem estática do GitHub. Ele serve arquivos diretamente de uma branch específica (geralmente <code>gh-pages</code> ou pasta <code>/docs</code> da branch principal). Atualmente, o projeto já utiliza o GitHub Pages via workflow <a href="../../.github/workflows/deploy-docs.yml"><code>.github/workflows/deploy-docs.yml</code></a> para publicar a documentação em MkDocs Material.</p>
+<h4 id="vantagens_2">Vantagens</h4>
+<ul>
+<li><strong>Hospedagem nativa no próprio repositório:</strong> Não requer cadastro em serviços externos ou compartilhamento de tokens de terceiros.</li>
+<li><strong>Totalmente gratuito e estável:</strong> Sem risco de suspensão por inatividade de conta.</li>
+<li><strong>Excelente para documentação:</strong> Integração perfeita com ferramentas geradoras de sites estáticos (MkDocs, Jekyll).</li>
+</ul>
+<h4 id="desvantagens_2">Desvantagens</h4>
+<ul>
+<li><strong>Incompatível com servidores dinâmicos:</strong> Não suporta execução de código Python, APIs ou bancos de dados.</li>
+<li><strong>Roteamento de SPAs complexo:</strong> Exige contornos técnicos (hacks com <code>404.html</code>) para que rotas diretas do React Router (ex: <code>/editais/1</code>) não retornem erro 404 ao recarregar a página.</li>
+<li><strong>Compartilhamento de domínio:</strong> O repositório já utiliza a cota do Pages para a documentação técnica oficial.</li>
+</ul>
+<hr />
+<h2 id="2-backend-e-containers-fastapi">2. Backend e Containers (FastAPI)</h2>
+<h3 id="21-render-web-services">2.1. Render (Web Services)</h3>
+<p><em>Fonte primária: <a href="https://render.com/docs/web-services">Render Documentation</a></em></p>
+<h4 id="como-funciona_3">Como Funciona</h4>
+<p>O Render é uma plataforma de nuvem como serviço (PaaS). Ele permite conectar diretamente um repositório Git e criar um <strong>Web Service</strong> a partir do arquivo <a href="../../Back/Dockerfile"><code>Back/Dockerfile</code></a>. A cada push na branch configurada, o Render constrói a imagem Docker, expõe a porta configurada (ex: <code>8000</code>) e atribui um subdomínio HTTPS automático (ex: <code>fique-de-olho-api.onrender.com</code>).</p>
+<h4 id="vantagens_3">Vantagens</h4>
+<ul>
+<li><strong>Suporte nativo a Docker:</strong> Lê diretamente o <code>Dockerfile</code> existente no projeto sem exigir alterações na estrutura de pastas.</li>
+<li><strong>HTTPS automático e certificados gerenciados:</strong> Configuração imediata de TLS sem custo.</li>
+<li><strong>Variáveis de ambiente seguras:</strong> Permite injetar <code>DATABASE_URL</code> e segredos diretamente pelo painel.</li>
+</ul>
+<h4 id="desvantagens_3">Desvantagens</h4>
+<ul>
+<li><strong>Comportamento de "Spin Down" no plano gratuito:</strong> Instâncias gratuitas hibernam após 15 minutos sem receber tráfego. Quando uma nova requisição chega, a API pode levar de 50 a 60 segundos para iniciar (<em>cold start</em>), gerando demora no primeiro acesso do usuário.</li>
+<li><strong>Cota mensal de 750 horas gratuitas:</strong> Suficiente para manter apenas um serviço ativo continuamente durante o mês.</li>
+</ul>
+<hr />
+<h3 id="22-koyeb">2.2. Koyeb</h3>
+<p><em>Fonte primária: <a href="https://www.koyeb.com/docs">Koyeb Documentation</a></em></p>
+<h4 id="como-funciona_4">Como Funciona</h4>
+<p>O Koyeb é uma plataforma serverless orientada a microVMs baseadas na tecnologia Firecracker. Ele permite implantar containers Docker globais conectados ao GitHub. Ao receber um commit, a plataforma compila o container e o instancia em data centers com roteamento anycast e terminação SSL na borda.</p>
+<h4 id="vantagens_4">Vantagens</h4>
+<ul>
+<li><strong>Cold start mais rápido:</strong> MicroVMs baseadas em Firecracker inicializam com menor latência que containers tradicionais.</li>
+<li><strong>Rede global de borda:</strong> Roteamento com baixa latência e terminação TLS automática.</li>
+<li><strong>Suporte completo a Docker e Python nativo:</strong> Excelente compatibilidade com FastAPI e Uvicorn.</li>
+</ul>
+<h4 id="desvantagens_4">Desvantagens</h4>
+<ul>
+<li><strong>Plano gratuito restrito:</strong> O plano "Eco / Hobby" permite apenas 1 serviço ativo no plano gratuito.</li>
+<li><strong>Exigência de validação de conta:</strong> Pode solicitar validação com cartão de crédito mesmo para planos com cota gratuita ativa.</li>
+</ul>
+<hr />
+<h2 id="3-banco-de-dados-gerenciado-postgresql">3. Banco de Dados Gerenciado (PostgreSQL)</h2>
+<h3 id="31-supabase">3.1. Supabase</h3>
+<p><em>Fonte primária: <a href="https://supabase.com/docs/guides/database">Supabase Documentation</a></em></p>
+<h4 id="como-funciona_5">Como Funciona</h4>
+<p>O Supabase oferece instâncias completas e dedicadas do PostgreSQL 15/16 hospedadas na AWS. Ele fornece uma string de conexão padrão do PostgreSQL compatível com SQLAlchemy e <code>psycopg2</code> (utilizados no backend), além de painel de controle com editor de SQL, visualizador de tabelas e logs em tempo real.</p>
+<h4 id="vantagens_5">Vantagens</h4>
+<ul>
+<li><strong>PostgreSQL 100% padrão:</strong> Total compatibilidade com as migrações SQL do projeto (<a href="../../db/migrations/"><code>db/migrations/</code></a>) e modelos SQLAlchemy.</li>
+<li><strong>Interface web robusta:</strong> Facilita a inspeção e manipulação de tabelas sem necessidade de clientes locais como DBeaver ou pgAdmin.</li>
+<li><strong>Recursos adicionais integrados:</strong> Autenticação, armazenamento de arquivos (Storage para eventuais PDFs) e APIs REST automáticas.</li>
+</ul>
+<h4 id="desvantagens_5">Desvantagens</h4>
+<ul>
+<li><strong>Pausa automática por inatividade no plano gratuito:</strong> Se o projeto passar 7 dias consecutivos sem receber consultas, a instância do banco de dados é pausada e precisa ser reativada manualmente pelo painel.</li>
+<li><strong>Limite de 2 projetos gratuitos por conta.</strong></li>
+</ul>
+<hr />
+<h3 id="32-neon">3.2. Neon</h3>
+<p><em>Fonte primária: <a href="https://neon.tech/docs/introduction">Neon Documentation</a></em></p>
+<h4 id="como-funciona_6">Como Funciona</h4>
+<p>O Neon é um PostgreSQL serverless baseado em uma arquitetura que desacopla completamente o processamento computacional (<em>Compute</em>) do armazenamento de dados (<em>Storage</em>). O armazenamento é replicado e distribuído em nuvem, permitindo que a camada computacional escale até zero quando não há requisições e reinicie sob demanda em centenas de milissegundos.</p>
+<h4 id="vantagens_6">Vantagens</h4>
+<ul>
+<li><strong>Arquitetura Serverless real:</strong> Capacidade de escalar a computação a zero sem perder dados e acordar rapidamente em novas consultas.</li>
+<li><strong>Database Branching (Ramificação de Banco):</strong> Permite criar cópias instantâneas do banco de dados para testes e Pull Requests, como se fossem branches do Git.</li>
+<li><strong>Excelente cota gratuita:</strong> 0.5 GB de armazenamento persistente gratuito e suporte integral a conexões PostgreSQL padrão via pool de conexões (<em>connection pooling</em>).</li>
+</ul>
+<h4 id="desvantagens_6">Desvantagens</h4>
+<ul>
+<li><strong>Particularidades de Pooler de Conexão:</strong> Conexões diretas a funções serverless requerem uso de endpoints com PgBouncer (<code>-pooler</code>), exigindo atenção na string de conexão do SQLAlchemy.</li>
+<li><strong>Sem painel gráfico avançado de backend:</strong> Focado primordialmente no banco de dados, sem serviços satélites integrados como storage ou autenticação embutida (como no Supabase).</li>
+</ul>
+<hr />
+<h3 id="33-render-postgresql">3.3. Render PostgreSQL</h3>
+<p><em>Fonte primária: <a href="https://render.com/docs/databases">Render PostgreSQL Documentation</a></em></p>
+<h4 id="como-funciona_7">Como Funciona</h4>
+<p>O Render permite criar uma instância gerenciada de PostgreSQL diretamente em sua infraestrutura, permitindo conexão interna de rede de alta velocidade com os Web Services do próprio Render (onde a API FastAPI estiver rodando).</p>
+<h4 id="vantagens_7">Vantagens</h4>
+<ul>
+<li><strong>Comunicação em rede privada:</strong> A API hospedada no Render pode se comunicar com o banco de dados via rede interna sem custos de tráfego externo e com latência mínima.</li>
+<li><strong>Configuração em 1 clique:</strong> Criação instantânea no mesmo painel da API.</li>
+</ul>
+<h4 id="desvantagens_7">Desvantagens</h4>
+<ul>
+<li><strong>Expiração agressiva no plano gratuito:</strong> As instâncias gratuitas de PostgreSQL no Render <strong>expiram e são excluídas após 30 dias</strong> de criação, exigindo recriação do banco ou upgrade para plano pago. <strong>Não é recomendado para persistência de longo prazo em projetos acadêmicos</strong>.</li>
+</ul>
+<hr />
+<h2 id="4-matriz-comparativa-e-sintese-de-decisao">4. Matriz Comparativa e Síntese de Decisão</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Componente</th>
+<th style="text-align: left;">Opção Recomendada</th>
+<th style="text-align: left;">Justificativa Técnica</th>
+<th style="text-align: left;">Alternativa Viável</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Frontend</strong></td>
+<td style="text-align: left;"><strong>Vercel</strong></td>
+<td style="text-align: left;">Reconhecimento nativo do Vite, facilidade com React Router, deploy previews para cada PR e CDN global.</td>
+<td style="text-align: left;"><strong>Netlify</strong></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Backend</strong></td>
+<td style="text-align: left;"><strong>Render</strong></td>
+<td style="text-align: left;">Executa diretamente o <a href="../../Back/Dockerfile"><code>Back/Dockerfile</code></a> sem adaptações de código; suporta variáveis de ambiente e HTTPS.</td>
+<td style="text-align: left;"><strong>Koyeb</strong></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Banco de Dados</strong></td>
+<td style="text-align: left;"><strong>Neon</strong> ou <strong>Supabase</strong></td>
+<td style="text-align: left;">Neon oferece persistência contínua serverless e ramificação de banco; Supabase oferece PostgreSQL com excelente console de administração.</td>
+<td style="text-align: left;"><strong>Supabase</strong></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="5-referencias-fontes-primarias">5. Referências (Fontes Primárias)</h2>
+<ol>
+<li>Vercel Inc. <em>Vercel Documentation &amp; Build Steps</em>. Disponível em: <a href="https://vercel.com/docs">https://vercel.com/docs</a>. Acesso em out. 2026.</li>
+<li>Netlify Inc. <em>Netlify Core Documentation &amp; Continuous Deployment</em>. Disponível em: <a href="https://docs.netlify.com/">https://docs.netlify.com/</a>. Acesso em out. 2026.</li>
+<li>GitHub Inc. <em>About GitHub Pages and Static Hosting</em>. Disponível em: <a href="https://docs.github.com/en/pages">https://docs.github.com/en/pages</a>. Acesso em out. 2026.</li>
+<li>Render Services Inc. <em>Render Web Services and Deploying Docker</em>. Disponível em: <a href="https://render.com/docs/web-services">https://render.com/docs/web-services</a>. Acesso em out. 2026.</li>
+<li>Koyeb Inc. <em>Koyeb Serverless Engine Documentation</em>. Disponível em: <a href="https://www.koyeb.com/docs">https://www.koyeb.com/docs</a>. Acesso em out. 2026.</li>
+<li>Supabase Pte Ltd. <em>Supabase Database Documentation (PostgreSQL)</em>. Disponível em: <a href="https://supabase.com/docs/guides/database">https://supabase.com/docs/guides/database</a>. Acesso em out. 2026.</li>
+<li>Neon Inc. <em>Neon Architecture and PostgreSQL Serverless</em>. Disponível em: <a href="https://neon.tech/docs/introduction">https://neon.tech/docs/introduction</a>. Acesso em out. 2026.</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Voltar para o topo
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.top", "navigation.instant", "navigation.tracking", "search.suggest", "search.highlight", "content.code.copy", "toc.follow"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copiado para \u00e1rea de transfer\u00eancia", "clipboard.copy": "Copiar para \u00e1rea de transfer\u00eancia", "search.result.more.one": "mais 1 nesta p\u00e1gina", "search.result.more.other": "# mais nesta p\u00e1gina", "search.result.none": "Nenhum documento encontrado", "search.result.one": "1 documento encontrado", "search.result.other": "# documentos encontrados", "search.result.placeholder": "Digite para iniciar a busca", "search.result.term.missing": "Ausente", "select.version": "Selecione a vers\u00e3o"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
+      
+    
+  </body>
+</html>
