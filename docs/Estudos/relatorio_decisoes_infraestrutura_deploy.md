@@ -119,6 +119,22 @@ Este relatório consolida todas as decisões arquiteturais tomadas pela equipe p
 
 ---
 
+### Decisão 8: Estratégia de Keep-Alive 24/7 com UptimeRobot e Endpoint `/ping` sem Banco
+* **Contexto:** No plano gratuito do Render, o container sofre *spin-down* após 15 minutos sem tráfego, gerando *cold starts* de 45 a 60 segundos. Fazer pings no `/health` acordaria o banco Neon Serverless (`SELECT 1`), esgotando sua cota de 100 CU-horas/mês em 4 a 5 dias e provocando *crash loops* no Render.
+* **Solução implementada:** 
+  1. Criação do endpoint ultraleve `GET /ping` e `HEAD /ping` ([`Back/app/main.py`](../../Back/app/main.py)), que responde `200 OK` da RAM em < 1ms sem tocar no banco.
+  2. Atualização do `healthCheckPath: /ping` no [`render.yaml`](../../render.yaml) para evitar reinicializações do container em caso de indisponibilidade momentânea do banco.
+  3. Integração com o **UptimeRobot** gratuito disparando requisições periódicas a cada 10–14 minutos (detalhes no [Guia Técnico de Keep-Alive](guia_keep_awake_uptimerobot_e_ping.md)).
+* **Vantagens:**
+  - Eliminação total dos *cold starts* de 1 minuto para o usuário final.
+  - Custo R$ 0,00 contínuo, mantendo o Render acordado durante todo o mês (720h dentro do limite de 750h gratuitas).
+  - Preservação da cota do Neon, permitindo que o PostgreSQL entre em repouso (*scale-to-zero*) quando não houver consultas reais.
+  - Suporte ao método `HEAD` (padrão do plano gratuito do UptimeRobot).
+* **Desvantagens:**
+  - Dependência de um serviço externo de monitoramento para emitir o pulso HTTP periódico.
+
+---
+
 ## 3. Síntese do Estado Atual da Infraestrutura
 
 | Item | Situação Atual |
