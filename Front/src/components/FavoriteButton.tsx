@@ -6,8 +6,6 @@ import {
   favoritarEdital,
   desfavoritarEdital,
 } from "../services/favoritosService";
-import { updateEmailPreference } from "../services/authService";
-import NotificationPreferenceDialog from "./NotificationPreferenceDialog";
 
 interface FavoriteButtonProps {
   editalId: string | number;
@@ -23,11 +21,8 @@ export default function FavoriteButton({
   const [favorito, setFavorito] = useState(initialFavorito);
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState("");
-  const [exibirPreferencia, setExibirPreferencia] = useState(false);
-  const [salvandoPreferencia, setSalvandoPreferencia] = useState(false);
-  const [erroPreferencia, setErroPreferencia] = useState("");
 
-  const { autenticado, usuario, atualizarUsuario } = useAuth();
+  const { autenticado } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -82,36 +77,11 @@ export default function FavoriteButton({
         await favoritarEdital(editalId);
         setFavorito(true);
         onChange?.(editalId, true);
-
-        const preferenceKey =
-          usuario ? `notification-preference:${usuario.id}` : null;
-        if (preferenceKey && !sessionStorage.getItem(preferenceKey)) {
-          setExibirPreferencia(true);
-        }
       }
-
     } catch {
       setErro("Não foi possível atualizar o favorito.");
     } finally {
       setCarregando(false);
-    }
-  }
-
-  async function definirPreferencia(receberEmails: boolean) {
-    setSalvandoPreferencia(true);
-    setErroPreferencia("");
-    try {
-      await updateEmailPreference(receberEmails);
-      await atualizarUsuario();
-      if (usuario) {
-        sessionStorage.setItem(`notification-preference:${usuario.id}`, 'chosen');
-      }
-      setExibirPreferencia(false);
-      navigate("/", { replace: true });
-    } catch {
-      setErroPreferencia("Não foi possível salvar sua escolha. Tente novamente.");
-    } finally {
-      setSalvandoPreferencia(false);
     }
   }
 
@@ -134,12 +104,6 @@ export default function FavoriteButton({
           {erro}
         </span>
       )}
-      <NotificationPreferenceDialog
-        open={exibirPreferencia}
-        saving={salvandoPreferencia}
-        error={erroPreferencia}
-        onChoose={definirPreferencia}
-      />
     </>
   );
 }

@@ -34,7 +34,15 @@ class Settings(BaseSettings):
     SENDGRID_API_KEY: str = ""
     SENDGRID_FROM_EMAIL: str = ""
     NOTIFICATION_SCHEDULER_ENABLED: bool = True
-    NOTIFICATION_SCHEDULER_INTERVAL_SECONDS: int = 86400
+    NOTIFICATION_SCHEDULER_INTERVAL_SECONDS: int = 3600
+
+    @field_validator("SENDGRID_API_KEY", "SENDGRID_FROM_EMAIL", mode="before")
+    @classmethod
+    def strip_sendgrid_settings(cls, v: str) -> str:
+        """Remove espaços ou quebras de linha acidentais em credenciais de ambiente."""
+        if isinstance(v, str):
+            return v.strip()
+        return v
 
     # Agendador em segundo plano de coleta periódica de editais (Issue #74)
     SCRAPER_SCHEDULER_ENABLED: bool = True

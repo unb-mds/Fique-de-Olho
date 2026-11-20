@@ -8,6 +8,10 @@ vi.mock("../FavoriteButton", () => ({
   default: () => <button type="button">☆</button>,
 }));
 
+vi.mock("../AlertButton", () => ({
+  default: () => <button type="button" aria-label="Ativar notificações por e-mail deste edital" />,
+}));
+
 describe('EditalCard Component', () => {
   const mockEdital: Edital = {
     id: 'edital-123',

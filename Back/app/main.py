@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, status
@@ -11,12 +12,26 @@ from app.core.config import settings
 from app.core.database import engine
 from app.modules.editais.router import router as editais_router
 from app.modules.usuarios.router import router as usuarios_router
+from app.modules.notificacoes.processor import sendgrid_configurado
 from app.modules.notificacoes.scheduler import executar_scheduler_notificacoes
 from app.modules.scraper.scheduler import executar_scheduler_scraper
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    if sendgrid_configurado():
+        logger.info(
+            "Envio de emails SendGrid configurado (remetente=%s).",
+            settings.SENDGRID_FROM_EMAIL,
+        )
+    else:
+        logger.warning(
+            "Envio de emails SendGrid NÃO configurado: defina SENDGRID_API_KEY e "
+            "SENDGRID_FROM_EMAIL nas variáveis de ambiente."
+        )
+
     background_tasks = []
     if settings.NOTIFICATION_SCHEDULER_ENABLED:
         background_tasks.append(
@@ -94,6 +109,7 @@ def health_check():
         "service": settings.PROJECT_NAME,
         "version": settings.VERSION,
         "database": db_status,
+        "email_configured": sendgrid_configurado(),
     }
     return JSONResponse(
         content=content,

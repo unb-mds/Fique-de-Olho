@@ -25,6 +25,12 @@ vi.mock("@/services/favoritosService", () => ({
   desfavoritarEdital: vi.fn(),
 }));
 
+vi.mock("@/services/notificacoesService", () => ({
+  listarAlertasEditais: vi.fn().mockResolvedValue([]),
+  ativarAlertaEdital: vi.fn(),
+  desativarAlertaEdital: vi.fn(),
+}));
+
 const mockEdital: Edital = {
   id: "edital-123",
   titulo: "Edital de Monitoria",

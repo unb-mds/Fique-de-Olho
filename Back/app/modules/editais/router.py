@@ -17,6 +17,15 @@ from app.modules.favoritos.service import (
     favoritar_edital,
     listar_favoritos_usuario,
 )
+from app.modules.notificacoes.processor import (
+    processar_alerta_ativado_em_segundo_plano,
+    sendgrid_configurado,
+)
+from app.modules.notificacoes.service import (
+    ativar_alerta_edital,
+    desativar_alerta_edital,
+    listar_alertas_usuario,
+)
 from app.modules.usuarios import get_current_user
 
 router = APIRouter(prefix="/editais", tags=["Editais"])
@@ -90,6 +99,23 @@ def listar_favoritos(
 ):
     editais_db = listar_favoritos_usuario(db=db, usuario_id=usuario_atual.id)
     return [serialize_edital(e) for e in editais_db]
+
+
+@router.get(
+    "/alertas",
+    response_model=Dict[str, Any],
+    summary="Listar editais com alertas por e-mail ativados",
+    description="Retorna os IDs dos editais para os quais o usuário autenticado ativou o envio de e-mails.",
+)
+def listar_alertas(
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(get_current_user),
+):
+    edital_ids = listar_alertas_usuario(db=db, usuario_id=usuario_atual.id)
+    return {
+        "edital_ids": edital_ids,
+        "email_configurado": sendgrid_configurado(),
+    }
 
 
 @router.get("/{id}", response_model=Dict[str, Any])
@@ -194,3 +220,53 @@ def desfavoritar(
 ):
     """Remove um edital dos favoritos exclusivamente para o usuário autenticado."""
     return desfavoritar_edital(db=db, edital_id=id, usuario_id=usuario_atual.id)
+
+
+@router.post(
+    "/{id}/alertas",
+    status_code=status.HTTP_200_OK,
+    summary="Ativar alertas por e-mail para um edital",
+    description=(
+        "Ativa o sistema de notificações por e-mail (atualizações e prazos de 3 dias, "
+        "1 dia e no dia do encerramento) especificamente para o edital informado."
+    ),
+)
+def ativar_alerta(
+    id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(get_current_user),
+):
+    """Ativa o envio de e-mails para um edital específico e dispara verificação/envio imediato."""
+    resultado = ativar_alerta_edital(db=db, edital_id=id, usuario_id=usuario_atual.id)
+    bind = db.get_bind() if hasattr(db, "get_bind") else getattr(db, "bind", None)
+    if bind is not None and (resultado["recem_ativado"] or resultado["notificacao_gerada"]):
+        background_tasks.add_task(
+            processar_alerta_ativado_em_segundo_plano,
+            bind,
+            usuario_id=usuario_atual.id,
+            edital_id=id,
+            enviar_confirmacao=resultado["recem_ativado"] and not resultado["notificacao_gerada"],
+        )
+    return {
+        "message": resultado["message"],
+        "edital_id": resultado["edital_id"],
+        "usuario_id": resultado["usuario_id"],
+        "notificar_email": True,
+        "email_configurado": sendgrid_configurado(),
+    }
+
+
+@router.delete(
+    "/{id}/alertas",
+    status_code=status.HTTP_200_OK,
+    summary="Desativar alertas por e-mail para um edital",
+    description="Desativa o envio de notificações por e-mail para o edital informado.",
+)
+def desativar_alerta(
+    id: int,
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(get_current_user),
+):
+    """Desativa o envio de e-mails para o edital e descarta notificações pendentes dele."""
+    return desativar_alerta_edital(db=db, edital_id=id, usuario_id=usuario_atual.id)

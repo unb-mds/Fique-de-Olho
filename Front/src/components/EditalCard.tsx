@@ -1,6 +1,7 @@
 import type { Edital } from '@/services/types';
 import { categoryBadgeStyle, daysUntil, formatDate } from '@/utils/editalDisplay';
 import { Link } from 'react-router-dom';
+import AlertButton from './AlertButton';
 import FavoriteButton from './FavoriteButton';
 
 interface EditalCardProps {
@@ -19,11 +20,14 @@ export default function EditalCard({
 
   return (
     <article className="edital-card">
-      <FavoriteButton
-        editalId={edital.id}
-        initialFavorito={favoriteInitially}
-        onChange={onFavoriteChange}
-      />
+      <div className="edital-card-actions">
+        <AlertButton editalId={edital.id} />
+        <FavoriteButton
+          editalId={edital.id}
+          initialFavorito={favoriteInitially}
+          onChange={onFavoriteChange}
+        />
+      </div>
       <div className="edital-card-badges">
         <div className="badge-group">
           {edital.categoria && (

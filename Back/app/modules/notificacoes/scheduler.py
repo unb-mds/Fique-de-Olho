@@ -1,4 +1,4 @@
-"""Rotina diária de geração e envio de notificações."""
+"""Rotina periódica de geração e envio de notificações."""
 
 import asyncio
 import logging
@@ -21,22 +21,28 @@ def executar_ciclo_notificacoes(
     try:
         geradas = gerar_notificacoes_prazo(db)
         resultado_envio = processar_notificacoes_se_configuradas(db)
-        return {
+        resultado = {
             "geradas": geradas,
             "enviadas": resultado_envio["enviadas"] if resultado_envio else None,
             "falhas": resultado_envio["falhas"] if resultado_envio else None,
         }
+        logger.info("Ciclo automático de notificações concluído: %s", resultado)
+        return resultado
     finally:
         db.close()
 
 
 async def executar_scheduler_notificacoes(
-    intervalo_segundos: int = 24 * 60 * 60,
+    intervalo_segundos: int = 60 * 60,
 ) -> None:
-    """Executa o ciclo na inicialização e uma vez a cada intervalo configurado."""
-    while True:
-        try:
-            executar_ciclo_notificacoes()
-        except Exception:
-            logger.exception("Falha no ciclo automático de notificações.")
-        await asyncio.sleep(intervalo_segundos)
+    """Executa o ciclo na inicialização e uma vez a cada intervalo configurado sem bloquear o loop."""
+    try:
+        while True:
+            try:
+                await asyncio.to_thread(executar_ciclo_notificacoes)
+            except Exception:
+                logger.exception("Falha no ciclo automático de notificações.")
+            await asyncio.sleep(intervalo_segundos)
+    except asyncio.CancelledError:
+        logger.info("Scheduler periódico de notificações encerrado com sucesso.")
+        return

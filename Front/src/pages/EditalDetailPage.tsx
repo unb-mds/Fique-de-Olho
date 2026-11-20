@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import { getEditalById } from "@/services/editaisService";
 import type { Edital } from "@/services/types";
 import { categoryBadgeStyle, formatDate } from "@/utils/editalDisplay";
+import AlertButton from "@/components/AlertButton";
 import FavoriteButton from "@/components/FavoriteButton";
 
 function formatarDataSegura(data?: string): string {
@@ -141,7 +142,10 @@ export default function EditalDetailPage() {
             </span>
           )}
           </div>
-          <FavoriteButton editalId={edital.id} />
+          <div className="detail-card-actions">
+            <AlertButton editalId={edital.id} />
+            <FavoriteButton editalId={edital.id} />
+          </div>
         </div>
 
         <h1>{edital.titulo}</h1>
