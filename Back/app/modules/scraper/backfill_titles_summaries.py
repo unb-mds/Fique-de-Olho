@@ -1,6 +1,6 @@
 """Backfill idempotente de títulos vagos, resumos genéricos e metadados/datas ausentes.
 
-Issues #77, #106, #121 e #125.
+Issues #77, #106, #121, #125 e #129.
 
 Reprocessa editais já persistidos usando ``texto_extraido``, ``assunto``, ``orgao_emissor``
 e ``url_pdf`` salvos no banco — sem baixar PDFs novamente. Por padrão roda em modo
@@ -10,12 +10,14 @@ Uso (dentro de ``Back/``):
     python -m app.modules.scraper.backfill_titles_summaries               # dry-run
     python -m app.modules.scraper.backfill_titles_summaries --apply       # grava
     python -m app.modules.scraper.backfill_titles_summaries --orgao CEAD --limit 50 --no-llm
+    python -m app.modules.scraper.backfill_titles_summaries --apply --sleep 4.0
 """
 
 from __future__ import annotations
 
 import argparse
 import logging
+import time
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from decimal import Decimal
@@ -77,6 +79,7 @@ def run_backfill(
     apply: bool = False,
     orgao: Optional[str] = None,
     limit: Optional[int] = None,
+    sleep_seconds: float = 0.0,
 ) -> List[BackfillChange]:
     """Calcula (e opcionalmente aplica) correções de título, resumo e datas/metadados. Idempotente."""
     mudancas: List[BackfillChange] = []
@@ -128,6 +131,8 @@ def run_backfill(
             resumo_atual=resumo_atual or edital.resumo,
             pedir_metadados=faltam_metadados,
         )
+        if sleep_seconds > 0 and settings.GEMINI_API_KEY:
+            time.sleep(sleep_seconds)
 
         titulo_novo = llm_res.get("titulo") or edital.titulo
         resumo_novo = llm_res.get("resumo") or edital.resumo
@@ -205,6 +210,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--orgao", help="Restringe a um órgão emissor (ex.: CEAD, DEG).")
     parser.add_argument("--limit", type=int, help="Número máximo de editais alterados.")
     parser.add_argument("--no-llm", action="store_true", help="Usa apenas a heurística local (Camada 1).")
+    parser.add_argument(
+        "--sleep",
+        type=float,
+        default=0.0,
+        help="Intervalo em segundos entre chamadas ao LLM no backfill (ex.: 4.0 para Free Tier).",
+    )
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.WARNING)
@@ -212,7 +223,13 @@ def main(argv: Optional[List[str]] = None) -> int:
         settings.GEMINI_API_KEY = ""
 
     with SessionLocal() as session:
-        mudancas = run_backfill(session, apply=args.apply, orgao=args.orgao, limit=args.limit)
+        mudancas = run_backfill(
+            session,
+            apply=args.apply,
+            orgao=args.orgao,
+            limit=args.limit,
+            sleep_seconds=args.sleep,
+        )
     _imprimir(mudancas, args.apply)
     return 0
 
