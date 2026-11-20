@@ -1,7 +1,11 @@
 """Integração de email transacional com o SendGrid."""
 
+import logging
+
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
+
+logger = logging.getLogger(__name__)
 
 
 def enviar_email(
@@ -19,9 +23,35 @@ def enviar_email(
         subject=assunto,
         html_content=html,
     )
-    resposta = SendGridAPIClient(api_key).send(mensagem)
+    try:
+        resposta = SendGridAPIClient(api_key).send(mensagem)
+    except Exception as exc:
+        detalhes = getattr(exc, "body", None)
+        status_code = getattr(exc, "status_code", None)
+        logger.error(
+            "Erro ao enviar email via SendGrid para %s (status=%s): %s | detalhes=%s",
+            destinatario,
+            status_code,
+            exc,
+            detalhes,
+        )
+        raise
+
     if not 200 <= resposta.status_code < 300:
+        logger.error(
+            "SendGrid rejeitou email para %s com status %s: %s",
+            destinatario,
+            resposta.status_code,
+            getattr(resposta, "body", None),
+        )
         raise RuntimeError(
             f"SendGrid rejeitou o email com status {resposta.status_code}."
         )
+
+    logger.info(
+        "Email aceito pelo SendGrid para %s (status=%s, assunto=%r).",
+        destinatario,
+        resposta.status_code,
+        assunto,
+    )
     return True

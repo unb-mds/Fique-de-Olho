@@ -848,35 +848,74 @@ a {
   transform: translate(-2px, -2px);
 }
 
-.edital-card > .favorite-button {
+.edital-card-actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  position: absolute;
+  right: 20px;
+  top: 20px;
+}
+
+.edital-card > .favorite-button,
+.edital-card-actions .favorite-button,
+.edital-card-actions .alert-button {
   align-items: center;
   background: var(--paper);
   border: 1.5px solid var(--ink);
   border-radius: 50%;
+  color: var(--ink);
   cursor: pointer;
   display: flex;
   font-size: 21px;
   height: 42px;
   justify-content: center;
   padding: 0;
-  position: absolute;
-  right: 20px;
-  top: 20px;
-  transition: scale 150ms ease-out, background-color 150ms ease-out;
+  transition: scale 150ms ease-out, background-color 150ms ease-out, color 150ms ease-out;
   width: 42px;
 }
 
-.edital-card > .favorite-button:hover {
+.edital-card > .favorite-button {
+  position: absolute;
+  right: 20px;
+  top: 20px;
+}
+
+.edital-card > .favorite-button:hover,
+.edital-card-actions .favorite-button:hover,
+.edital-card-actions .alert-button:hover {
   background: var(--accent);
 }
 
-.edital-card > .favorite-button:active {
+.edital-card > .favorite-button:active,
+.edital-card-actions .favorite-button:active,
+.edital-card-actions .alert-button:active {
   scale: 0.96;
+}
+
+.alert-button svg {
+  display: block;
+  height: 19px;
+  width: 19px;
+}
+
+.edital-card-actions .alert-button--active,
+.detail-card-top .alert-button--active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--accent);
+}
+
+.edital-card-actions .alert-button--active:hover,
+.detail-card-top .alert-button--active:hover {
+  background: var(--brand);
+  border-color: var(--ink);
+  color: var(--paper);
 }
 
 .edital-card-badges {
   min-height: 42px;
-  padding-inline-end: 48px;
+  padding-inline-end: 100px;
 }
 
 .badge-group {
@@ -1205,23 +1244,39 @@ a {
   justify-content: space-between;
 }
 
-.detail-card-top .favorite-button {
+.detail-card-actions {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.detail-card-top .favorite-button,
+.detail-card-top .alert-button {
   align-items: center;
   background: var(--paper);
   border: 1.5px solid var(--ink);
   border-radius: 50%;
+  color: var(--ink);
   cursor: pointer;
   display: flex;
   flex: 0 0 auto;
   font-size: 21px;
   height: 44px;
   justify-content: center;
-  transition: background-color 150ms ease-out, scale 150ms ease-out;
+  padding: 0;
+  transition: background-color 150ms ease-out, color 150ms ease-out, scale 150ms ease-out;
   width: 44px;
 }
 
-.detail-card-top .favorite-button:hover {
+.detail-card-top .favorite-button:hover,
+.detail-card-top .alert-button:hover {
   background: var(--accent);
+}
+
+.detail-card-top .favorite-button:active,
+.detail-card-top .alert-button:active {
+  scale: 0.96;
 }
 
 .badge-example {

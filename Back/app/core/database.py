@@ -115,9 +115,10 @@ class Edital(Base):
     vagas = Column(Integer, nullable=True)
     valor_bolsa = Column(Numeric(10, 2), nullable=True)
 
-    # Relacionamentos com documentos, favoritos e catálogos M:N
+    # Relacionamentos com documentos, favoritos, alertas e catálogos M:N
     documentos = relationship("EditalDocumento", back_populates="edital", cascade="all, delete-orphan", lazy="selectin")
     favoritos = relationship("Favorito", back_populates="edital", cascade="all, delete-orphan")
+    alertas = relationship("AlertaEdital", back_populates="edital", cascade="all, delete-orphan")
     tipos = relationship("TipoEdital", secondary="edital_tipos", lazy="selectin")
     campi = relationship("Campus", secondary="edital_campi", lazy="selectin")
     cursos = relationship("Curso", secondary="edital_cursos", lazy="select")
@@ -167,6 +168,7 @@ class Usuario(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     favoritos = relationship("Favorito", back_populates="usuario", cascade="all, delete-orphan")
+    alertas = relationship("AlertaEdital", back_populates="usuario", cascade="all, delete-orphan")
 
 
 class Favorito(Base):
@@ -178,6 +180,17 @@ class Favorito(Base):
 
     usuario = relationship("Usuario", back_populates="favoritos")
     edital = relationship("Edital", back_populates="favoritos")
+
+
+class AlertaEdital(Base):
+    __tablename__ = "alertas_edital"
+
+    usuario_id = Column(Integer, ForeignKey("usuarios.id", ondelete="CASCADE"), primary_key=True)
+    edital_id = Column(Integer, ForeignKey("editais.id", ondelete="CASCADE"), primary_key=True, index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    usuario = relationship("Usuario", back_populates="alertas")
+    edital = relationship("Edital", back_populates="alertas")
 
 
 class TipoNotificacao(PyEnum):

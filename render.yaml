@@ -18,3 +18,13 @@ services:
         value: HS256
       - key: ACCESS_TOKEN_EXPIRE_MINUTES
         value: "1440"
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: SENDGRID_API_KEY
+        sync: false
+      - key: SENDGRID_FROM_EMAIL
+        sync: false
+      - key: NOTIFICATION_SCHEDULER_ENABLED
+        value: "true"
+      - key: NOTIFICATION_SCHEDULER_INTERVAL_SECONDS
+        value: "3600"

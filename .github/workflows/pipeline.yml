@@ -29,7 +29,7 @@ jobs:
       - name: Configurar Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
           cache-dependency-path: Front/package-lock.json
 
@@ -89,9 +89,16 @@ jobs:
       - name: Popular dados de teste (seeds)
         env:
           PGPASSWORD: fique_de_olho_dev
+          DATABASE_URL: postgresql+psycopg2://fique_de_olho:fique_de_olho_dev@localhost:5432/fique_de_olho
         run: |
-          psql -h localhost -U fique_de_olho -d fique_de_olho -f db/migrations/002_seed_catalogos.sql
-          psql -h localhost -U fique_de_olho -d fique_de_olho -f db/migrations/003_seed_editais.sql
+          if [ -f db/migrations/002_seed_catalogos.sql ] && [ -f db/migrations/003_seed_editais.sql ]; then
+            psql -h localhost -U fique_de_olho -d fique_de_olho -f db/migrations/002_seed_catalogos.sql
+            psql -h localhost -U fique_de_olho -d fique_de_olho -f db/migrations/003_seed_editais.sql
+          else
+            echo "Arquivos SQL de seed ausentes; populando dados iniciais via seed_initial_editais."
+            cd Back
+            python -c "from app.core.database import SessionLocal; from app.modules.editais.service import seed_initial_editais; db = SessionLocal(); seed_initial_editais(db); db.close()"
+          fi
 
       - name: Executar testes com pytest
         working-directory: Back

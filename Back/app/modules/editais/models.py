@@ -5,6 +5,7 @@ para evitar declarações duplicadas e garantir metadados unificados.
 """
 
 from app.core.database import (
+    AlertaEdital,
     Base,
     Campus,
     Coleta,
@@ -25,6 +26,7 @@ from app.core.database import (
 )
 
 __all__ = [
+    "AlertaEdital",
     "Base",
     "Campus",
     "Coleta",

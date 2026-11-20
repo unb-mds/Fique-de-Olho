@@ -1,23 +1,46 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { login, updateEmailPreference } from "@/services/authService";
+import { login } from "@/services/authService";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { favoritarEdital } from "@/services/favoritosService";
-import NotificationPreferenceDialog from "@/components/NotificationPreferenceDialog";
+import { ativarAlertaEdital } from "@/services/notificacoesService";
+
+type LoginLocationState = {
+  fromFavorite?: boolean;
+  fromAlert?: boolean;
+  returnTo?: string;
+  pendingEditalId?: string;
+  pendingAlertEditalId?: string;
+} | null;
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [erro, setErro] = useState("");
   const [carregando, setCarregando] = useState(false);
-  const [exibirPreferencia, setExibirPreferencia] = useState(false);
-  const [salvandoPreferencia, setSalvandoPreferencia] = useState(false);
-  const [erroPreferencia, setErroPreferencia] = useState("");
   const location = useLocation();
-  const loginState = location.state as
-    | { fromFavorite?: boolean; returnTo?: string; pendingEditalId?: string }
-    | null;
+  const loginState = location.state as LoginLocationState;
   const pendingEditalId = loginState?.pendingEditalId;
+  const pendingAlertEditalId = loginState?.pendingAlertEditalId;
+
+  async function finalizarPosLogin() {
+    try {
+      if (pendingEditalId) {
+        await favoritarEdital(pendingEditalId);
+      }
+      if (pendingAlertEditalId) {
+        await ativarAlertaEdital(pendingAlertEditalId);
+      }
+    } catch {
+      // Mesmo se a ação pendente falhar, conclui o login normalmente.
+    }
+
+    const destino =
+      loginState?.returnTo && loginState.returnTo.startsWith("/")
+        ? loginState.returnTo
+        : "/";
+    window.location.href = destino;
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -31,7 +54,7 @@ export default function LoginPage() {
       localStorage.setItem("token", data.access_token);
       localStorage.setItem("usuario", JSON.stringify(data.usuario));
 
-      setExibirPreferencia(true);
+      await finalizarPosLogin();
     } catch {
       setErro("E-mail ou senha inválidos.");
     } finally {
@@ -39,31 +62,23 @@ export default function LoginPage() {
     }
   }
 
-  async function definirPreferencia(receberEmails: boolean) {
-    setSalvandoPreferencia(true);
-    setErroPreferencia("");
+  const eyebrow = loginState?.fromAlert
+    ? "Receba alertas por e-mail"
+    : loginState?.fromFavorite
+      ? "Salve esta oportunidade"
+      : "Sua área";
 
-    try {
-      const usuarioAtualizado = await updateEmailPreference(receberEmails);
-      localStorage.setItem("usuario", JSON.stringify(usuarioAtualizado));
-      if (pendingEditalId) {
-        await favoritarEdital(pendingEditalId);
-      }
-      if (usuarioAtualizado.id) {
-        sessionStorage.setItem(
-          `notification-preference:${usuarioAtualizado.id}`,
-          'chosen',
-        );
-      }
-      window.location.href = "/";
-    } catch {
-      setErroPreferencia(
-        "Não foi possível salvar sua escolha. Tente novamente.",
-      );
-    } finally {
-      setSalvandoPreferencia(false);
-    }
-  }
+  const heading = loginState?.fromAlert
+    ? "Ative alertas deste edital"
+    : loginState?.fromFavorite
+      ? "Crie sua lista de editais"
+      : "Bem-vindo de volta";
+
+  const subtitle = loginState?.fromAlert
+    ? "Entre ou crie uma conta para ativar notificações por e-mail sobre atualizações e prazos deste edital."
+    : loginState?.fromFavorite
+      ? "Entre ou crie uma conta para favoritar e acompanhar este edital."
+      : "Entre para acessar seus editais favoritos e alertas.";
 
   return (
     <main className="login-page">
@@ -76,56 +91,52 @@ export default function LoginPage() {
             <span className="brand-mark" aria-hidden="true">U</span>
             <span className="brand-name">Fique de Olho</span>
           </Link>
-          <p className="eyebrow">{loginState?.fromFavorite ? 'Salve esta oportunidade' : 'Sua área'}</p>
-          <h1>{loginState?.fromFavorite ? 'Crie sua lista de editais' : 'Bem-vindo de volta'}</h1>
-          <p>
-            {loginState?.fromFavorite
-              ? 'Entre ou crie uma conta para favoritar e acompanhar este edital.'
-              : 'Entre para acessar seus editais favoritos.'}
-          </p>
+          <p className="eyebrow">{eyebrow}</p>
+          <h1>{heading}</h1>
+          <p>{subtitle}</p>
         </div>
 
         <form onSubmit={handleSubmit}>
-        <div>
-          <label htmlFor="email">E-mail</label>
-          <input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder="Digite seu e-mail"
-            name="email"
-            autoComplete="email"
-            required
-          />
-        </div>
+          <div>
+            <label htmlFor="email">E-mail</label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="Digite seu e-mail"
+              name="email"
+              autoComplete="email"
+              required
+            />
+          </div>
 
-        <div>
-          <label htmlFor="senha">Senha</label>
-          <input
-            id="senha"
-            type="password"
-            value={senha}
-            onChange={(event) => setSenha(event.target.value)}
-            placeholder="Digite sua senha"
-            name="password"
-            autoComplete="current-password"
-            required
-          />
-        </div>
+          <div>
+            <label htmlFor="senha">Senha</label>
+            <input
+              id="senha"
+              type="password"
+              value={senha}
+              onChange={(event) => setSenha(event.target.value)}
+              placeholder="Digite sua senha"
+              name="password"
+              autoComplete="current-password"
+              required
+            />
+          </div>
 
-        {erro && <p className="form-error" role="alert">{erro}</p>}
+          {erro && <p className="form-error" role="alert">{erro}</p>}
 
-        <button type="submit" disabled={carregando}>
-          {carregando ? "Entrando..." : "Entrar"}
-        </button>
+          <button type="submit" disabled={carregando}>
+            {carregando ? "Entrando..." : "Entrar"}
+          </button>
         </form>
 
         <div className="auth-divider"><span>ou</span></div>
         <div className="auth-google">
           <GoogleSignInButton
             onSuccess={() => {
-              setExibirPreferencia(true);
+              void finalizarPosLogin();
             }}
             onError={(msg) => setErro(msg)}
           />
@@ -135,13 +146,6 @@ export default function LoginPage() {
           Ainda não tem uma conta? <Link to="/register">Criar conta</Link>
         </p>
       </section>
-
-      <NotificationPreferenceDialog
-        open={exibirPreferencia}
-        saving={salvandoPreferencia}
-        error={erroPreferencia}
-        onChoose={definirPreferencia}
-      />
     </main>
   );
 }
