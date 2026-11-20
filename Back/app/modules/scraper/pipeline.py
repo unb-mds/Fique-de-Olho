@@ -18,6 +18,7 @@ from app.core.database import (
 from app.modules.scraper import deg
 from app.modules.scraper.parser import detect_orgao_emissor, is_vague_title, parse_edital_metadados
 from app.modules.scraper.summarizer import (
+    enrich_edital_with_llm,
     enrich_metadata_with_llm,
     enrich_title_and_summary,
     is_generic_summary,
@@ -298,62 +299,21 @@ def _select_candidate_pdf_url(
     return None
 
 
-def _resolve_titulo_resumo(
-    edital_data: Dict[str, Any],
-    titulo: str,
-    existing_edital: Optional[Edital],
-    hash_conteudo: Optional[str],
-    texto_extraido: Optional[str],
-    assunto: Optional[str],
-    orgao_emissor: Optional[str],
-    candidate_pdf_url: Optional[str],
-) -> tuple[str, Optional[str]]:
-    """Determina o título e o resumo finais do edital (Issues #77 e #106).
-
-    - Nunca substitui um resumo informativo por um genérico (repetição do título ou
-      "Edital publicado pelo portal ...").
-    - Reprocessamentos idênticos (mesmo hash) de editais já normalizados preservam os
-      valores persistidos, evitando chamadas repetidas ao LLM.
-    - Editais legados com título vago ou resumo genérico são corrigidos mesmo em
-      reprocessamento redundante, reaproveitando ``texto_extraido``/``assunto`` já salvos.
-    """
-    if existing_edital is not None:
-        same_hash = bool(hash_conteudo and existing_edital.hash_conteudo == hash_conteudo)
-        existing_ok = not is_vague_title(existing_edital.titulo) and not is_generic_summary(
-            existing_edital.resumo, existing_edital.titulo
-        )
-        if same_hash and existing_ok:
-            return existing_edital.titulo, existing_edital.resumo
-
-    incoming_resumo = edital_data.get("resumo") or edital_data.get("descricao")
-    incoming_resumo = str(incoming_resumo).strip() if incoming_resumo else None
-    resumo_base: Optional[str] = incoming_resumo
-    if is_generic_summary(incoming_resumo, titulo):
-        resumo_base = None
-        if existing_edital is not None and not is_generic_summary(
-            existing_edital.resumo, existing_edital.titulo
-        ):
-            resumo_base = existing_edital.resumo
-
-    texto_base = texto_extraido or (existing_edital.texto_extraido if existing_edital is not None else None)
-    assunto_base = assunto or (existing_edital.assunto if existing_edital is not None else None)
-    orgao_base = orgao_emissor or (existing_edital.orgao_emissor if existing_edital is not None else None)
-    url_pdf_base = candidate_pdf_url or (existing_edital.url_pdf if existing_edital is not None else None)
-
-    titulo_final, resumo_final = enrich_title_and_summary(
-        titulo=titulo,
-        texto_extraido=texto_base,
-        assunto=assunto_base,
-        orgao_emissor=orgao_base,
-        url_pdf=url_pdf_base,
-        resumo_atual=resumo_base or incoming_resumo,
-    )
-
-    if not resumo_final:
-        fallback = edital_data.get("resumo_fallback")
-        resumo_final = str(fallback).strip() if fallback else None
-
-    return titulo_final or titulo or "Edital sem título", resumo_final
+def _select_retificacao_pdf_urls(
+    effective_docs: List[Dict[str, Any]],
+    primary_pdf_url: Optional[str] = None,
+) -> List[str]:
+    """Retorna URLs de PDFs classificados como retificação (em ordem de aparição)."""
+    retificacoes: List[str] = []
+    for doc in effective_docs:
+        doc_url = str(doc.get("link") or doc.get("url_pdf") or "").strip()
+        if not doc_url or doc_url == primary_pdf_url or not _is_likely_pdf_url(doc_url):
+            continue
+        raw_tipo = doc.get("tipo") or doc.get("tipo_documento") or "original"
+        tipo = map_tipo_documento(raw_tipo, doc.get("titulo"))
+        if tipo == TipoDocumento.RETIFICACAO and doc_url not in retificacoes:
+            retificacoes.append(doc_url)
+    return retificacoes
 
 
 def _enrich_edital_metadata(
@@ -430,6 +390,28 @@ def _enrich_edital_metadata(
                 assunto = existing_edital.assunto
             inicio_insc, fim_insc = _sanitize_periodo_inscricao(inicio_insc, fim_insc, context=url_pagina or titulo)
 
+            # Reaproveita texto_extraido local (sem baixar PDF) para preencher datas legadas ausentes
+            if (inicio_insc is None or fim_insc is None) and texto_extraido:
+                ano_ref_local = edital_data.get("ano") if isinstance(edital_data.get("ano"), int) else None
+                data_pub_local = _parse_optional_date(edital_data.get("data_publicacao") or existing_edital.data_publicacao)
+                data_pub_dt_local = (
+                    datetime(data_pub_local.year, data_pub_local.month, data_pub_local.day, tzinfo=timezone.utc)
+                    if data_pub_local
+                    else None
+                )
+                parsed_local = parse_edital_metadados(
+                    texto_extraido,
+                    ano_referencia=ano_ref_local,
+                    data_publicacao=data_pub_dt_local,
+                )
+                local_ini = _parse_optional_date(parsed_local.inicio_inscricao)
+                local_fim = _parse_optional_date(parsed_local.fim_inscricao)
+                local_ini, local_fim = _sanitize_periodo_inscricao(local_ini, local_fim, context=url_pagina or titulo)
+                if inicio_insc is None and local_ini is not None and (fim_insc is None or local_ini <= fim_insc):
+                    inicio_insc = local_ini
+                if fim_insc is None and local_fim is not None and (inicio_insc is None or inicio_insc <= local_fim):
+                    fim_insc = local_fim
+
     missing_essential = (
         any(x is None for x in (inicio_insc, fim_insc, vagas, valor_bolsa, campus))
         or not texto_extraido
@@ -438,6 +420,14 @@ def _enrich_edital_metadata(
     pdf_attempted = False
     pdf_failed = False
     pdf_succeeded = False
+
+    ano_ref = edital_data.get("ano") if isinstance(edital_data.get("ano"), int) else None
+    data_pub_raw = edital_data.get("data_publicacao")
+    data_pub_dt = None
+    if data_pub_raw:
+        parsed_pub = _parse_optional_date(data_pub_raw)
+        if parsed_pub:
+            data_pub_dt = datetime(parsed_pub.year, parsed_pub.month, parsed_pub.day, tzinfo=timezone.utc)
 
     # 2. Prioridade 2 — Fallback/Enriquecimento via extract_pdf + parse_edital_metadados
     if (
@@ -452,14 +442,6 @@ def _enrich_edital_metadata(
             extracted_txt = _sanitize_texto_extraido(getattr(extraction, "full_text", None))
             if extracted_txt and not texto_extraido:
                 texto_extraido = extracted_txt
-
-            ano_ref = edital_data.get("ano") if isinstance(edital_data.get("ano"), int) else None
-            data_pub_raw = edital_data.get("data_publicacao")
-            data_pub_dt = None
-            if data_pub_raw:
-                parsed_pub = _parse_optional_date(data_pub_raw)
-                if parsed_pub:
-                    data_pub_dt = datetime(parsed_pub.year, parsed_pub.month, parsed_pub.day, tzinfo=timezone.utc)
 
             parsed = parse_edital_metadados(extraction, ano_referencia=ano_ref, data_publicacao=data_pub_dt)
             pdf_succeeded = True
@@ -502,46 +484,108 @@ def _enrich_edital_metadata(
             pdf_failed = True
             logger.warning(f"Falha ao extrair/enriquecer PDF '{candidate_pdf_url}' para '{url_pagina}': {exc}")
 
-    # 2.2 Fallback Camada 2 — LLM (Gemini) se datas ou bolsa essenciais ainda não foram encontradas
-    # Só aciona se o enriquecimento externo estiver habilitado (mesmo critério do fallback PDF)
-    # e não for reprocessamento redundante de edital já normalizado.
-    if (
+    # 2.1 Retificações de prazo (prorrogação ou definição de novas datas em PDFs de retificação)
+    if enable_pdf_enrichment and not is_redundant_reprocess:
+        for ret_url in _select_retificacao_pdf_urls(effective_docs, candidate_pdf_url):
+            try:
+                ret_extraction = extract_pdf(ret_url, timeout=PDF_ENRICHMENT_TIMEOUT)
+                ret_parsed = parse_edital_metadados(
+                    ret_extraction,
+                    ano_referencia=ano_ref,
+                    data_publicacao=data_pub_dt,
+                )
+                ret_ini = _parse_optional_date(ret_parsed.inicio_inscricao)
+                ret_fim = _parse_optional_date(ret_parsed.fim_inscricao)
+                ret_ini, ret_fim = _sanitize_periodo_inscricao(ret_ini, ret_fim, context=ret_url)
+                if ret_fim is not None and (fim_insc is None or ret_fim > fim_insc):
+                    fim_insc = ret_fim
+                if inicio_insc is None and ret_ini is not None and (fim_insc is None or ret_ini <= fim_insc):
+                    inicio_insc = ret_ini
+            except Exception as ret_exc:
+                logger.warning(f"Falha ao ler retificação '{ret_url}' para '{url_pagina}': {ret_exc}")
+
+    # 2.2 / 3. Segunda passada unificada (Camada 1 + Camada 2 Gemini em no máximo 1 chamada)
+    existing_title_summary_ok = bool(
+        existing_edital is not None
+        and hash_conteudo
+        and existing_edital.hash_conteudo == hash_conteudo
+        and not is_vague_title(existing_edital.titulo)
+        and not is_generic_summary(existing_edital.resumo, existing_edital.titulo)
+    )
+    faltam_metadados_llm = bool(
         enable_pdf_enrichment
-        and not is_redundant_reprocess
-        and (inicio_insc is None or fim_insc is None or valor_bolsa is None)
         and texto_extraido
-        and getattr(settings, "GEMINI_API_KEY", None)
-    ):
-        llm_meta = enrich_metadata_with_llm(texto_extraido=texto_extraido, titulo=titulo)
-        if inicio_insc is None and llm_meta.get("inicio_inscricao"):
-            inicio_insc = _parse_optional_date(llm_meta["inicio_inscricao"])
-        if fim_insc is None and llm_meta.get("fim_inscricao"):
-            fim_insc = _parse_optional_date(llm_meta["fim_inscricao"])
-        if valor_bolsa is None and llm_meta.get("valor_bolsa") is not None:
-            valor_bolsa = _coerce_valor_bolsa(llm_meta["valor_bolsa"])
-        if vagas is None and llm_meta.get("vagas") is not None:
-            vagas = _coerce_vagas(llm_meta["vagas"])
-        if not orgao_emissor and llm_meta.get("orgao_emissor"):
-            orgao_emissor = str(llm_meta["orgao_emissor"]).strip()[:50]
-        inicio_insc, fim_insc = _sanitize_periodo_inscricao(inicio_insc, fim_insc, context=url_pagina or titulo)
+        and (
+            (not is_redundant_reprocess and (inicio_insc is None or fim_insc is None or valor_bolsa is None or vagas is None))
+            or (is_redundant_reprocess and fim_insc is None)
+        )
+    )
+
+    if existing_title_summary_ok and not faltam_metadados_llm:
+        titulo_final = existing_edital.titulo
+        resumo_final = existing_edital.resumo
+    else:
+        incoming_resumo = edital_data.get("resumo") or edital_data.get("descricao")
+        incoming_resumo = str(incoming_resumo).strip() if incoming_resumo else None
+        resumo_base: Optional[str] = incoming_resumo
+        if is_generic_summary(incoming_resumo, titulo):
+            resumo_base = None
+            if existing_edital is not None and not is_generic_summary(
+                existing_edital.resumo, existing_edital.titulo
+            ):
+                resumo_base = existing_edital.resumo
+
+        texto_base = texto_extraido or (existing_edital.texto_extraido if existing_edital is not None else None)
+        assunto_base = assunto or (existing_edital.assunto if existing_edital is not None else None)
+        orgao_base = orgao_emissor or (existing_edital.orgao_emissor if existing_edital is not None else None)
+        url_pdf_base = candidate_pdf_url or (existing_edital.url_pdf if existing_edital is not None else None)
+
+        llm_unificado = enrich_edital_with_llm(
+            titulo=existing_edital.titulo if existing_title_summary_ok else titulo,
+            texto_extraido=texto_base,
+            assunto=assunto_base,
+            orgao_emissor=orgao_base,
+            url_pdf=url_pdf_base,
+            resumo_atual=(
+                existing_edital.resumo
+                if existing_title_summary_ok
+                else (resumo_base or incoming_resumo)
+            ),
+            pedir_metadados=faltam_metadados_llm,
+        )
+
+        if faltam_metadados_llm:
+            if inicio_insc is None and llm_unificado.get("inicio_inscricao"):
+                inicio_insc = _parse_optional_date(llm_unificado["inicio_inscricao"])
+            if fim_insc is None and llm_unificado.get("fim_inscricao"):
+                fim_insc = _parse_optional_date(llm_unificado["fim_inscricao"])
+            if valor_bolsa is None and llm_unificado.get("valor_bolsa") is not None:
+                valor_bolsa = _coerce_valor_bolsa(llm_unificado["valor_bolsa"])
+            if vagas is None and llm_unificado.get("vagas") is not None:
+                vagas = _coerce_vagas(llm_unificado["vagas"])
+            if not orgao_emissor and llm_unificado.get("orgao_emissor"):
+                orgao_emissor = str(llm_unificado["orgao_emissor"]).strip()[:50]
+            inicio_insc, fim_insc = _sanitize_periodo_inscricao(inicio_insc, fim_insc, context=url_pagina or titulo)
+
+        titulo_final = (
+            existing_edital.titulo
+            if existing_title_summary_ok
+            else (llm_unificado.get("titulo") or titulo or "Edital sem título")
+        )
+        resumo_final = (
+            existing_edital.resumo
+            if existing_title_summary_ok
+            else llm_unificado.get("resumo")
+        )
+        if not resumo_final:
+            fallback = edital_data.get("resumo_fallback")
+            resumo_final = str(fallback).strip() if fallback else None
 
     # Se ainda não identificou órgão emissor no PDF nem veio estruturado, tenta detectar pelo título/resumo
     if not orgao_emissor:
-        detected = detect_orgao_emissor(f"{titulo} {resumo or ''}")
+        detected = detect_orgao_emissor(f"{titulo_final} {resumo_final or ''}")
         if detected:
             orgao_emissor = detected[:50]
-
-    # 3. Normalização de título e resumo (Issues #77 e #106) — após a extração de PDF/metadados
-    titulo_final, resumo_final = _resolve_titulo_resumo(
-        edital_data=edital_data,
-        titulo=titulo,
-        existing_edital=existing_edital,
-        hash_conteudo=hash_conteudo,
-        texto_extraido=texto_extraido,
-        assunto=assunto,
-        orgao_emissor=orgao_emissor,
-        candidate_pdf_url=candidate_pdf_url,
-    )
 
     # 4. Ciclo de status_processamento
     has_complete_metadata = bool(

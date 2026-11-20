@@ -36,27 +36,35 @@ class Settings(BaseSettings):
     NOTIFICATION_SCHEDULER_ENABLED: bool = True
     NOTIFICATION_SCHEDULER_INTERVAL_SECONDS: int = 3600
 
-    @field_validator("SENDGRID_API_KEY", "SENDGRID_FROM_EMAIL", mode="before")
-    @classmethod
-    def strip_sendgrid_settings(cls, v: str) -> str:
-        """Remove espaços ou quebras de linha acidentais em credenciais de ambiente."""
-        if isinstance(v, str):
-            return v.strip()
-        return v
-
-    # Agendador em segundo plano de coleta periódica de editais (Issue #74)
+    # Agendador em segundo plano de coleta periódica de editais (Issue #74 / #125)
     SCRAPER_SCHEDULER_ENABLED: bool = True
     SCRAPER_SCHEDULER_INTERVAL_HOURS: int = 12
     SCRAPER_SCHEDULER_RUN_ON_STARTUP: bool = False
+    SCRAPER_SCHEDULER_FETCH_DOCS: bool = True
+    SCRAPER_SCHEDULER_PDF_ENRICHMENT: bool = True
 
     # Cache em memória Stale-While-Revalidate da listagem de editais (Issue #116)
     EDITAIS_CACHE_TTL_SECONDS: int = 900
 
-    # Camada 2 (LLM) de resumo/normalização de títulos — Issues #77 e #106.
+    # Camada 2 (LLM) de resumo/normalização de títulos e metadados — Issues #77, #106, #121 e #125.
     # Opcional: sem chave, o pipeline usa apenas a heurística local (Camada 1).
     GEMINI_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemini-1.5-flash"
-    GEMINI_TIMEOUT_SECONDS: float = 8.0
+    GEMINI_MODEL: str = "gemini-2.5-flash"
+    GEMINI_TIMEOUT_SECONDS: float = 10.0
+
+    @field_validator(
+        "SENDGRID_API_KEY",
+        "SENDGRID_FROM_EMAIL",
+        "GEMINI_API_KEY",
+        "GEMINI_MODEL",
+        mode="before",
+    )
+    @classmethod
+    def strip_external_service_settings(cls, v: str) -> str:
+        """Remove espaços ou quebras de linha acidentais em credenciais/modelos de ambiente."""
+        if isinstance(v, str):
+            return v.strip()
+        return v
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -9,6 +9,7 @@ from typing import Any, List, Optional
 
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.database import SessionLocal
 from app.modules.editais.service import invalidar_cache_editais
 from app.modules.scraper.service import sync_all_portais
@@ -20,8 +21,8 @@ def executar_ciclo_scraping(
     session_factory: Callable[[], Session] = SessionLocal,
     orgaos: Optional[List[str]] = None,
     max_items_per_orgao: Optional[int] = 100,
-    fetch_docs: bool = True,
-    enable_pdf_enrichment: Optional[bool] = True,
+    fetch_docs: Optional[bool] = None,
+    enable_pdf_enrichment: Optional[bool] = None,
 ) -> dict[str, Any]:
     """Executa um ciclo completo de sincronização periódica dos portais configurados.
 
@@ -29,14 +30,20 @@ def executar_ciclo_scraping(
     captura exceções inesperadas sem propagá-las ao loop assíncrono e fecha a sessão
     do banco de dados no bloco ``finally``.
     """
+    eff_fetch_docs = settings.SCRAPER_SCHEDULER_FETCH_DOCS if fetch_docs is None else fetch_docs
+    eff_pdf_enrichment = (
+        settings.SCRAPER_SCHEDULER_PDF_ENRICHMENT
+        if enable_pdf_enrichment is None
+        else enable_pdf_enrichment
+    )
     db = session_factory()
     try:
         resultado = sync_all_portais(
             db=db,
             orgaos=orgaos,
             max_items_per_orgao=max_items_per_orgao,
-            fetch_docs=fetch_docs,
-            enable_pdf_enrichment=enable_pdf_enrichment,
+            fetch_docs=eff_fetch_docs,
+            enable_pdf_enrichment=eff_pdf_enrichment,
         )
         invalidar_cache_editais()
         return resultado
