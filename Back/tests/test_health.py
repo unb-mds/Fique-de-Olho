@@ -12,11 +12,14 @@ def test_health_check_returns_200(client):
 
 
 def test_ping_endpoint_returns_awake_without_database_query(client):
-    """Verifica que /ping responde HTTP 200 com {'status': 'awake'} sem tocar no banco."""
+    """Verifica que /ping responde HTTP 200 com {'status': 'awake'} em GET e HEAD sem tocar no banco."""
     with patch("app.main.engine.connect", side_effect=AssertionError("Nao deve consultar o banco")) as mock_connect:
-        response = client.get("/ping")
-        assert response.status_code == 200
-        assert response.json() == {"status": "awake"}
+        response_get = client.get("/ping")
+        assert response_get.status_code == 200
+        assert response_get.json() == {"status": "awake"}
+
+        response_head = client.head("/ping")
+        assert response_head.status_code == 200
         mock_connect.assert_not_called()
 
 

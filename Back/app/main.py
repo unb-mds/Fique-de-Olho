@@ -86,7 +86,7 @@ def root():
     return RedirectResponse(url="/docs")
 
 
-@app.get("/ping", tags=["Health"])
+@app.api_route("/ping", methods=["GET", "HEAD"], tags=["Health"])
 def ping():
     """Endpoint leve de keep-alive que mantém o contêiner acordado sem consultar o banco."""
     return {"status": "awake"}
