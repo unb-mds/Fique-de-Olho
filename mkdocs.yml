@@ -61,6 +61,8 @@ nav:
       - Scrum: Estudos/sprint00/Scrun.md
       - Plataformas de Deploy: Estudos/estudo_plataformas_deploy.md
       - Relatório de Decisões de Deploy: Estudos/relatorio_decisoes_infraestrutura_deploy.md
+      - Keep-Alive e UptimeRobot: Estudos/guia_keep_awake_uptimerobot_e_ping.md
+      - Operação de Deploy e CI/CD: Estudos/guia_operacional_deploy_ci_cd.md
   - Requisitos:
       - Requisitos: Requisitos/Requisitos.md
       - Visão de produto: Requisitos/Visão de produto.md

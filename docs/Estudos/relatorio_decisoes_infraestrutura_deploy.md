@@ -119,6 +119,37 @@ Este relatório consolida todas as decisões arquiteturais tomadas pela equipe p
 
 ---
 
+### Decisão 8: Estratégia de Keep-Alive 24/7 com UptimeRobot e Endpoint `/ping` sem Banco
+* **Contexto:** No plano gratuito do Render, o container sofre *spin-down* após 15 minutos sem tráfego, gerando *cold starts* de 45 a 60 segundos. Fazer pings no `/health` acordaria o banco Neon Serverless (`SELECT 1`), esgotando sua cota de 100 CU-horas/mês em 4 a 5 dias e provocando *crash loops* no Render.
+* **Solução implementada:** 
+  1. Criação do endpoint ultraleve `GET /ping` e `HEAD /ping` ([`Back/app/main.py`](../../Back/app/main.py)), que responde `200 OK` da RAM em < 1ms sem tocar no banco.
+  2. Atualização do `healthCheckPath: /ping` no [`render.yaml`](../../render.yaml) para evitar reinicializações do container em caso de indisponibilidade momentânea do banco.
+  3. Integração com o **UptimeRobot** gratuito disparando requisições periódicas a cada 10–14 minutos (detalhes no [Guia Técnico de Keep-Alive](guia_keep_awake_uptimerobot_e_ping.md)).
+* **Vantagens:**
+  - Eliminação total dos *cold starts* de 1 minuto para o usuário final.
+  - Custo R$ 0,00 contínuo, mantendo o Render acordado durante todo o mês (720h dentro do limite de 750h gratuitas).
+  - Preservação da cota do Neon, permitindo que o PostgreSQL entre em repouso (*scale-to-zero*) quando não houver consultas reais.
+  - Suporte nativo ao método `HEAD` (padrão do plano gratuito do UptimeRobot).
+* **Desvantagens:**
+  - Dependência de um serviço externo de monitoramento para emitir o pulso HTTP periódico.
+
+---
+
+### Decisão 9: Arquitetura Unificada de Schedulers e Pipeline Automatizado de CI/CD
+* **Contexto:** Necessidade de rotinas contínuas de scraping e alertas por e-mail sem incorrer em custos com instâncias dedicadas de *Background Workers* no Render (US$ 7/mês), aliada à necessidade de validação determinística de código e deploys seguros com capacidade de rollback.
+* **Solução implementada:** 
+  1. Execução de tarefas assíncronas via `@asynccontextmanager lifespan(app: FastAPI)` dentro do próprio container web, garantindo execução 24/7 viabilizada pelo keep-alive do UptimeRobot.
+  2. Esteira automatizada de CI com GitHub Actions ([`.github/workflows/pipeline.yml`](../../.github/workflows/pipeline.yml)) com container efêmero de PostgreSQL 16 para testes e migrations do Alembic.
+  3. Procedimentos operacionais de rollback mapeados para Vercel, Render e Neon (detalhes no [Guia Operacional de Deploy](guia_operacional_deploy_ci_cd.md)).
+* **Vantagens:**
+  - Zero custo financeiro de infraestrutura com alta disponibilidade funcional.
+  - Rastreabilidade total do ciclo de desenvolvimento até a entrega contínua em produção.
+  - Mitigação de riscos com procedimentos de contingência claros.
+* **Desvantagens:**
+  - Compartilhamento de CPU e memória do container web entre requisições de usuários e processamento de scrapers.
+
+---
+
 ## 3. Síntese do Estado Atual da Infraestrutura
 
 | Item | Situação Atual |
