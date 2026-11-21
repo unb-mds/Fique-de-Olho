@@ -809,17 +809,17 @@ def test_reconstruir_titulo_sigla_mais_generico_jurapp():
 
 
 # ============================================================================
-# Issue #129 — Modelo padrão gemini-3.5-flash-lite, fallback 404 e retry 429
+# Issue #129 — Modelo padrão gemini-2.5-flash-lite, fallback 404 e retry 429
 # ============================================================================
 
 
-def test_config_padrao_gemini_3_5_flash_lite_e_fallback(monkeypatch):
+def test_config_padrao_gemini_2_5_flash_lite_e_fallback(monkeypatch):
     from app.core.config import Settings
 
     for var in ("GEMINI_MODEL", "GEMINI_FALLBACK_MODEL", "GEMINI_TIMEOUT_SECONDS", "GEMINI_RETRY_DELAY_SECONDS"):
         monkeypatch.delenv(var, raising=False)
     cfg = Settings(_env_file=None)
-    assert cfg.GEMINI_MODEL == "gemini-3.5-flash-lite"
+    assert cfg.GEMINI_MODEL == "gemini-2.5-flash-lite"
     assert cfg.GEMINI_FALLBACK_MODEL == "gemini-flash-latest"
     assert cfg.GEMINI_TIMEOUT_SECONDS == 15.0
     assert cfg.GEMINI_RETRY_DELAY_SECONDS == 2.0
@@ -827,14 +827,14 @@ def test_config_padrao_gemini_3_5_flash_lite_e_fallback(monkeypatch):
 
 def test_gemini_fallback_automatico_em_404_para_modelo_secundario(monkeypatch):
     monkeypatch.setattr(settings, "GEMINI_API_KEY", "test-key")
-    monkeypatch.setattr(settings, "GEMINI_MODEL", "gemini-3.5-flash-lite")
+    monkeypatch.setattr(settings, "GEMINI_MODEL", "gemini-2.5-flash-lite")
     monkeypatch.setattr(settings, "GEMINI_FALLBACK_MODEL", "gemini-flash-latest")
 
     urls_chamadas = []
 
     def handler(req: httpx.Request) -> httpx.Response:
         urls_chamadas.append(str(req.url))
-        if "gemini-3.5-flash-lite" in str(req.url):
+        if "gemini-2.5-flash-lite" in str(req.url):
             return httpx.Response(404, json={"error": {"message": "Model not found"}})
         return httpx.Response(
             200,
@@ -851,7 +851,7 @@ def test_gemini_fallback_automatico_em_404_para_modelo_secundario(monkeypatch):
         "AQUI", texto_extraido=TEXTO_EDITAL_TUTORES, orgao_emissor="CEAD"
     )
     assert len(urls_chamadas) == 2
-    assert "gemini-3.5-flash-lite" in urls_chamadas[0]
+    assert "gemini-2.5-flash-lite" in urls_chamadas[0]
     assert "gemini-flash-latest" in urls_chamadas[1]
     assert titulo == "Edital Nº 158/2024 - Seleção de Tutores a Distância (CEAD)"
     assert resumo == "Seleção de tutores a distância para cursos da UAB/UnB com bolsa CAPES."
@@ -860,14 +860,14 @@ def test_gemini_fallback_automatico_em_404_para_modelo_secundario(monkeypatch):
 @pytest.mark.asyncio
 async def test_async_gemini_fallback_automatico_em_404(monkeypatch):
     monkeypatch.setattr(settings, "GEMINI_API_KEY", "test-key")
-    monkeypatch.setattr(settings, "GEMINI_MODEL", "gemini-3.5-flash-lite")
+    monkeypatch.setattr(settings, "GEMINI_MODEL", "gemini-2.5-flash-lite")
     monkeypatch.setattr(settings, "GEMINI_FALLBACK_MODEL", "gemini-flash-latest")
 
     urls_chamadas = []
 
     def handler(req: httpx.Request) -> httpx.Response:
         urls_chamadas.append(str(req.url))
-        if "gemini-3.5-flash-lite" in str(req.url):
+        if "gemini-2.5-flash-lite" in str(req.url):
             return httpx.Response(404, json={"error": {"message": "Model not found"}})
         return httpx.Response(
             200,
@@ -884,7 +884,7 @@ async def test_async_gemini_fallback_automatico_em_404(monkeypatch):
         "RESULTADO FINAL", texto_extraido=TEXTO_EDITAL_TUTORES, orgao_emissor="CEAD"
     )
     assert len(urls_chamadas) == 2
-    assert "gemini-3.5-flash-lite" in urls_chamadas[0]
+    assert "gemini-2.5-flash-lite" in urls_chamadas[0]
     assert "gemini-flash-latest" in urls_chamadas[1]
     assert titulo == "Resultado Final - Seleção de Tutores a Distância (CEAD)"
     assert resumo == "Resultado final da seleção de tutores a distância da UAB/UnB."
