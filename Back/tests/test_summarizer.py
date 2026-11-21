@@ -813,9 +813,11 @@ def test_reconstruir_titulo_sigla_mais_generico_jurapp():
 # ============================================================================
 
 
-def test_config_padrao_gemini_3_5_flash_lite_e_fallback():
+def test_config_padrao_gemini_3_5_flash_lite_e_fallback(monkeypatch):
     from app.core.config import Settings
 
+    for var in ("GEMINI_MODEL", "GEMINI_FALLBACK_MODEL", "GEMINI_TIMEOUT_SECONDS", "GEMINI_RETRY_DELAY_SECONDS"):
+        monkeypatch.delenv(var, raising=False)
     cfg = Settings(_env_file=None)
     assert cfg.GEMINI_MODEL == "gemini-3.5-flash-lite"
     assert cfg.GEMINI_FALLBACK_MODEL == "gemini-flash-latest"

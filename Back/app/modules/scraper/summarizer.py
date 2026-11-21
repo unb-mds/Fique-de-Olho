@@ -275,6 +275,22 @@ def _parse_resposta(response: httpx.Response) -> Dict[str, Any]:
     return dados
 
 
+_RETRY_DELAY_MAX_SECONDS = 10.0
+
+
+def _retry_delay(resp: httpx.Response) -> float:
+    """Espera antes do retry de 429: respeita ``Retry-After`` (limitado) ou usa o delay configurado."""
+    try:
+        base = float(getattr(settings, "GEMINI_RETRY_DELAY_SECONDS", 2.0) or 0.0)
+    except (TypeError, ValueError):
+        base = 2.0
+    try:
+        base = max(base, float(resp.headers.get("retry-after", 0) or 0))
+    except (TypeError, ValueError):
+        pass
+    return min(max(0.0, base), _RETRY_DELAY_MAX_SECONDS)
+
+
 def _post_with_retry_sync(
     client: httpx.Client,
     url: str,
@@ -283,7 +299,7 @@ def _post_with_retry_sync(
 ) -> httpx.Response:
     resp = client.post(url, headers=headers, json=body)
     if resp.status_code == 429:
-        delay = max(0.0, float(getattr(settings, "GEMINI_RETRY_DELAY_SECONDS", 2.0) or 0.0))
+        delay = _retry_delay(resp)
         logger.warning(f"Rate limit (HTTP 429) na Gemini API; aguardando {delay:.1f}s antes de 1 nova tentativa.")
         if delay > 0:
             time.sleep(delay)
@@ -299,7 +315,7 @@ async def _post_with_retry_async(
 ) -> httpx.Response:
     resp = await client.post(url, headers=headers, json=body)
     if resp.status_code == 429:
-        delay = max(0.0, float(getattr(settings, "GEMINI_RETRY_DELAY_SECONDS", 2.0) or 0.0))
+        delay = _retry_delay(resp)
         logger.warning(f"Rate limit (HTTP 429) na Gemini API; aguardando {delay:.1f}s antes de 1 nova tentativa.")
         if delay > 0:
             await asyncio.sleep(delay)

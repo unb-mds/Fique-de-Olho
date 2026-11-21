@@ -122,6 +122,10 @@ def run_backfill(
         # 2. Camada 2 unificada (título + resumo + metadados ainda ausentes em no máximo 1 chamada)
         resumo_atual = None if is_generic_summary(edital.resumo, edital.titulo) else edital.resumo
         faltam_metadados = bool(edital.texto_extraido and (ini_novo is None or fim_novo is None))
+        chamou_llm = bool(
+            (edital.texto_extraido or edital.assunto)
+            and (is_vague_title(edital.titulo) or is_generic_summary(edital.resumo, edital.titulo) or faltam_metadados)
+        )
         llm_res = enrich_edital_with_llm(
             titulo=edital.titulo,
             texto_extraido=edital.texto_extraido,
@@ -131,7 +135,7 @@ def run_backfill(
             resumo_atual=resumo_atual or edital.resumo,
             pedir_metadados=faltam_metadados,
         )
-        if sleep_seconds > 0 and settings.GEMINI_API_KEY:
+        if sleep_seconds > 0 and settings.GEMINI_API_KEY and chamou_llm:
             time.sleep(sleep_seconds)
 
         titulo_novo = llm_res.get("titulo") or edital.titulo
