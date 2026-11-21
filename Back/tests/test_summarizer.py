@@ -806,3 +806,174 @@ def test_reconstruir_titulo_sigla_mais_generico_jurapp():
     assert not is_vague_title(t2)
 
 
+
+
+# ============================================================================
+# Issue #129 — Modelo padrão gemini-3.5-flash-lite, fallback 404 e retry 429
+# ============================================================================
+
+
+def test_config_padrao_gemini_3_5_flash_lite_e_fallback(monkeypatch):
+    from app.core.config import Settings
+
+    for var in ("GEMINI_MODEL", "GEMINI_FALLBACK_MODEL", "GEMINI_TIMEOUT_SECONDS", "GEMINI_RETRY_DELAY_SECONDS"):
+        monkeypatch.delenv(var, raising=False)
+    cfg = Settings(_env_file=None)
+    assert cfg.GEMINI_MODEL == "gemini-3.5-flash-lite"
+    assert cfg.GEMINI_FALLBACK_MODEL == "gemini-flash-latest"
+    assert cfg.GEMINI_TIMEOUT_SECONDS == 15.0
+    assert cfg.GEMINI_RETRY_DELAY_SECONDS == 2.0
+
+
+def test_gemini_fallback_automatico_em_404_para_modelo_secundario(monkeypatch):
+    monkeypatch.setattr(settings, "GEMINI_API_KEY", "test-key")
+    monkeypatch.setattr(settings, "GEMINI_MODEL", "gemini-3.5-flash-lite")
+    monkeypatch.setattr(settings, "GEMINI_FALLBACK_MODEL", "gemini-flash-latest")
+
+    urls_chamadas = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        urls_chamadas.append(str(req.url))
+        if "gemini-3.5-flash-lite" in str(req.url):
+            return httpx.Response(404, json={"error": {"message": "Model not found"}})
+        return httpx.Response(
+            200,
+            json=_gemini_payload(
+                {
+                    "titulo": "Edital Nº 158/2024 - Seleção de Tutores a Distância (CEAD)",
+                    "resumo": "Seleção de tutores a distância para cursos da UAB/UnB com bolsa CAPES.",
+                }
+            ),
+        )
+
+    _install_mock_transport(monkeypatch, handler)
+    titulo, resumo = enrich_title_and_summary(
+        "AQUI", texto_extraido=TEXTO_EDITAL_TUTORES, orgao_emissor="CEAD"
+    )
+    assert len(urls_chamadas) == 2
+    assert "gemini-3.5-flash-lite" in urls_chamadas[0]
+    assert "gemini-flash-latest" in urls_chamadas[1]
+    assert titulo == "Edital Nº 158/2024 - Seleção de Tutores a Distância (CEAD)"
+    assert resumo == "Seleção de tutores a distância para cursos da UAB/UnB com bolsa CAPES."
+
+
+@pytest.mark.asyncio
+async def test_async_gemini_fallback_automatico_em_404(monkeypatch):
+    monkeypatch.setattr(settings, "GEMINI_API_KEY", "test-key")
+    monkeypatch.setattr(settings, "GEMINI_MODEL", "gemini-3.5-flash-lite")
+    monkeypatch.setattr(settings, "GEMINI_FALLBACK_MODEL", "gemini-flash-latest")
+
+    urls_chamadas = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        urls_chamadas.append(str(req.url))
+        if "gemini-3.5-flash-lite" in str(req.url):
+            return httpx.Response(404, json={"error": {"message": "Model not found"}})
+        return httpx.Response(
+            200,
+            json=_gemini_payload(
+                {
+                    "titulo": "Resultado Final - Seleção de Tutores a Distância (CEAD)",
+                    "resumo": "Resultado final da seleção de tutores a distância da UAB/UnB.",
+                }
+            ),
+        )
+
+    _install_mock_transport(monkeypatch, handler)
+    titulo, resumo = await enrich_title_and_summary_async(
+        "RESULTADO FINAL", texto_extraido=TEXTO_EDITAL_TUTORES, orgao_emissor="CEAD"
+    )
+    assert len(urls_chamadas) == 2
+    assert "gemini-3.5-flash-lite" in urls_chamadas[0]
+    assert "gemini-flash-latest" in urls_chamadas[1]
+    assert titulo == "Resultado Final - Seleção de Tutores a Distância (CEAD)"
+    assert resumo == "Resultado final da seleção de tutores a distância da UAB/UnB."
+
+
+def test_gemini_retry_em_429_recupera_na_segunda_tentativa(gemini_key, monkeypatch):
+    monkeypatch.setattr(settings, "GEMINI_RETRY_DELAY_SECONDS", 0.01)
+    tentativas = {"n": 0}
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        tentativas["n"] += 1
+        if tentativas["n"] == 1:
+            return httpx.Response(429, json={"error": {"message": "Quota exceeded"}})
+        return httpx.Response(
+            200,
+            json=_gemini_payload(
+                {
+                    "titulo": "Edital Nº 158/2024 - Seleção de Tutores a Distância (CEAD)",
+                    "resumo": "Seleção de tutores a distância para a UAB/UnB com bolsa CAPES.",
+                }
+            ),
+        )
+
+    _install_mock_transport(monkeypatch, handler)
+    titulo, resumo = enrich_title_and_summary(
+        "AQUI", texto_extraido=TEXTO_EDITAL_TUTORES, orgao_emissor="CEAD"
+    )
+    assert tentativas["n"] == 2
+    assert titulo == "Edital Nº 158/2024 - Seleção de Tutores a Distância (CEAD)"
+    assert resumo == "Seleção de tutores a distância para a UAB/UnB com bolsa CAPES."
+
+
+@pytest.mark.asyncio
+async def test_async_gemini_retry_em_429_recupera_na_segunda_tentativa(gemini_key, monkeypatch):
+    monkeypatch.setattr(settings, "GEMINI_RETRY_DELAY_SECONDS", 0.01)
+    tentativas = {"n": 0}
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        tentativas["n"] += 1
+        if tentativas["n"] == 1:
+            return httpx.Response(429, json={"error": {"message": "Quota exceeded"}})
+        return httpx.Response(
+            200,
+            json=_gemini_payload(
+                {
+                    "titulo": "Resultado Final - Seleção de Tutores a Distância (CEAD)",
+                    "resumo": "Resultado final da seleção de tutores a distância da UAB/UnB.",
+                }
+            ),
+        )
+
+    _install_mock_transport(monkeypatch, handler)
+    titulo, resumo = await enrich_title_and_summary_async(
+        "RESULTADO FINAL", texto_extraido=TEXTO_EDITAL_TUTORES, orgao_emissor="CEAD"
+    )
+    assert tentativas["n"] == 2
+    assert titulo == "Resultado Final - Seleção de Tutores a Distância (CEAD)"
+    assert resumo == "Resultado final da seleção de tutores a distância da UAB/UnB."
+
+
+def test_backfill_suporta_sleep_seconds_com_llm_ativo(db_session, gemini_key, monkeypatch):
+    import app.modules.scraper.backfill_titles_summaries as bf_mod
+
+    sleeps = []
+    monkeypatch.setattr(bf_mod.time, "sleep", lambda s: sleeps.append(s))
+
+    _install_mock_transport(
+        monkeypatch,
+        lambda req: httpx.Response(
+            200,
+            json=_gemini_payload(
+                {
+                    "titulo": "Resultado Final - Edital Nº 158/2024 - Tutores UAB (CEAD)",
+                    "resumo": "Resultado final da seleção de tutores a distância da UAB/UnB.",
+                }
+            ),
+        ),
+    )
+
+    vago = Edital(
+        titulo="RESULTADO FINAL",
+        url_pagina="https://cead.unb.br/editais/rf-sleep-test",
+        orgao_emissor="CEAD",
+        resumo="Edital publicado pelo portal CEAD em 2024-10-01.",
+        texto_extraido=TEXTO_EDITAL_TUTORES,
+    )
+    db_session.add(vago)
+    db_session.commit()
+
+    mudancas = bf_mod.run_backfill(db_session, apply=True, sleep_seconds=1.5)
+    assert len(mudancas) == 1
+    assert sleeps == [1.5]

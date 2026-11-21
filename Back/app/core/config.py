@@ -46,17 +46,20 @@ class Settings(BaseSettings):
     # Cache em memória Stale-While-Revalidate da listagem de editais (Issue #116)
     EDITAIS_CACHE_TTL_SECONDS: int = 900
 
-    # Camada 2 (LLM) de resumo/normalização de títulos e metadados — Issues #77, #106, #121 e #125.
+    # Camada 2 (LLM) de resumo/normalização de títulos e metadados — Issues #77, #106, #121, #125 e #129.
     # Opcional: sem chave, o pipeline usa apenas a heurística local (Camada 1).
     GEMINI_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemini-2.5-flash"
-    GEMINI_TIMEOUT_SECONDS: float = 10.0
+    GEMINI_MODEL: str = "gemini-3.5-flash-lite"
+    GEMINI_FALLBACK_MODEL: str = "gemini-flash-latest"
+    GEMINI_TIMEOUT_SECONDS: float = 15.0
+    GEMINI_RETRY_DELAY_SECONDS: float = 2.0
 
     @field_validator(
         "SENDGRID_API_KEY",
         "SENDGRID_FROM_EMAIL",
         "GEMINI_API_KEY",
         "GEMINI_MODEL",
+        "GEMINI_FALLBACK_MODEL",
         mode="before",
     )
     @classmethod
