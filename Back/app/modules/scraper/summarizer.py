@@ -258,7 +258,7 @@ def _planejar(
 
 
 def _request_args(prompt: str, model: Optional[str] = None) -> Tuple[str, Dict[str, str], Dict[str, Any]]:
-    alvo = (model or settings.GEMINI_MODEL or "gemini-2.5-flash-lite").strip()
+    alvo = (model or settings.GEMINI_MODEL or "gemini-3.5-flash-lite").strip()
     url = GEMINI_ENDPOINT.format(model=alvo)
     headers = {"x-goog-api-key": settings.GEMINI_API_KEY, "Content-Type": "application/json"}
     body = {
@@ -302,6 +302,9 @@ def _retry_delay(resp: httpx.Response) -> float:
     return min(max(0.0, base), _RETRY_DELAY_MAX_SECONDS)
 
 
+_RETRYABLE_STATUS_CODES = (429, 502, 503, 504)
+
+
 def _post_with_retry_sync(
     client: httpx.Client,
     url: str,
@@ -309,9 +312,12 @@ def _post_with_retry_sync(
     body: Dict[str, Any],
 ) -> httpx.Response:
     resp = client.post(url, headers=headers, json=body)
-    if resp.status_code == 429:
+    if resp.status_code in _RETRYABLE_STATUS_CODES:
         delay = _retry_delay(resp)
-        logger.warning(f"Rate limit (HTTP 429) na Gemini API; aguardando {delay:.1f}s antes de 1 nova tentativa.")
+        logger.warning(
+            f"Erro transitório (HTTP {resp.status_code}) na Gemini API; "
+            f"aguardando {delay:.1f}s antes de 1 nova tentativa."
+        )
         if delay > 0:
             time.sleep(delay)
         resp = client.post(url, headers=headers, json=body)
@@ -325,9 +331,12 @@ async def _post_with_retry_async(
     body: Dict[str, Any],
 ) -> httpx.Response:
     resp = await client.post(url, headers=headers, json=body)
-    if resp.status_code == 429:
+    if resp.status_code in _RETRYABLE_STATUS_CODES:
         delay = _retry_delay(resp)
-        logger.warning(f"Rate limit (HTTP 429) na Gemini API; aguardando {delay:.1f}s antes de 1 nova tentativa.")
+        logger.warning(
+            f"Erro transitório (HTTP {resp.status_code}) na Gemini API; "
+            f"aguardando {delay:.1f}s antes de 1 nova tentativa."
+        )
         if delay > 0:
             await asyncio.sleep(delay)
         resp = await client.post(url, headers=headers, json=body)
@@ -335,8 +344,8 @@ async def _post_with_retry_async(
 
 
 def _call_gemini_sync(prompt: str) -> Dict[str, Any]:
-    """Executa chamada síncrona ao Gemini com retry em 429 e fallback automático de modelo em 404."""
-    primary_model = (settings.GEMINI_MODEL or "gemini-2.5-flash-lite").strip()
+    """Executa chamada síncrona ao Gemini com retry em 429/503 e fallback automático de modelo em 404."""
+    primary_model = (settings.GEMINI_MODEL or "gemini-3.5-flash-lite").strip()
     fallback_model = (getattr(settings, "GEMINI_FALLBACK_MODEL", "") or "").strip()
     url, headers, body = _request_args(prompt, model=primary_model)
     with _build_client(settings.GEMINI_TIMEOUT_SECONDS) as client:
@@ -351,8 +360,8 @@ def _call_gemini_sync(prompt: str) -> Dict[str, Any]:
 
 
 async def _call_gemini_async(prompt: str) -> Dict[str, Any]:
-    """Executa chamada assíncrona ao Gemini com retry em 429 e fallback automático de modelo em 404."""
-    primary_model = (settings.GEMINI_MODEL or "gemini-2.5-flash-lite").strip()
+    """Executa chamada assíncrona ao Gemini com retry em 429/503 e fallback automático de modelo em 404."""
+    primary_model = (settings.GEMINI_MODEL or "gemini-3.5-flash-lite").strip()
     fallback_model = (getattr(settings, "GEMINI_FALLBACK_MODEL", "") or "").strip()
     url, headers, body = _request_args(prompt, model=primary_model)
     async with _build_async_client(settings.GEMINI_TIMEOUT_SECONDS) as client:

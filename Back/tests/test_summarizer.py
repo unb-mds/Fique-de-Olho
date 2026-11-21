@@ -819,8 +819,8 @@ def test_config_padrao_gemini_2_5_flash_lite_e_fallback(monkeypatch):
     for var in ("GEMINI_MODEL", "GEMINI_FALLBACK_MODEL", "GEMINI_TIMEOUT_SECONDS", "GEMINI_RETRY_DELAY_SECONDS"):
         monkeypatch.delenv(var, raising=False)
     cfg = Settings(_env_file=None)
-    assert cfg.GEMINI_MODEL == "gemini-2.5-flash-lite"
-    assert cfg.GEMINI_FALLBACK_MODEL == "gemini-flash-latest"
+    assert cfg.GEMINI_MODEL == "gemini-3.5-flash-lite"
+    assert cfg.GEMINI_FALLBACK_MODEL == "gemini-flash-lite-latest"
     assert cfg.GEMINI_TIMEOUT_SECONDS == 15.0
     assert cfg.GEMINI_RETRY_DELAY_SECONDS == 2.0
 
@@ -898,6 +898,33 @@ def test_gemini_retry_em_429_recupera_na_segunda_tentativa(gemini_key, monkeypat
         tentativas["n"] += 1
         if tentativas["n"] == 1:
             return httpx.Response(429, json={"error": {"message": "Quota exceeded"}})
+        return httpx.Response(
+            200,
+            json=_gemini_payload(
+                {
+                    "titulo": "Edital Nº 158/2024 - Seleção de Tutores a Distância (CEAD)",
+                    "resumo": "Seleção de tutores a distância para a UAB/UnB com bolsa CAPES.",
+                }
+            ),
+        )
+
+    _install_mock_transport(monkeypatch, handler)
+    titulo, resumo = enrich_title_and_summary(
+        "AQUI", texto_extraido=TEXTO_EDITAL_TUTORES, orgao_emissor="CEAD"
+    )
+    assert tentativas["n"] == 2
+    assert titulo == "Edital Nº 158/2024 - Seleção de Tutores a Distância (CEAD)"
+    assert resumo == "Seleção de tutores a distância para a UAB/UnB com bolsa CAPES."
+
+
+def test_gemini_retry_em_503_recupera_na_segunda_tentativa(gemini_key, monkeypatch):
+    monkeypatch.setattr(settings, "GEMINI_RETRY_DELAY_SECONDS", 0.01)
+    tentativas = {"n": 0}
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        tentativas["n"] += 1
+        if tentativas["n"] == 1:
+            return httpx.Response(503, json={"error": {"message": "Service Unavailable"}})
         return httpx.Response(
             200,
             json=_gemini_payload(

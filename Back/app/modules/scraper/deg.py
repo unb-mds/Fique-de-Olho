@@ -16,7 +16,7 @@ DATE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 DOCUMENT_TYPES = (
-    ("resultado_final", ("resultado_final", "resultado final")),
+    ("resultado_final", ("resultado_final", "resultado final", "resultado_definitivo", "resultado definitivo")),
     ("resultado_provisorio", ("resultado_provisorio", "resultado provisorio")),
     ("retificacao", ("retificacao",)),
     ("homologacao", ("homologacao",)),

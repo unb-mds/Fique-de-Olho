@@ -49,8 +49,8 @@ class Settings(BaseSettings):
     # Camada 2 (LLM) de resumo/normalização de títulos e metadados — Issues #77, #106, #121, #125 e #129.
     # Opcional: sem chave, o pipeline usa apenas a heurística local (Camada 1).
     GEMINI_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemini-2.5-flash-lite"
-    GEMINI_FALLBACK_MODEL: str = "gemini-flash-latest"
+    GEMINI_MODEL: str = "gemini-3.5-flash-lite"
+    GEMINI_FALLBACK_MODEL: str = "gemini-flash-lite-latest"
     GEMINI_TIMEOUT_SECONDS: float = 15.0
     GEMINI_RETRY_DELAY_SECONDS: float = 2.0
 
