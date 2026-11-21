@@ -32,6 +32,7 @@ from app.core.config import settings
 from app.modules.scraper.parser import (
     MAX_RESUMO_CHARS,
     MAX_TITULO_CHARS,
+    _TITULOS_GENERICOS,
     _norm_key,
     extrair_objeto_edital,
     is_vague_title,
@@ -154,6 +155,14 @@ def _build_async_client(timeout: float) -> httpx.AsyncClient:
     return httpx.AsyncClient(timeout=timeout)
 
 
+def _is_rotulo_generico(texto: Optional[str]) -> bool:
+    """True quando o texto é apenas um rótulo genérico de botão/link (AQUI, Download, Edital...)."""
+    key = _norm_key(texto)
+    if not key:
+        return True
+    return key in _TITULOS_GENERICOS or any(key.startswith(p) for p in _RESUMOS_GENERICOS_PREFIXOS)
+
+
 def _resumo_heuristico(
     titulo: str,
     texto_extraido: Optional[str],
@@ -169,7 +178,9 @@ def _resumo_heuristico(
     if assunto and not is_generic_summary(assunto, titulo):
         return truncar_texto(assunto, MAX_RESUMO_CHARS)
     if resumo_atual and resumo_atual.strip() and _norm_key(resumo_atual) != _norm_key(titulo):
-        return truncar_texto(resumo_atual, MAX_RESUMO_CHARS)
+        # Issue #119: rótulos de botão/links ("AQUI", "Clique aqui", "Download") nunca viram resumo.
+        if not _is_rotulo_generico(resumo_atual):
+            return truncar_texto(resumo_atual, MAX_RESUMO_CHARS)
     return None
 
 

@@ -1175,6 +1175,22 @@ def _parse_sigla_e_generico(clean: str) -> Optional[Tuple[str, str]]:
     return None
 
 
+def _is_etapa_mais_orgao(clean: str) -> bool:
+    """True para títulos formados apenas por etapa + sigla de órgão (ex.: 'Resultado Provisório - FUP').
+
+    Sem número de edital nem programa/área, esses títulos não identificam o edital (Issue #119).
+    """
+    if _NUMERO_EDITAL_RE.search(clean):
+        return False
+    key = _norm_key(clean)
+    siglas = {s.lower() for s in ORGAOS_UNB if "_" not in s} | {"unb"}
+    for prefixo in _STAGE_PREFIXES:
+        if key == prefixo or key.startswith(prefixo + " "):
+            resto = key[len(prefixo):].split()
+            return bool(resto) and all(tok in siglas for tok in resto)
+    return False
+
+
 def is_vague_title(titulo: Optional[str]) -> bool:
     """Indica se o título é vago/genérico demais para identificar o edital (Issue #106)."""
     if titulo is None:
@@ -1197,6 +1213,10 @@ def is_vague_title(titulo: Optional[str]) -> bool:
     if " " not in clean and "_" in clean:
         return True
     if re.search(r"\.(?:pdf|docx?|odt|xlsx?)$", clean, re.IGNORECASE):
+        return True
+
+    # Etapa + sigla de órgão apenas (ex.: 'Resultado Provisório - FUP') — Issue #119.
+    if _is_etapa_mais_orgao(clean):
         return True
 
     # Etapa administrativa isolada, curta e sem número de edital nem programa/área.

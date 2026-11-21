@@ -125,6 +125,10 @@ class FUPScraper(BaseScraper):
         self._cache.clear()
         self._docs_by_page.clear()
 
+    _GENERIC_LINK_LABELS = frozenset(
+        {"aqui", "clique aqui", "acesse aqui", "edital", "download", "saiba mais", "leia mais", "veja mais"}
+    )
+
     def _get_client(self, timeout: Optional[float] = None) -> httpx.Client:
         return httpx.Client(
             timeout=timeout or self.timeout,
@@ -350,7 +354,12 @@ class FUPScraper(BaseScraper):
         )
         categoria = self._infer_categoria(titulo, resumo)
         status = self._infer_status(titulo, resumo, docs)
-        clean_resumo = self._clean_text(resumo) or titulo
+        clean_resumo = self._clean_text(resumo)
+        # Issue #119: resumo vazio ou rótulo de botão ("AQUI") -> usa o título como fallback.
+        if not clean_resumo or clean_resumo.strip(" .:-–").lower() in self._GENERIC_LINK_LABELS:
+            clean_resumo = self._clean_text(titulo)
+        if clean_resumo.strip(" .:-–").lower() in self._GENERIC_LINK_LABELS:
+            clean_resumo = ""
 
         if docs:
             self._docs_by_page[url_pagina] = docs
