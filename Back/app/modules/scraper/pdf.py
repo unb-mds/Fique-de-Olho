@@ -82,6 +82,33 @@ def normalize_extracted_text(text: Optional[str]) -> str:
     return result.strip()
 
 
+_GDRIVE_FILE_RE = re.compile(r"^https?://drive\.google\.com/file/d/([A-Za-z0-9_-]+)", re.IGNORECASE)
+_GDRIVE_OPEN_RE = re.compile(r"^https?://drive\.google\.com/open\?(?:[^#]*&)?id=([A-Za-z0-9_-]+)", re.IGNORECASE)
+
+
+def is_google_drive_url(url: Optional[str]) -> bool:
+    """Indica se a URL é um link de arquivo do Google Drive (/file/d/<ID>/... ou open?id=<ID>)."""
+    if not url or not isinstance(url, str):
+        return False
+    clean = url.strip()
+    return bool(_GDRIVE_FILE_RE.match(clean) or _GDRIVE_OPEN_RE.match(clean))
+
+
+def normalize_google_drive_url(url: str) -> str:
+    """Converte links de visualização do Google Drive para o link de download direto.
+
+    ``/file/d/<ID>/view`` e ``open?id=<ID>`` viram ``https://drive.google.com/uc?export=download&id=<ID>``.
+    Qualquer outra URL é devolvida inalterada.
+    """
+    if not url or not isinstance(url, str):
+        return url
+    clean = url.strip()
+    m = _GDRIVE_FILE_RE.match(clean) or _GDRIVE_OPEN_RE.match(clean)
+    if not m:
+        return url
+    return f"https://drive.google.com/uc?export=download&id={m.group(1)}"
+
+
 def download_pdf(
     url: str,
     timeout: float = DEFAULT_TIMEOUT,
@@ -100,6 +127,7 @@ def download_pdf(
     Raises:
         PDFDownloadError: Caso o download falhe por timeout, erro HTTP ou conexão.
     """
+    url = normalize_google_drive_url(url)
     try:
         response = httpx.get(
             url,

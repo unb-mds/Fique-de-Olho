@@ -28,6 +28,7 @@ from app.modules.scraper.pdf import (
     PDFDownloadError,
     PDFExtractionError,
     extract_pdf,
+    is_google_drive_url,
 )
 from app.modules.notificacoes.service import (
     gerar_notificacoes_prazo as _gerar_notificacoes_prazo,
@@ -260,6 +261,8 @@ def _is_likely_pdf_url(url: Optional[str]) -> bool:
     low = url.strip().lower()
     if not low.startswith(("http://", "https://")):
         return False
+    if is_google_drive_url(url):
+        return True
     base_path = low.split("?", 1)[0].split("#", 1)[0]
     if base_path.endswith(".pdf"):
         return True

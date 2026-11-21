@@ -2,7 +2,7 @@
 
 Issues #77 (resumo automático), #106 (normalização de títulos vagos/genéricos),
 #121/#125 (extração estruturada de metadados) e #129 (modelo econômico autônomo
-gemini-3.5-flash-lite com fallback de modelo e retry de rate limit).
+gemini-2.5-flash-lite com fallback de modelo e retry de rate limit).
 
 Fluxo:
 1. Calcula sempre o resultado determinístico da Camada 1 (``parser.py``):
@@ -32,6 +32,7 @@ from app.core.config import settings
 from app.modules.scraper.parser import (
     MAX_RESUMO_CHARS,
     MAX_TITULO_CHARS,
+    _TITULOS_GENERICOS,
     _norm_key,
     extrair_objeto_edital,
     is_vague_title,
@@ -154,6 +155,14 @@ def _build_async_client(timeout: float) -> httpx.AsyncClient:
     return httpx.AsyncClient(timeout=timeout)
 
 
+def _is_rotulo_generico(texto: Optional[str]) -> bool:
+    """True quando o texto é apenas um rótulo genérico de botão/link (AQUI, Download, Edital...)."""
+    key = _norm_key(texto)
+    if not key:
+        return True
+    return key in _TITULOS_GENERICOS or any(key.startswith(p) for p in _RESUMOS_GENERICOS_PREFIXOS)
+
+
 def _resumo_heuristico(
     titulo: str,
     texto_extraido: Optional[str],
@@ -169,7 +178,9 @@ def _resumo_heuristico(
     if assunto and not is_generic_summary(assunto, titulo):
         return truncar_texto(assunto, MAX_RESUMO_CHARS)
     if resumo_atual and resumo_atual.strip() and _norm_key(resumo_atual) != _norm_key(titulo):
-        return truncar_texto(resumo_atual, MAX_RESUMO_CHARS)
+        # Issue #119: rótulos de botão/links ("AQUI", "Clique aqui", "Download") nunca viram resumo.
+        if not _is_rotulo_generico(resumo_atual):
+            return truncar_texto(resumo_atual, MAX_RESUMO_CHARS)
     return None
 
 
@@ -247,7 +258,7 @@ def _planejar(
 
 
 def _request_args(prompt: str, model: Optional[str] = None) -> Tuple[str, Dict[str, str], Dict[str, Any]]:
-    alvo = (model or settings.GEMINI_MODEL or "gemini-3.5-flash-lite").strip()
+    alvo = (model or settings.GEMINI_MODEL or "gemini-2.5-flash-lite").strip()
     url = GEMINI_ENDPOINT.format(model=alvo)
     headers = {"x-goog-api-key": settings.GEMINI_API_KEY, "Content-Type": "application/json"}
     body = {
@@ -325,7 +336,7 @@ async def _post_with_retry_async(
 
 def _call_gemini_sync(prompt: str) -> Dict[str, Any]:
     """Executa chamada síncrona ao Gemini com retry em 429 e fallback automático de modelo em 404."""
-    primary_model = (settings.GEMINI_MODEL or "gemini-3.5-flash-lite").strip()
+    primary_model = (settings.GEMINI_MODEL or "gemini-2.5-flash-lite").strip()
     fallback_model = (getattr(settings, "GEMINI_FALLBACK_MODEL", "") or "").strip()
     url, headers, body = _request_args(prompt, model=primary_model)
     with _build_client(settings.GEMINI_TIMEOUT_SECONDS) as client:
@@ -341,7 +352,7 @@ def _call_gemini_sync(prompt: str) -> Dict[str, Any]:
 
 async def _call_gemini_async(prompt: str) -> Dict[str, Any]:
     """Executa chamada assíncrona ao Gemini com retry em 429 e fallback automático de modelo em 404."""
-    primary_model = (settings.GEMINI_MODEL or "gemini-3.5-flash-lite").strip()
+    primary_model = (settings.GEMINI_MODEL or "gemini-2.5-flash-lite").strip()
     fallback_model = (getattr(settings, "GEMINI_FALLBACK_MODEL", "") or "").strip()
     url, headers, body = _request_args(prompt, model=primary_model)
     async with _build_async_client(settings.GEMINI_TIMEOUT_SECONDS) as client:

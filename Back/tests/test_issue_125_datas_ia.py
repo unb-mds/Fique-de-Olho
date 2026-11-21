@@ -180,7 +180,7 @@ def test_fallback_textual_ignora_taxa_e_cabecalho_sem_data():
 
 def test_gemini_model_padrao_esta_ativo():
     assert settings.GEMINI_MODEL != "gemini-1.5-flash"
-    assert settings.GEMINI_MODEL in ("gemini-3.5-flash-lite", "gemini-flash-latest", "gemini-2.5-flash")
+    assert settings.GEMINI_MODEL in ("gemini-2.5-flash-lite", "gemini-flash-latest", "gemini-2.5-flash")
 
 
 def test_selecionar_trechos_preserva_cronograma_apos_6000_chars():

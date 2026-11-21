@@ -127,6 +127,21 @@ class PRCScraper(BaseScraper):
         self._cache.clear()
         self._docs_by_page.clear()
 
+    @staticmethod
+    def _is_generic_home_redirect(requested_url: str, response: Any) -> bool:
+        """Detecta redirecionamento (301) de prc.unb.br para a home genérica de unb.br sem documento real (Issue #119)."""
+        try:
+            req_host = (urlparse(requested_url).hostname or "").lower()
+            final = urlparse(str(response.url))
+        except Exception:
+            return False
+        final_host = (final.hostname or "").lower()
+        if not req_host.endswith("prc.unb.br") or final_host == req_host:
+            return False
+        if final_host not in {"unb.br", "www.unb.br"}:
+            return False
+        return final.path.strip("/") == "" and not final.query
+
     def _get_client(self, timeout: Optional[float] = None) -> httpx.Client:
         return httpx.Client(
             timeout=timeout or self.timeout,
@@ -511,6 +526,9 @@ class PRCScraper(BaseScraper):
             for joomla_url in (self.JOOMLA_NEWS_URL, self.JOOMLA_SEARCH_URL):
                 try:
                     resp_j = client.get(joomla_url)
+                    if self._is_generic_home_redirect(joomla_url, resp_j):
+                        logger.warning(f"Portal Joomla PRC redirecionou para a home genérica da UnB ({joomla_url}); ignorando.")
+                        continue
                     if resp_j.status_code == 200 and resp_j.text:
                         for item in self._parse_joomla_prc_html(resp_j.text, base_url=self.BASE_URL):
                             if item["identificador_origem"] not in seen_ids:
@@ -546,6 +564,10 @@ class PRCScraper(BaseScraper):
                 resp.raise_for_status()
         except Exception as e:
             logger.error(f"Erro ao buscar documentos do edital PRC ({edital_url}): {e}")
+            return []
+
+        if self._is_generic_home_redirect(target_url, resp):
+            logger.warning(f"Edital PRC ({edital_url}) redirecionou para a home genérica da UnB; sem documento real.")
             return []
 
         soup = BeautifulSoup(resp.text, "html.parser")
