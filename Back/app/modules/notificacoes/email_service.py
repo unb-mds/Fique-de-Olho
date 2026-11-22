@@ -6,6 +6,7 @@ from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 
 logger = logging.getLogger(__name__)
+SENDGRID_TIMEOUT_SECONDS = 10
 
 
 def enviar_email(
@@ -24,7 +25,13 @@ def enviar_email(
         html_content=html,
     )
     try:
-        resposta = SendGridAPIClient(api_key).send(mensagem)
+        cliente = SendGridAPIClient(api_key)
+        if hasattr(cliente, "client"):
+            try:
+                cliente.client.timeout = SENDGRID_TIMEOUT_SECONDS
+            except Exception:
+                pass
+        resposta = cliente.send(mensagem)
     except Exception as exc:
         detalhes = getattr(exc, "body", None)
         status_code = getattr(exc, "status_code", None)

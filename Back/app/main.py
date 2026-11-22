@@ -81,13 +81,13 @@ app.add_middleware(GZipMiddleware, minimum_size=500)
 
 
 @app.get("/", include_in_schema=False)
-def root():
+async def root():
     """Redireciona automaticamente a raiz para a documentação interativa Swagger."""
     return RedirectResponse(url="/docs")
 
 
-@app.get("/ping", tags=["Health"])
-def ping():
+@app.api_route("/ping", methods=["GET", "HEAD"], tags=["Health"])
+async def ping():
     """Endpoint leve de keep-alive que mantém o contêiner acordado sem consultar o banco."""
     return {"status": "awake"}
 

@@ -5,15 +5,28 @@ validação de tokens de autenticação Bearer/JWT (Issue #63).
 """
 
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 import jwt
 from pwdlib import PasswordHash
+from pwdlib.hashers.argon2 import Argon2Hasher
 
 from app.core.config import settings
 
-# Contexto de hashing de senhas (Argon2 recomendado)
-pwd_context = PasswordHash.recommended()
+ARGON2_MEMORY_COST = 19456  # 19 MiB (perfil OWASP)
+ARGON2_TIME_COST = 2
+ARGON2_PARALLELISM = 1
+
+# Contexto de hashing de senhas (Argon2 perfil OWASP low-memory)
+pwd_context = PasswordHash(
+    (
+        Argon2Hasher(
+            memory_cost=ARGON2_MEMORY_COST,
+            time_cost=ARGON2_TIME_COST,
+            parallelism=ARGON2_PARALLELISM,
+        ),
+    )
+)
 
 # Campos sensíveis que jamais devem ser serializados no payload do token
 SENSITIVE_FIELDS = {"senha", "senha_hash", "password"}
@@ -27,6 +40,14 @@ def get_password_hash(password: str) -> str:
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verifica se a senha em texto puro corresponde ao hash armazenado."""
     return pwd_context.verify(plain_password, hashed_password)
+
+
+def verify_and_update_password(
+    plain_password: str,
+    hashed_password: str,
+) -> Tuple[bool, Optional[str]]:
+    """Verifica a senha e retorna opcionalmente um novo hash atualizado."""
+    return pwd_context.verify_and_update(plain_password, hashed_password)
 
 
 def create_access_token(

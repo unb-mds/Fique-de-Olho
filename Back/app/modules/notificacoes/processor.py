@@ -93,17 +93,25 @@ def processar_notificacoes_pendentes(
         .order_by(Notificacao.id)
         .all()
     )
+    itens_para_processar = [
+        (
+            notificacao.id,
+            notificacao.usuario.email,
+            *_conteudo_notificacao(notificacao),
+        )
+        for notificacao in notificacoes
+    ]
+
     enviadas = 0
     falhas = 0
 
-    for notificacao in notificacoes:
-        assunto, html = _conteudo_notificacao(notificacao)
+    for notif_id, destinatario, assunto, html in itens_para_processar:
         enviado = False
         ultimo_erro: Exception | None = None
         for tentativa in range(max_tentativas):
             try:
                 enviar_email(
-                    destinatario=notificacao.usuario.email,
+                    destinatario=destinatario,
                     assunto=assunto,
                     html=html,
                     api_key=api_key,
@@ -115,8 +123,8 @@ def processar_notificacoes_pendentes(
                     "Tentativa %s/%s falhou ao enviar notificação id=%s para %s: %s",
                     tentativa + 1,
                     max_tentativas,
-                    notificacao.id,
-                    notificacao.usuario.email,
+                    notif_id,
+                    destinatario,
                     exc,
                 )
                 if tentativa < max_tentativas - 1:
@@ -126,19 +134,29 @@ def processar_notificacoes_pendentes(
             break
 
         if not enviado:
-            notificacao.status = StatusNotificacao.FALHOU
             falhas += 1
             logger.error(
                 "Notificação id=%s marcada como FALHOU após %s tentativas: %s",
-                notificacao.id,
+                notif_id,
                 max_tentativas,
                 ultimo_erro,
             )
+            valores_update: dict[str, Any] = {"status": StatusNotificacao.FALHOU}
         else:
-            notificacao.status = StatusNotificacao.ENVIADA
-            notificacao.enviada_em = datetime.now(timezone.utc)
             enviadas += 1
+            valores_update = {
+                "status": StatusNotificacao.ENVIADA,
+                "enviada_em": datetime.now(timezone.utc),
+            }
+
+        db.query(Notificacao).filter(Notificacao.id == notif_id).update(
+            valores_update,
+            synchronize_session=False,
+        )
         db.commit()
+
+    if itens_para_processar:
+        db.expire_all()
 
     if enviadas or falhas:
         logger.info(

@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: str = "insecure-secret-key-change-in-production-mds-2026"
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 horas
+    ADMIN_API_KEY: str = ""
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
     SENDGRID_API_KEY: str = ""
@@ -45,14 +46,16 @@ class Settings(BaseSettings):
 
     # Cache em memória Stale-While-Revalidate da listagem de editais (Issue #116)
     EDITAIS_CACHE_TTL_SECONDS: int = 900
+    EDITAIS_CACHE_MAXSIZE: int = 500
 
     # Camada 2 (LLM) de resumo/normalização de títulos e metadados — Issues #77, #106, #121 e #125.
     # Opcional: sem chave, o pipeline usa apenas a heurística local (Camada 1).
     GEMINI_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemini-2.5-flash"
+    GEMINI_MODEL: str = "gemini-2.5-flash-lite"
     GEMINI_TIMEOUT_SECONDS: float = 10.0
 
     @field_validator(
+        "ADMIN_API_KEY",
         "SENDGRID_API_KEY",
         "SENDGRID_FROM_EMAIL",
         "GEMINI_API_KEY",
