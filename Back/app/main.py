@@ -11,6 +11,7 @@ from sqlalchemy import text
 from app.core.config import settings
 from app.core.database import engine
 from app.modules.editais.router import router as editais_router
+from app.modules.feedback.router import router as feedback_router
 from app.modules.usuarios.router import router as usuarios_router
 from app.modules.notificacoes.processor import sendgrid_configurado
 from app.modules.notificacoes.scheduler import executar_scheduler_notificacoes
@@ -124,3 +125,4 @@ app.include_router(editais_router, prefix=settings.API_V1_STR)
 # 2. Rota de compatibilidade direta (/editais) para frontend e testes
 app.include_router(editais_router, include_in_schema=False)
 app.include_router(usuarios_router, prefix=settings.API_V1_STR)
+app.include_router(feedback_router, prefix=settings.API_V1_STR)

@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_SECRET: str = ""
     SENDGRID_API_KEY: str = ""
     SENDGRID_FROM_EMAIL: str = ""
+    FEEDBACK_TO_EMAIL: str = "fiquedeolho1011@gmail.com"
     NOTIFICATION_SCHEDULER_ENABLED: bool = True
     NOTIFICATION_SCHEDULER_INTERVAL_SECONDS: int = 3600
 
@@ -57,6 +58,7 @@ class Settings(BaseSettings):
     @field_validator(
         "SENDGRID_API_KEY",
         "SENDGRID_FROM_EMAIL",
+        "FEEDBACK_TO_EMAIL",
         "GEMINI_API_KEY",
         "GEMINI_MODEL",
         "GEMINI_FALLBACK_MODEL",

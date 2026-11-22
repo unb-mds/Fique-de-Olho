@@ -514,13 +514,34 @@ def list_editais_com_filtros(
                 query = query.filter(~_condicao_pos_graduacao())
 
     if campus and campus.strip():
-        campus_pattern = f"%{campus.strip()}%"
-        query = query.filter(
-            or_(
-                Edital.campus.ilike(campus_pattern),
-                Edital.campi.any(Campus.nome.ilike(campus_pattern)),
-            )
+        campus_normalizado = _normalizar_texto_busca(campus.strip())
+        alias_campus: Dict[str, tuple[str, ...]] = {
+            "darcy ribeiro": ("darcy ribeiro", "plano piloto"),
+            "plano piloto": ("darcy ribeiro", "plano piloto"),
+            "fga": ("fga", "gama", "fcte"),
+            "gama": ("fga", "gama", "fcte"),
+            "fga (gama)": ("fga", "gama", "fcte"),
+            "fce": ("fce", "ceilândia", "ceilandia"),
+            "ceilandia": ("fce", "ceilândia", "ceilandia"),
+            "fce (ceilandia)": ("fce", "ceilândia", "ceilandia"),
+            "fup": ("fup", "planaltina"),
+            "planaltina": ("fup", "planaltina"),
+            "fup (planaltina)": ("fup", "planaltina"),
+            "fazenda agua limpa": ("fazenda água limpa", "fazenda agua limpa", "fal"),
+            "fal": ("fazenda água limpa", "fazenda agua limpa", "fal"),
+            "geral": ("geral",),
+        }
+        termos_campus = _expandir_termos_case_acento(
+            alias_campus.get(campus_normalizado, (campus.strip(),))
         )
+        filtros_campus = []
+        for termo in termos_campus:
+            campus_pattern = f"%{termo}%"
+            filtros_campus.extend([
+                func.coalesce(Edital.campus, "").ilike(campus_pattern),
+                Edital.campi.any(Campus.nome.ilike(campus_pattern)),
+            ])
+        query = query.filter(or_(*filtros_campus))
 
     ordered_query = query.order_by(Edital.data_publicacao.desc().nullslast()).offset(skip).limit(limit)
     resultados = ordered_query.all()
