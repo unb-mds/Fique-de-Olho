@@ -61,15 +61,15 @@ def test_database_connect_timeout_condicionado_ao_postgresql():
     assert build_db_connect_args("sqlite:///./test.db") == {}
 
 
-def test_gemini_model_default_e_gemini_2_5_flash_lite(monkeypatch):
+def test_gemini_model_default_e_gemini_3_5_flash_lite(monkeypatch):
     monkeypatch.delenv("GEMINI_MODEL", raising=False)
     from app.core.config import Settings
 
     cfg = Settings(_env_file=None)
-    assert cfg.GEMINI_MODEL == "gemini-2.5-flash-lite"
+    assert cfg.GEMINI_MODEL == "gemini-3.5-flash-lite"
 
     render_yaml = Path(__file__).resolve().parents[2] / "render.yaml"
-    assert "value: gemini-2.5-flash-lite" in render_yaml.read_text(encoding="utf-8")
+    assert "value: gemini-3.5-flash-lite" in render_yaml.read_text(encoding="utf-8")
 
 
 def test_extract_pdf_chama_flush_cache_e_preserva_anexos_finais(monkeypatch):
