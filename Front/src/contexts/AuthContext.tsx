@@ -11,6 +11,7 @@ import {
   updateEmailPreference,
   type Usuario,
 } from "@/services/authService";
+import { limparCacheFavoritos } from "@/services/favoritosService";
 import { limparCacheAlertas } from "@/services/notificacoesService";
 
 type AuthContextType = {
@@ -64,6 +65,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   function logout() {
     localStorage.removeItem("token");
     localStorage.removeItem("usuario");
+    limparCacheFavoritos();
     limparCacheAlertas();
     setUsuario(null);
   }

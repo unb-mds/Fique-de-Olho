@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Header from '@/components/Header';
 import Hero from '@/components/Hero';
 import FilterBar from '@/components/FilterBar';
@@ -15,11 +15,24 @@ export default function HomePage() {
   const [hasMore, setHasMore] = useState(false);
   const [categoria, setCategoria] = useState<string | null>(null);
   const [situacao, setSituacao] = useState<'aberto' | 'fechado' | null>(null);
+  const [campus, setCampus] = useState<string | null>(null);
+  const [ano, setAno] = useState<number | null>(null);
   const [totalAbertos, setTotalAbertos] = useState(0);
   const [destaquesAbertos, setDestaquesAbertos] = useState<Edital[]>([]);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const deferredSearch = useDeferredValue(search);
+
+  useEffect(() => {
+    if (!search.trim()) {
+      setDebouncedSearch('');
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 220);
+    return () => window.clearTimeout(timer);
+  }, [search]);
 
   useEffect(() => {
     getEditaisStats().then((stats) => setTotalAbertos(stats.abertos)).catch(() => setTotalAbertos(0));
@@ -27,22 +40,33 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
+    const controller = new AbortController();
     setLoading(true);
     setError(null);
     getEditais({
-      q: deferredSearch,
+      q: debouncedSearch,
       categoria,
       status: situacao,
+      campus,
+      ano,
       skip: 0,
       limit: PAGE_SIZE,
+      signal: controller.signal,
     })
       .then((dados) => {
+        if (controller.signal.aborted) return;
         setEditais(dados);
         setHasMore(dados.length === PAGE_SIZE);
       })
-      .catch((err: Error) => setError(err.message))
-      .finally(() => setLoading(false));
-  }, [deferredSearch, categoria, situacao]);
+      .catch((err: Error) => {
+        if (controller.signal.aborted || err.name === 'AbortError') return;
+        setError(err.message);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
+  }, [debouncedSearch, categoria, situacao, campus, ano]);
 
   const editaisAbertos = useMemo(
     () => editais.filter((e) => e.status === 'aberto'),
@@ -64,9 +88,11 @@ export default function HomePage() {
     setLoadingMore(true);
     try {
       const dados = await getEditais({
-        q: deferredSearch,
+        q: debouncedSearch,
         categoria,
         status: situacao,
+        campus,
+        ano,
         skip: editais.length,
         limit: PAGE_SIZE,
       });
@@ -82,6 +108,8 @@ export default function HomePage() {
   function clearSearchAndFilters() {
     setCategoria(null);
     setSituacao(null);
+    setCampus(null);
+    setAno(null);
     setSearch('');
   }
 
@@ -125,8 +153,12 @@ export default function HomePage() {
           areaCounts={areaCounts}
           activeCategoria={categoria}
           activeStatus={situacao}
+          activeCampus={campus}
+          activeAno={ano}
           onSelectCategoria={setCategoria}
           onSelectStatus={setSituacao}
+          onSelectCampus={setCampus}
+          onSelectAno={setAno}
           onClearFilters={clearSearchAndFilters}
         />
 

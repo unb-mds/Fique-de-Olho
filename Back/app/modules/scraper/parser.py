@@ -17,6 +17,7 @@ from __future__ import annotations
 import logging
 import re
 import unicodedata
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.parse import unquote, urlparse
@@ -130,11 +131,13 @@ def parse_date_pt(day_str: str, month_str: str, year_str: str) -> Optional[datet
     """Converte dia, mês (nome ou número) e ano para datetime UTC com validação."""
     try:
         day = int(day_str)
-        cleaned_month = _strip_accents(month_str.strip())
+        cleaned_month = _strip_accents(month_str.strip()).rstrip(".")
         if cleaned_month.isdigit():
             month = int(cleaned_month)
         else:
-            month = MESES_PT.get(cleaned_month, 1)
+            month = MESES_PT.get(cleaned_month)
+            if month is None:
+                return None
 
         year = int(year_str)
         if year < 100:
@@ -145,133 +148,246 @@ def parse_date_pt(day_str: str, month_str: str, year_str: str) -> Optional[datet
         return None
 
 
+_TIME_NOISE_RE = (
+    r"(?:[\s,]*(?:\(|\[)?(?:a\s+partir\s+d[ao]s?|[aà]s|as)?\s*"
+    r"(?:\d{1,2}\s*:\s*\d{2}(?:\s*h(?:oras)?)?|\d{1,2}\s*h(?:\d{2}|oras?)?)"
+    r"(?:\s*min)?(?:\)|\])?[\s,]*)?"
+)
+_DIA_PREFIX_RE = r"(?:d[oa]\s+dia\s+|dia\s+)?"
+_MES_WORD_RE = r"([a-zçáéíóúãõâêîôû]{3,12}\.?)"
+# Aceita DD/MM/AA(AA) com barra OU DD.MM.AAAA / DD-MM-AAAA exigindo ano de 4 dígitos
+# (evita falsos positivos com numeração de itens como "3.1.10" ou "2.1-3").
+_DATE_NUM_RE = r"(?:(\d{1,2})/(\d{1,2})/(\d{2,4})|(\d{1,2})[.\-](\d{1,2})[.\-]((?:19|20)\d{2}))"
+_INTERVAL_CONN_RE = r"(?:a\s+at[eé]|at[eé]|ate|[aà]s|as|a|[-–—])"
+_INTERVAL_WORD_CONN_RE = r"(?:a\s+at[eé]|at[eé]|ate|[aà]s|as|a)"
+
+
+def _parse_date_num_groups(g1, g2, g3, g4, g5, g6) -> Optional[datetime]:
+    if g1 is not None:
+        return parse_date_pt(g1, g2, g3)
+    if g4 is not None:
+        return parse_date_pt(g4, g5, g6)
+    return None
+
+
 def parse_data_interval(text: str, default_year: Optional[int] = None) -> Tuple[Optional[datetime], Optional[datetime]]:
     """Extrai data de início e término a partir de uma expressão textual de intervalo.
 
     Formatos suportados:
     - '23 de setembro a 14 de outubro de 2026'
-    - '23 a 30 de setembro de 2026'
-    - '15/09/2026 a 30/09/2026' ou '15/09 a 30/09/2026'
+    - '23 a 30 de setembro de 2026' / 'entre os dias 10 e 20 de novembro de 2026'
+    - '15/09/2026 a 30/09/2026', '15.09.2026 - 30.09.2026', '15-09-2026 a 30-09-2026', '15/09 a 30/09/2026'
     - '02 a 06/03/2026' (dia1 a dia2/mes/ano)
     - '05 a 12 de mar de 2026' (meses abreviados)
+    - 'das 10h do dia 01/11/2026 às 18h do dia 15/11/2026' (horários intercalados)
+    - 'de 01/11/2026 (08h) a 15/11/2026 (23h59)'
+    - 'entre 10/11/2026 e 20/11/2026'
     - 'até às 18h do dia 15 de dezembro de 2026' (limite extenso)
     - 'inscrições até 23:59 do dia 20/11/2026' (limite numérico)
     - '14 de outubro de 2026' (data única -> início e fim iguais)
-    - '14/10/2026'
+    - '14/10/2026' / '14.10.2026' / '14-10-2026'
     """
     if not text or not text.strip():
         return None, None
 
-    clean = text.strip()
+    clean = re.sub(r"\s+", " ", text.strip())
 
-    # 0a. Limite por extenso: 'até às 18h do dia 15 de dezembro de 2026'
+    # 1a. Intervalo numérico completo com 'entre ... e ...' ou conectores 'a'/'até'/'-'/'–' e horários intercalados
+    p_num_entre = re.search(
+        rf"entre\s+(?:os\s+dias\s+)?{_TIME_NOISE_RE}{_DIA_PREFIX_RE}"
+        rf"{_DATE_NUM_RE}"
+        rf"{_TIME_NOISE_RE}\s+e\s+{_TIME_NOISE_RE}{_DIA_PREFIX_RE}"
+        rf"{_DATE_NUM_RE}",
+        clean,
+        re.I,
+    )
+    if p_num_entre:
+        g = p_num_entre.groups()
+        dt_ini = _parse_date_num_groups(*g[:6])
+        dt_fim = _parse_date_num_groups(*g[6:12])
+        if dt_ini and dt_fim:
+            return dt_ini, dt_fim
+
+    p_slash_full = re.search(
+        rf"{_DATE_NUM_RE}"
+        rf"{_TIME_NOISE_RE}\s*{_INTERVAL_CONN_RE}\s*{_TIME_NOISE_RE}{_DIA_PREFIX_RE}"
+        rf"{_DATE_NUM_RE}",
+        clean,
+        re.I,
+    )
+    if p_slash_full:
+        g = p_slash_full.groups()
+        dt_ini = _parse_date_num_groups(*g[:6])
+        dt_fim = _parse_date_num_groups(*g[6:12])
+        if dt_ini and dt_fim:
+            return dt_ini, dt_fim
+
+    # 1b. '15/09 a 30/09/2026' ou '15/09 - 30/09/2026' (ano apenas na segunda data; barra explícita)
+    p_slash_partial = re.search(
+        rf"(?<!\d)(\d{{1,2}})/(\d{{1,2}})"
+        rf"{_TIME_NOISE_RE}\s*{_INTERVAL_CONN_RE}\s*{_TIME_NOISE_RE}{_DIA_PREFIX_RE}"
+        rf"(\d{{1,2}})/(\d{{1,2}})/(\d{{2,4}})",
+        clean,
+        re.I,
+    )
+    if p_slash_partial:
+        d1, m1, d2, m2, y2 = p_slash_partial.groups()
+        dt_ini, dt_fim = parse_date_pt(d1, m1, y2), parse_date_pt(d2, m2, y2)
+        if dt_ini and dt_fim:
+            return dt_ini, dt_fim
+
+    # 1c. '02 a 06/03/2026' (dia1 a dia2/mes/ano — exige conector textual para não casar 'Fase 1 - 15/11/2026')
+    p_slash_compact = re.search(
+        rf"(?<!\d)(\d{{1,2}})\s+{_INTERVAL_WORD_CONN_RE}\s+(\d{{1,2}})/(\d{{1,2}})/(\d{{2,4}})",
+        clean,
+        re.I,
+    )
+    if p_slash_compact:
+        d1, d2, m, y = p_slash_compact.groups()
+        dt_ini, dt_fim = parse_date_pt(d1, m, y), parse_date_pt(d2, m, y)
+        if dt_ini and dt_fim:
+            return dt_ini, dt_fim
+
+    # 2a. Intervalo por extenso entre meses diferentes (com ou sem horários / 'entre ... e ...'):
+    # '23 de setembro a 14 de outubro de 2026', 'entre 10 de novembro e 20 de dezembro de 2026'
+    p_ext_entre = re.search(
+        rf"entre\s+(?:os\s+dias\s+)?{_TIME_NOISE_RE}{_DIA_PREFIX_RE}"
+        rf"(\d{{1,2}})\s+de\s+{_MES_WORD_RE}(?:\s+de\s+(\d{{4}}))?"
+        rf"{_TIME_NOISE_RE}\s+e\s+{_TIME_NOISE_RE}{_DIA_PREFIX_RE}"
+        rf"(\d{{1,2}})\s+de\s+{_MES_WORD_RE}\s+de\s+(\d{{4}})",
+        clean,
+        re.I,
+    )
+    if p_ext_entre:
+        d1, m1, y1_opt, d2, m2, y2 = p_ext_entre.groups()
+        dt_ini, dt_fim = parse_date_pt(d1, m1, y1_opt or y2), parse_date_pt(d2, m2, y2)
+        if dt_ini and dt_fim:
+            return dt_ini, dt_fim
+
+    p1 = re.search(
+        rf"(\d{{1,2}})\s+de\s+{_MES_WORD_RE}(?:\s+de\s+(\d{{4}}))?"
+        rf"{_TIME_NOISE_RE}\s*{_INTERVAL_CONN_RE}\s*{_TIME_NOISE_RE}{_DIA_PREFIX_RE}"
+        rf"(\d{{1,2}})\s+de\s+{_MES_WORD_RE}\s+de\s+(\d{{4}})",
+        clean,
+        re.I,
+    )
+    if p1:
+        d1, m1, y1_opt, d2, m2, y2 = p1.groups()
+        dt_ini, dt_fim = parse_date_pt(d1, m1, y1_opt or y2), parse_date_pt(d2, m2, y2)
+        if dt_ini and dt_fim:
+            return dt_ini, dt_fim
+
+    # 2b. Mesmo mês por extenso: '23 a 30 de setembro de 2026', 'entre os dias 10 e 20 de novembro de 2026'
+    p_mesmo_mes_entre = re.search(
+        rf"entre\s+(?:os\s+dias\s+)?(\d{{1,2}})\s+e\s+(\d{{1,2}})\s+de\s+{_MES_WORD_RE}\s+de\s+(\d{{4}})",
+        clean,
+        re.I,
+    )
+    if p_mesmo_mes_entre:
+        d1, d2, m, y = p_mesmo_mes_entre.groups()
+        dt_ini, dt_fim = parse_date_pt(d1, m, y), parse_date_pt(d2, m, y)
+        if dt_ini and dt_fim:
+            return dt_ini, dt_fim
+
+    p2 = re.search(
+        rf"(\d{{1,2}})\s*{_INTERVAL_CONN_RE}\s*(\d{{1,2}})\s+de\s+{_MES_WORD_RE}\s+de\s+(\d{{4}})",
+        clean,
+        re.I,
+    )
+    if p2:
+        d1, d2, m, y = p2.groups()
+        dt_ini, dt_fim = parse_date_pt(d1, m, y), parse_date_pt(d2, m, y)
+        if dt_ini and dt_fim:
+            return dt_ini, dt_fim
+
+    # 3a. Limite único por extenso: 'até às 18h do dia 15 de dezembro de 2026'
     p_lim_ext = re.search(
-        r"at[eé]\s+(?:[aà]s\s+)?(?:\d{1,2}[:h]\d{0,2})?\s*(?:h(?:oras)?)?\s*(?:do\s+dia\s+)?(\d{1,2})\s+de\s+([a-zçáéíóúãõâêîôû]+)\s+de\s+(\d{4})",
+        rf"at[eé]\s+{_TIME_NOISE_RE}{_DIA_PREFIX_RE}(\d{{1,2}})\s+de\s+{_MES_WORD_RE}\s+de\s+(\d{{4}})",
         clean,
         re.I,
     )
     if p_lim_ext:
         d, m, y = p_lim_ext.groups()
         dt_fim = parse_date_pt(d, m, y)
-        return None, dt_fim
+        if dt_fim:
+            return None, dt_fim
 
-    # 0b. Limite numérico: 'inscrições até 23:59 do dia 20/11/2026'
+    # 3b. Limite único numérico: 'inscrições até 23:59 do dia 20/11/2026'
     p_lim_num = re.search(
-        r"at[eé]\s+(?:[aà]s\s+)?(?:\d{1,2}[:h]\d{0,2})?\s*(?:h(?:oras)?)?\s*(?:do\s+dia\s+)?(\d{1,2})/(\d{1,2})/(\d{2,4})",
+        rf"at[eé]\s+{_TIME_NOISE_RE}{_DIA_PREFIX_RE}{_DATE_NUM_RE}",
         clean,
         re.I,
     )
     if p_lim_num:
-        d, m, y = p_lim_num.groups()
-        dt_fim = parse_date_pt(d, m, y)
-        return None, dt_fim
-
-    # 0c. '01/04/2026 a 15/04/2026' (duas datas completas)
-    p_slash_full = re.search(
-        r"(\d{1,2})/(\d{1,2})/(\d{2,4})\s+(?:a|ate|até)\s+(\d{1,2})/(\d{1,2})/(\d{2,4})",
-        clean,
-        re.I,
-    )
-    if p_slash_full:
-        d1, m1, y1, d2, m2, y2 = p_slash_full.groups()
-        return parse_date_pt(d1, m1, y1), parse_date_pt(d2, m2, y2)
-
-    # 0d. '02 a 06/03/2026' (dia1 a dia2/mes/ano)
-    p_slash_compact = re.search(
-        r"(\d{1,2})\s+(?:a|ate|até)\s+(\d{1,2})/(\d{1,2})/(\d{2,4})",
-        clean,
-        re.I,
-    )
-    if p_slash_compact:
-        d1, d2, m, y = p_slash_compact.groups()
-        return parse_date_pt(d1, m, y), parse_date_pt(d2, m, y)
-
-    # 1. '23 de setembro a 14 de outubro de 2026'
-    p1 = re.search(
-        r"(\d{1,2})\s+de\s+([a-zçáéíóúãõâêîôû]+)(?:\s+de\s+(\d{4}))?\s+(?:a|ate|até)\s+(\d{1,2})\s+de\s+([a-zçáéíóúãõâêîôû]+)\s+de\s+(\d{4})",
-        clean,
-        re.I,
-    )
-    if p1:
-        d1, m1, y1_opt, d2, m2, y2 = p1.groups()
-        y1 = y1_opt or y2
-        dt_ini = parse_date_pt(d1, m1, y1)
-        dt_fim = parse_date_pt(d2, m2, y2)
-        return dt_ini, dt_fim
-
-    # 2. '23 a 30 de setembro de 2026' ou '05 a 12 de mar de 2026' (mesmo mês)
-    p2 = re.search(
-        r"(\d{1,2})\s+(?:a|ate|até)\s+(\d{1,2})\s+de\s+([a-zçáéíóúãõâêîôû]+)\s+de\s+(\d{4})",
-        clean,
-        re.I,
-    )
-    if p2:
-        d1, d2, m, y = p2.groups()
-        return parse_date_pt(d1, m, y), parse_date_pt(d2, m, y)
-
-    # 3. '15/09/2026 a 30/09/2026' ou '15/09 a 30/09/2026'
-    p3 = re.search(
-        r"(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?\s+(?:a|ate|até)\s+(\d{1,2})/(\d{1,2})/(\d{2,4})",
-        clean,
-        re.I,
-    )
-    if p3:
-        d1, m1, y1_opt, d2, m2, y2 = p3.groups()
-        y1 = y1_opt or y2
-        return parse_date_pt(d1, m1, y1), parse_date_pt(d2, m2, y2)
+        dt_fim = _parse_date_num_groups(*p_lim_num.groups())
+        if dt_fim:
+            return None, dt_fim
 
     # 4. Data única por extenso: '14 de outubro de 2026'
     p4 = re.search(
-        r"(\d{1,2})\s+de\s+([a-zçáéíóúãõâêîôû]+)\s+de\s+(\d{4})",
+        rf"(\d{{1,2}})\s+de\s+{_MES_WORD_RE}\s+de\s+(\d{{4}})",
         clean,
         re.I,
     )
     if p4:
         d, m, y = p4.groups()
         single = parse_date_pt(d, m, y)
-        return single, single
+        if single:
+            return single, single
 
-    # 5. Data única numérica: '14/10/2026'
-    p5 = re.search(
-        r"(\d{1,2})/(\d{1,2})/(\d{2,4})",
-        clean,
-        re.I,
-    )
+    # 5. Data única numérica: '14/10/2026', '14.10.2026', '14-10-2026'
+    p5 = re.search(_DATE_NUM_RE, clean, re.I)
     if p5:
-        d, m, y = p5.groups()
-        single = parse_date_pt(d, m, y)
-        return single, single
+        single = _parse_date_num_groups(*p5.groups())
+        if single:
+            return single, single
 
-    # 6. '23 a 30 de setembro' com ano default
+    # 6. Intervalos sem ano explícito usando default_year (somente '/' para numérico, evitando '3.1 a 3.4')
     if default_year:
+        y_str = str(default_year)
+        p6_slash = re.search(
+            rf"(?<!\d)(\d{{1,2}})/(\d{{1,2}})\s*{_INTERVAL_CONN_RE}\s*(\d{{1,2}})/(\d{{1,2}})(?!\d)",
+            clean,
+            re.I,
+        )
+        if p6_slash:
+            d1, m1, d2, m2 = p6_slash.groups()
+            dt_ini, dt_fim = parse_date_pt(d1, m1, y_str), parse_date_pt(d2, m2, y_str)
+            if dt_ini and dt_fim:
+                return dt_ini, dt_fim
+
+        p6_ext_two = re.search(
+            rf"(\d{{1,2}})\s+de\s+{_MES_WORD_RE}\s*{_INTERVAL_CONN_RE}\s*(\d{{1,2}})\s+de\s+{_MES_WORD_RE}",
+            clean,
+            re.I,
+        )
+        if p6_ext_two:
+            d1, m1, d2, m2 = p6_ext_two.groups()
+            dt_ini, dt_fim = parse_date_pt(d1, m1, y_str), parse_date_pt(d2, m2, y_str)
+            if dt_ini and dt_fim:
+                return dt_ini, dt_fim
+
+        p6_entre = re.search(
+            rf"entre\s+(?:os\s+dias\s+)?(\d{{1,2}})\s+e\s+(\d{{1,2}})\s+de\s+{_MES_WORD_RE}",
+            clean,
+            re.I,
+        )
+        if p6_entre:
+            d1, d2, m = p6_entre.groups()
+            dt_ini, dt_fim = parse_date_pt(d1, m, y_str), parse_date_pt(d2, m, y_str)
+            if dt_ini and dt_fim:
+                return dt_ini, dt_fim
+
         p6 = re.search(
-            r"(\d{1,2})\s+(?:a|ate|até)\s+(\d{1,2})\s+de\s+([a-zçáéíóúãõâêîôû]+)",
+            rf"(\d{{1,2}})\s*{_INTERVAL_CONN_RE}\s*(\d{{1,2}})\s+de\s+{_MES_WORD_RE}",
             clean,
             re.I,
         )
         if p6:
             d1, d2, m = p6.groups()
-            return parse_date_pt(d1, m, str(default_year)), parse_date_pt(d2, m, str(default_year))
+            dt_ini, dt_fim = parse_date_pt(d1, m, y_str), parse_date_pt(d2, m, y_str)
+            if dt_ini and dt_fim:
+                return dt_ini, dt_fim
 
     return None, None
 
@@ -437,46 +553,216 @@ def _add_business_days(start_date: datetime, n_days: int) -> datetime:
     return current
 
 
-def parse_cronograma_from_tables(tables: List[List[List[Optional[str]]]]) -> List[CronogramaEtapa]:
-    """Varre tabelas extraídas em busca de estruturas de cronograma e etapas."""
-    etapas_encontradas: List[CronogramaEtapa] = []
+@dataclass(frozen=True)
+class _CronogramaLayout:
+    """Índices das colunas detectadas no cabeçalho de uma tabela de cronograma."""
 
-    for table in tables:
-        if not table or len(table) < 2:
+    num_cols: int
+    etapa: int
+    periodo: Optional[int] = None
+    inicio: Optional[int] = None
+    fim: Optional[int] = None
+
+
+def _detectar_colunas_cronograma(
+    header_row: List[Optional[str]],
+) -> Optional[_CronogramaLayout]:
+    """Identifica dinamicamente índices de etapa e datas/período no cabeçalho da tabela."""
+    col_etapa: Optional[int] = None
+    col_periodo: Optional[int] = None
+    col_inicio: Optional[int] = None
+    col_fim: Optional[int] = None
+
+    etapa_keys = ("etapa", "fase", "atividade", "cronograma", "evento", "descricao", "acao")
+    periodo_keys = ("data", "periodo", "prazo", "vigencia")
+    inicio_keys = ("inicio", "abertura", "data inicial", "data de inicio")
+    fim_keys = ("termino", "fim", "encerramento", "data final", "data de termino", "data de encerramento", "limite")
+
+    for idx, cell in enumerate(header_row):
+        norm = " ".join(_strip_accents(str(cell or "")).split())
+        if not norm:
             continue
 
-        header = " ".join(str(cell or "").lower() for cell in table[0])
-        eh_tabela_cronograma = any(
-            k in header for k in ["etapa", "fase", "atividade", "cronograma", "evento"]
-        ) and any(
-            k in header for k in ["data", "periodo", "período", "prazo"]
+        if col_etapa is None and any(k in norm for k in etapa_keys):
+            col_etapa = idx
+            continue
+
+        eh_inicio = norm == "de" or any(re.search(rf"\b{re.escape(k)}\b", norm) for k in inicio_keys)
+        eh_fim = norm == "ate" or any(re.search(rf"\b{re.escape(k)}\b", norm) for k in fim_keys)
+        eh_periodo = any(k in norm for k in periodo_keys)
+
+        if eh_inicio and not eh_fim and col_inicio is None:
+            col_inicio = idx
+        elif eh_fim and not eh_inicio and col_fim is None:
+            col_fim = idx
+        elif eh_periodo and col_periodo is None:
+            col_periodo = idx
+
+    # Se encontrou apenas uma coluna isolada de "início" sem coluna de "fim" nem "período", trata como período único
+    if col_periodo is None and col_inicio is not None and col_fim is None:
+        col_periodo = col_inicio
+        col_inicio = None
+
+    tem_coluna_data = col_periodo is not None or col_inicio is not None or col_fim is not None
+    if col_etapa is None or not tem_coluna_data:
+        return None
+
+    return _CronogramaLayout(
+        num_cols=len(header_row),
+        etapa=col_etapa,
+        periodo=col_periodo,
+        inicio=col_inicio,
+        fim=col_fim,
+    )
+
+
+def _extrair_etapa_linha_cronograma(
+    row: List[Optional[str]],
+    layout: _CronogramaLayout,
+    ano_referencia: Optional[int] = None,
+) -> Optional[CronogramaEtapa]:
+    idx_etapa = layout.etapa
+    if idx_etapa >= len(row):
+        return None
+
+    nome_etapa = " ".join(str(row[idx_etapa] or "").split())
+    if not nome_etapa:
+        return None
+
+    idx_periodo = layout.periodo
+    idx_inicio = layout.inicio
+    idx_fim = layout.fim
+
+    if idx_inicio is not None or idx_fim is not None:
+        ini_str = " ".join(str(row[idx_inicio] or "").split()) if idx_inicio is not None and idx_inicio < len(row) else ""
+        fim_str = " ".join(str(row[idx_fim] or "").split()) if idx_fim is not None and idx_fim < len(row) else ""
+        if not ini_str and not fim_str:
+            return None
+        dt_ini = parse_data_interval(ini_str, default_year=ano_referencia)[0] if ini_str else None
+        dt_fim_pair = parse_data_interval(fim_str, default_year=ano_referencia) if fim_str else (None, None)
+        dt_fim = dt_fim_pair[1] or dt_fim_pair[0]
+        if dt_ini is None and ini_str:
+            dt_ini = parse_data_interval(ini_str, default_year=ano_referencia)[1]
+        periodo_texto = f"{ini_str} a {fim_str}".strip(" a")
+        return CronogramaEtapa(
+            etapa=nome_etapa,
+            periodo_texto=periodo_texto,
+            inicio=dt_ini,
+            fim=dt_fim,
         )
 
-        if not eh_tabela_cronograma:
+    if idx_periodo is None or idx_periodo >= len(row):
+        return None
+    periodo_str = " ".join(str(row[idx_periodo] or "").split())
+    if not periodo_str:
+        return None
+
+    dt_ini, dt_fim = parse_data_interval(periodo_str, default_year=ano_referencia)
+    return CronogramaEtapa(
+        etapa=nome_etapa,
+        periodo_texto=periodo_str,
+        inicio=dt_ini,
+        fim=dt_fim,
+    )
+
+
+def parse_cronograma_from_tables(
+    tables: List[List[List[Optional[str]]]],
+    ano_referencia: Optional[int] = None,
+) -> List[CronogramaEtapa]:
+    """Varre tabelas extraídas (2, 3+ colunas e continuações) em busca de cronogramas."""
+    etapas_encontradas: List[CronogramaEtapa] = []
+    ultimo_layout: Optional[_CronogramaLayout] = None
+
+    for table in tables:
+        if not table:
             continue
 
-        for row in table[1:]:
-            if len(row) < 2 or not row[0] or not row[1]:
+        layout = _detectar_colunas_cronograma(table[0])
+        if layout is not None:
+            ultimo_layout = layout
+            linhas = table[1:]
+        elif ultimo_layout is not None and len(table[0]) == ultimo_layout.num_cols:
+            # Possível continuação de tabela de cronograma quebrada entre páginas do PDF
+            primeira = _extrair_etapa_linha_cronograma(table[0], ultimo_layout, ano_referencia)
+            if primeira is None or (primeira.inicio is None and primeira.fim is None):
+                ultimo_layout = None
                 continue
+            layout = ultimo_layout
+            linhas = table
+        else:
+            ultimo_layout = None
+            continue
 
-            nome_etapa = str(row[0]).strip().replace("\n", " ")
-            periodo_str = str(row[1]).strip().replace("\n", " ")
-
-            if not nome_etapa or not periodo_str:
-                continue
-
-            dt_ini, dt_fim = parse_data_interval(periodo_str)
-
-            etapas_encontradas.append(
-                CronogramaEtapa(
-                    etapa=nome_etapa,
-                    periodo_texto=periodo_str,
-                    inicio=dt_ini,
-                    fim=dt_fim,
-                )
-            )
+        for row in linhas:
+            etapa = _extrair_etapa_linha_cronograma(row, layout, ano_referencia)
+            if etapa is not None:
+                etapas_encontradas.append(etapa)
 
     return etapas_encontradas
+
+
+_INSCRICAO_DESQUALIFICADORES = (
+    "taxa de inscric",
+    "isencao da taxa",
+    "isencao de taxa",
+    "valor da taxa",
+    "homologacao das inscric",
+    "resultado das inscric",
+    "deferimento das inscric",
+    "indeferimento das inscric",
+)
+
+_INSCRICAO_SECAO_RE = re.compile(
+    r"(?:das\s+inscri[cç][oõ]es|per[ií]odo\s+de\s+inscri[cç][aã]o|"
+    r"prazo\s+(?:de|para)\s+inscri[cç][oõaã]e?s?|inscri[cç][oõ]es|"
+    r"submiss[aã]o\s+de\s+propostas|candidaturas)",
+    re.I,
+)
+
+
+def _extrair_datas_inscricao_texto(
+    full_text: str,
+    ano_referencia: Optional[int] = None,
+) -> Tuple[Optional[datetime], Optional[datetime]]:
+    """Varre todas as menções a inscrições no texto (incluindo janelas multilinha)."""
+    if not full_text or not full_text.strip():
+        return None, None
+
+    melhor_parcial: Tuple[Optional[datetime], Optional[datetime]] = (None, None)
+
+    for match in _INSCRICAO_SECAO_RE.finditer(full_text):
+        prefixo_ctx = _strip_accents(full_text[max(0, match.start() - 35):match.end() + 25])
+        if any(desq in prefixo_ctx for desq in _INSCRICAO_DESQUALIFICADORES):
+            continue
+
+        # Janela multilinha (até 360 chars), cortando se iniciar outra seção principal
+        janela = full_text[match.end():match.end() + 360]
+        m_prox_secao = re.search(
+            r"\n\s*(?:\d{1,2}\s*[\.\-–)]\s*[A-ZÀ-Ý]{3,}|(?:DA|DO|DOS|DAS)\s+(?:SELE[CÇ][AÃ]O|AVALIA[CÇ][AÃ]O|RESULTADO|BOLSAS?|DISPOSI[CÇ][OÕ]ES))",
+            janela,
+        )
+        if m_prox_secao and m_prox_secao.start() > 15:
+            janela = janela[:m_prox_secao.start()]
+
+        # 1) Tenta primeiro na mesma linha/sentença imediata
+        primeira_sentenca = re.split(r"(?:\n\s*\n)", janela, maxsplit=1)[0]
+        dt_ini, dt_fim = parse_data_interval(primeira_sentenca, default_year=ano_referencia)
+
+        # 2) Se a primeira linha for só o cabeçalho ("3. DAS INSCRIÇÕES\n3.1 ..."), tenta na janela completa
+        if dt_ini is None and dt_fim is None and janela != primeira_sentenca:
+            dt_ini, dt_fim = parse_data_interval(janela, default_year=ano_referencia)
+
+        if dt_ini and dt_fim and dt_ini <= dt_fim:
+            # Preferência forte para intervalos completos distintos; data única continua como fallback
+            if dt_ini != dt_fim:
+                return dt_ini, dt_fim
+            if melhor_parcial == (None, None):
+                melhor_parcial = (dt_ini, dt_fim)
+        elif dt_fim and melhor_parcial[1] is None:
+            melhor_parcial = (dt_ini, dt_fim)
+
+    return melhor_parcial
 
 
 def parse_edital_metadados(
@@ -501,6 +787,8 @@ def parse_edital_metadados(
         full_text = str(doc)
         tables = []
 
+    ano_efetivo = ano_referencia or (data_publicacao.year if data_publicacao else None)
+
     # 1. Órgão e Campus
     orgao = detect_orgao_emissor(full_text)
     campus = detect_campus(full_text)
@@ -510,7 +798,7 @@ def parse_edital_metadados(
     bolsa_rem, valor_bolsa = detect_bolsa(full_text)
 
     # 3. Cronograma via tabelas
-    cronograma = parse_cronograma_from_tables(tables)
+    cronograma = parse_cronograma_from_tables(tables, ano_referencia=ano_efetivo)
 
     inicio_inscricao: Optional[datetime] = None
     fim_inscricao: Optional[datetime] = None
@@ -520,7 +808,10 @@ def parse_edital_metadados(
     for item in cronograma:
         etapa_clean = _strip_accents(item.etapa)
 
-        if "inscric" in etapa_clean:
+        if (
+            "inscric" in etapa_clean
+            and not any(k in etapa_clean for k in ("homologac", "resultado", "deferimento", "indeferimento", "recurso"))
+        ):
             if not inicio_inscricao and item.inicio:
                 inicio_inscricao = item.inicio
             if item.fim:
@@ -528,25 +819,17 @@ def parse_edital_metadados(
             elif item.inicio and not fim_inscricao:
                 fim_inscricao = item.inicio
 
-        elif any(k in etapa_clean for k in ["resultado preliminar", "resultado parcial", "homologacao das inscricoes", "homologação"]):
+        elif any(k in etapa_clean for k in ["resultado preliminar", "resultado parcial", "homologacao das inscricoes", "homologacao"]):
             if not dt_res_preliminar:
                 dt_res_preliminar = item.fim or item.inicio
 
-        elif any(k in etapa_clean for k in ["resultado final", "divulgacao do resultado final", "divulgação do resultado final"]):
+        elif any(k in etapa_clean for k in ["resultado final", "divulgacao do resultado final"]):
             if not dt_res_final:
                 dt_res_final = item.fim or item.inicio
 
-    # 4. Fallback no corpo do texto para inscrições se a tabela não trouxe datas
+    # 4. Fallback no corpo do texto para inscrições (multi-ocorrência e multilinha)
     if not (inicio_inscricao and fim_inscricao):
-        # Procura seção de inscrições no texto
-        m_secao = re.search(
-            r"(?:das\s+inscri[cç][oõ]es|per[ií]odo\s+de\s+inscri[cç][aã]o|inscri[cç][oõ]es)[^\.\n]{0,80}?[:\-]?\s*([^\.\n]+)",
-            full_text,
-            re.I,
-        )
-        trecho = m_secao.group(1) if m_secao else full_text
-        dt_ini_txt, dt_fim_txt = parse_data_interval(trecho, default_year=ano_referencia)
-
+        dt_ini_txt, dt_fim_txt = _extrair_datas_inscricao_texto(full_text, ano_referencia=ano_efetivo)
         if not inicio_inscricao:
             inicio_inscricao = dt_ini_txt
         if not fim_inscricao:
@@ -892,6 +1175,22 @@ def _parse_sigla_e_generico(clean: str) -> Optional[Tuple[str, str]]:
     return None
 
 
+def _is_etapa_mais_orgao(clean: str) -> bool:
+    """True para títulos formados apenas por etapa + sigla de órgão (ex.: 'Resultado Provisório - FUP').
+
+    Sem número de edital nem programa/área, esses títulos não identificam o edital (Issue #119).
+    """
+    if _NUMERO_EDITAL_RE.search(clean):
+        return False
+    key = _norm_key(clean)
+    siglas = {s.lower() for s in ORGAOS_UNB if "_" not in s} | {"unb"}
+    for prefixo in _STAGE_PREFIXES:
+        if key == prefixo or key.startswith(prefixo + " "):
+            resto = key[len(prefixo):].split()
+            return bool(resto) and all(tok in siglas for tok in resto)
+    return False
+
+
 def is_vague_title(titulo: Optional[str]) -> bool:
     """Indica se o título é vago/genérico demais para identificar o edital (Issue #106)."""
     if titulo is None:
@@ -914,6 +1213,10 @@ def is_vague_title(titulo: Optional[str]) -> bool:
     if " " not in clean and "_" in clean:
         return True
     if re.search(r"\.(?:pdf|docx?|odt|xlsx?)$", clean, re.IGNORECASE):
+        return True
+
+    # Etapa + sigla de órgão apenas (ex.: 'Resultado Provisório - FUP') — Issue #119.
+    if _is_etapa_mais_orgao(clean):
         return True
 
     # Etapa administrativa isolada, curta e sem número de edital nem programa/área.

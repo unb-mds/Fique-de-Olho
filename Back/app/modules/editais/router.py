@@ -1,17 +1,16 @@
 import logging
-from datetime import date
 from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_
 
 logger = logging.getLogger(__name__)
 
-from app.core.database import Edital, StatusEdital, Usuario, get_db
+from app.core.database import Usuario, get_db
 from app.modules.editais.service import (
     get_edital_by_id,
     invalidar_cache_editais,
     listar_editais_com_cache,
+    obter_stats_editais_com_cache,
     serialize_edital,
 )
 from app.modules.favoritos.service import (
@@ -33,29 +32,26 @@ from app.modules.usuarios import get_current_user
 router = APIRouter(prefix="/editais", tags=["Editais"])
 
 
+PUBLIC_CACHE_HEADER = "public, max-age=60, stale-while-revalidate=300"
+
+
 @router.get("/stats", response_model=Dict[str, int])
-def editais_stats(db: Session = Depends(get_db)):
-    today = date.today()
-    total = db.query(Edital).count()
-    abertos = db.query(Edital).filter(
-        or_(
-            Edital.fim_inscricao >= today,
-            and_(
-                Edital.fim_inscricao.is_(None),
-                or_(Edital.status.is_(None), Edital.status == StatusEdital.ABERTO),
-            ),
-        )
-    ).count()
-    return {
-        "total": total,
-        "abertos": abertos,
-        "encerrados": total - abertos,
-    }
+def editais_stats(
+    background_tasks: BackgroundTasks,
+    response: Response,
+    db: Session = Depends(get_db),
+):
+    response.headers["Cache-Control"] = PUBLIC_CACHE_HEADER
+    return obter_stats_editais_com_cache(
+        db=db,
+        agendar_tarefa=background_tasks.add_task,
+    )
 
 
 @router.get("/", response_model=List[Dict[str, Any]])
 def list_editais(
     background_tasks: BackgroundTasks,
+    response: Response,
     ano: Optional[int] = Query(None, description="Filtra editais pelo ano de publicação"),
     q: Optional[str] = Query(None, description="Busca textual por título"),
     busca: Optional[str] = Query(None, description="Alias para parâmetro de busca textual"),
@@ -74,6 +70,7 @@ def list_editais(
     - `categoria`: categoria/tipo do edital
     - `campus`: campus da UnB
     """
+    response.headers["Cache-Control"] = PUBLIC_CACHE_HEADER
     try:
         resultado = listar_editais_com_cache(
             db=db,
@@ -145,7 +142,7 @@ def listar_alertas(
 
 
 @router.get("/{id}", response_model=Dict[str, Any])
-def get_edital(id: str, db: Session = Depends(get_db)):
+def get_edital(id: str, response: Response, db: Session = Depends(get_db)):
     """Retorna os detalhes completos de um edital pelo seu ID."""
     if not id.isdigit():
         raise HTTPException(
@@ -157,6 +154,7 @@ def get_edital(id: str, db: Session = Depends(get_db)):
     try:
         edital = get_edital_by_id(db=db, edital_id=edital_id)
         if edital:
+            response.headers["Cache-Control"] = PUBLIC_CACHE_HEADER
             return serialize_edital(edital, detail=True)
     except Exception:
         logger.exception("Falha ao consultar editais no banco de dados; utilizando fallback inicial.")

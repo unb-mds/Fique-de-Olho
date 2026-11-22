@@ -142,7 +142,9 @@ def sync_portal_editais(
             docs: List[Dict[str, Any]] = []
             if fetch_docs and not item.get("documentos"):
                 try:
-                    docs = scraper.fetch_documentos(link)
+                    raw_docs = scraper.fetch_documentos(link)
+                    if isinstance(raw_docs, list):
+                        docs = raw_docs
                 except Exception as doc_exc:
                     logger.warning(f"[{sigla}] Erro ao buscar documentos de {link}: {doc_exc}")
 

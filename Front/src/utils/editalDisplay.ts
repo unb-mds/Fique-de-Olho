@@ -48,6 +48,17 @@ export const KNOWN_CATEGORIES = [
   'Vestibular',
 ];
 
+export const KNOWN_CAMPI = [
+  'Darcy Ribeiro',
+  'FGA (Gama)',
+  'FCE (Ceilândia)',
+  'FUP (Planaltina)',
+  'Fazenda Água Limpa',
+  'Geral',
+];
+
+export const KNOWN_YEARS = [2026, 2025, 2024];
+
 /**
  * Dias restantes até o prazo final (pode ser negativo se já venceu).
  * Retorna null quando a data não existe ou é inválida, para o chamador
