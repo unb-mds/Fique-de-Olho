@@ -7,6 +7,8 @@ export interface GetEditaisParams {
   q?: string;
   categoria?: string | null;
   status?: 'aberto' | 'fechado' | null;
+  campus?: string | null;
+  ano?: number | null;
   skip?: number;
   limit?: number;
   signal?: AbortSignal;
@@ -44,6 +46,8 @@ export async function getEditais(params: GetEditaisParams = {}): Promise<Edital[
   if (params.q?.trim()) searchParams.set('q', params.q.trim());
   if (params.categoria) searchParams.set('categoria', params.categoria);
   if (params.status) searchParams.set('status', params.status);
+  if (params.campus) searchParams.set('campus', params.campus);
+  if (params.ano !== undefined && params.ano !== null) searchParams.set('ano', String(params.ano));
   if (params.skip !== undefined) searchParams.set('skip', String(params.skip));
   if (params.limit !== undefined) searchParams.set('limit', String(params.limit));
 

@@ -252,6 +252,17 @@ class Coleta(Base):
     mensagem_erro = Column(Text, nullable=True)
 
 
+class Feedback(Base):
+    __tablename__ = "feedbacks"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tipo = Column(String(30), nullable=False, server_default="sugestao")
+    mensagem = Column(Text, nullable=False)
+    email = Column(String(255), nullable=True)
+    pagina = Column(String(255), nullable=True)
+    criado_em = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
 def get_db() -> Generator[Session, None, None]:
     """Dependency injection para fornecer a sessão de banco por requisição FastAPI."""
     db = SessionLocal()

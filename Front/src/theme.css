@@ -1983,6 +1983,306 @@ main:not(.catalog-section):not(.detail-page):not(.notification-history):not(.fav
   }
 }
 
+.filters-top-row {
+  align-items: flex-end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px 24px;
+  justify-content: space-between;
+}
+
+.filter-select-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.filter-select-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.filter-select {
+  background: var(--paper);
+  border: 1.5px solid var(--ink);
+  border-radius: 9px;
+  color: var(--ink);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  min-height: 38px;
+  min-width: 170px;
+  padding: 6px 12px;
+}
+
+.filter-select:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+/* Central de Ajuda e Feedback (RF07 / RF08) */
+.help-fab {
+  align-items: center;
+  background: var(--accent);
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  bottom: 18px;
+  box-shadow: 3px 3px 0 var(--ink);
+  color: var(--ink);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 17px;
+  font-weight: 900;
+  height: 40px;
+  justify-content: center;
+  position: fixed;
+  right: 18px;
+  transition: transform 0.14s ease, box-shadow 0.14s ease;
+  width: 40px;
+  z-index: 40;
+}
+
+.help-fab:hover {
+  box-shadow: 4px 4px 0 var(--ink);
+  transform: translate(-1px, -1px);
+}
+
+.help-fab:focus-visible {
+  outline: 3px solid var(--brand);
+  outline-offset: 3px;
+}
+
+dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog::backdrop {
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(2px);
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+.help-dialog {
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  border-radius: 20px;
+  box-shadow: 8px 8px 0 var(--ink);
+  color: var(--ink);
+  margin: auto;
+  max-height: min(86vh, 680px);
+  max-width: 560px;
+  padding: 0;
+  width: calc(100% - 32px);
+}
+
+.help-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.help-dialog-header {
+  align-items: center;
+  background: var(--brand-soft);
+  border-bottom: 2px solid var(--ink);
+  display: flex;
+  justify-content: space-between;
+  padding: 16px 20px;
+}
+
+.help-dialog-header h2 {
+  font-size: 18px;
+  margin: 0;
+}
+
+.help-dialog-close {
+  align-items: center;
+  background: var(--paper);
+  border: 1.5px solid var(--ink);
+  border-radius: 9px;
+  color: var(--ink);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 20px;
+  font-weight: 800;
+  height: 36px;
+  justify-content: center;
+  line-height: 1;
+  width: 36px;
+}
+
+.help-dialog-close:hover {
+  background: var(--accent);
+}
+
+.help-dialog-tabs {
+  border-bottom: 1.5px solid var(--ink);
+  display: flex;
+  gap: 8px;
+  padding: 12px 20px;
+}
+
+.help-dialog-tab {
+  background: var(--paper);
+  border: 1.5px solid var(--ink);
+  border-radius: 9px;
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  min-height: 36px;
+  padding: 6px 14px;
+}
+
+.help-dialog-tab.active {
+  background: var(--accent);
+  box-shadow: 3px 3px 0 var(--ink);
+}
+
+.help-dialog-body {
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.help-faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.help-faq-item {
+  background: var(--surface, #fff);
+  border: 1.5px solid var(--ink);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.help-faq-item summary {
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.help-faq-item p {
+  font-size: 13.5px;
+  line-height: 1.55;
+  margin: 10px 0 0;
+}
+
+.help-faq-cta {
+  align-items: center;
+  background: var(--brand-soft);
+  border: 1.5px solid var(--ink);
+  border-radius: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 13px;
+  gap: 10px;
+  justify-content: space-between;
+  margin-top: 6px;
+  padding: 12px 14px;
+}
+
+.help-dialog-link-btn {
+  background: var(--paper);
+  border: 1.5px solid var(--ink);
+  border-radius: 8px;
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 6px 12px;
+}
+
+.help-dialog-link-btn:hover {
+  background: var(--accent);
+}
+
+.feedback-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.feedback-intro {
+  font-size: 13.5px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.feedback-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.feedback-field label {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.feedback-field select,
+.feedback-field input,
+.feedback-field textarea {
+  background: #fff;
+  border: 1.5px solid var(--ink);
+  border-radius: 10px;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 14px;
+  padding: 9px 12px;
+}
+
+.feedback-field textarea {
+  resize: vertical;
+}
+
+.feedback-alert {
+  border: 1.5px solid var(--ink);
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0;
+  padding: 10px 12px;
+}
+
+.feedback-alert-error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.feedback-alert-success {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.feedback-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.feedback-submit-btn {
+  background: var(--accent);
+  border: 1.5px solid var(--ink);
+  border-radius: 9px;
+  box-shadow: 3px 3px 0 var(--ink);
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+  min-height: 38px;
+  padding: 8px 16px;
+}
+
+.feedback-submit-btn:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

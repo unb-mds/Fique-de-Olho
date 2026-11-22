@@ -2,7 +2,7 @@
 title: Fique de Olho - UnB Editais
 description: Documentação do projeto G4 — plataforma que centraliza, filtra e notifica editais da Universidade de Brasília.
 hide:
-	- toc
+  - toc
 ---
 
 <div class="radar-hero" markdown>
@@ -10,112 +10,130 @@ hide:
 
 <span class="radar-hero__eyebrow">🌐 G4 · MDS · UnB 2026/2</span>
 
-# Fique de Olho - editais UnB
+# Fique de Olho — Editais UnB
 
 <p class="radar-hero__subtitle">
-Centralizamos, filtramos e notificamos os editais 
-da UnB — para que nenhum prazo passe despercebido.
+Centralizamos, estruturamos, filtramos e notificamos os editais da UnB —
+para que nenhuma oportunidade ou prazo passe despercebido.
 </p>
 
 <div class="radar-hero__actions" markdown>
-[🎨 Ver protótipo no Figma](https://www.figma.com/make/yqHT0b3mk0T3EkHD2aUgns/UnB-Editais-Aggregator-Site?fullscreen=1){ .radar-btn .radar-btn--primary }
-[🧩 Board de planejamento](https://www.figma.com/board/Sw1R44AAXzZrW5eBolJybw/Template-MDS--c%C3%B3pia-limpa---c%C3%B3pia-?node-id=1-291){ .radar-btn .radar-btn--ghost }
-[🚀 Acessar Aplicação no Ar](https://fique-de-olho.vercel.app){ .radar-btn .radar-btn--primary }
-[⚙️ Swagger da API](https://fique-de-olho-api.onrender.com/docs){ .radar-btn .radar-btn--ghost }
+[🚀 Acessar Aplicação](https://fique-de-olho.vercel.app){ .radar-btn .radar-btn--primary }
+[⚙️ Começar pelo Backend](backend/index.md){ .radar-btn .radar-btn--primary }
+[🔌 Swagger da API](https://fique-de-olho-api.onrender.com/docs){ .radar-btn .radar-btn--ghost }
 [🎨 Protótipo no Figma](https://www.figma.com/make/yqHT0b3mk0T3EkHD2aUgns/UnB-Editais-Aggregator-Site?fullscreen=1){ .radar-btn .radar-btn--ghost }
 [💻 GitHub](https://github.com/unb-mds/G4-2026-2){ .radar-btn .radar-btn--ghost }
-
 </div>
 </div>
 </div>
 
-<div class="radar-announce" markdown>
-<img src="assets/img/megaphone-blue.png" alt="Megafone">
-<p markdown>
-**Fique de olho:** esta documentação acompanha o projeto sprint a sprint — estudos,
-requisitos, personas e backlog são atualizados conforme o time avança.
-</p>
-</div>
+## 🎯 Sobre o projeto
 
-## 🎯 Objetivo
+O **Fique de Olho** é a plataforma web desenvolvida pelo grupo **G4** de Métodos de Desenvolvimento de Software (UnB 2026/2) para centralizar editais e oportunidades acadêmicas espalhados pelos portais institucionais da Universidade de Brasília.
 
-O **Fique de Olho - UnB Editais** nasce da dificuldade real de estudantes da UnB em
-acompanhar editais espalhados em PDFs longos, murais físicos e páginas institucionais
-pouco responsivas. A proposta é oferecer uma plataforma central que **coleta, classifica,
-resume e notifica** os editais — por campus, curso e tipo de oportunidade —
-para que cotistas, graduandos e quem busca transferência não percam prazos importantes.
+Hoje o sistema monitora **33 portais da UnB**, extrai prazos, vagas, bolsas e resumos dos PDFs oficiais (combinando heurística local e fallback opcional com **Google Gemini**), oferece filtros por situação, categoria, campus e busca textual, além de **favoritos** e **alertas por e-mail** para atualizações e prazos próximos do encerramento.
 
-Veja o detalhamento completo em [Personas](Requisitos/produto/personas.md) e
-[Backlog do Produto](Requisitos/produto/backlog.md).
+---
 
-## 🧩 Épicos do produto
+## 🚀 Acesso rápido e ambientes
+
+| Serviço | Plataforma | Link | Descrição |
+| :--- | :---: | :--- | :--- |
+| **Aplicação Web (Frontend)** | Vercel | [fique-de-olho.vercel.app](https://fique-de-olho.vercel.app) | SPA React 18 + TypeScript + Vite |
+| **API REST & Swagger** | Render | [fique-de-olho-api.onrender.com/docs](https://fique-de-olho-api.onrender.com/docs) | FastAPI em Docker com documentação OpenAPI |
+| **Healthcheck da API** | Render | [fique-de-olho-api.onrender.com/health](https://fique-de-olho-api.onrender.com/health) | Status da API, PostgreSQL e SendGrid |
+| **Banco de Dados** | Neon | AWS São Paulo (`sa-east-1`) | PostgreSQL 16 Serverless (14 tabelas via Alembic) |
+
+---
+
+## ⚙️ Documentação Técnica — Backend, API & Banco
 
 <div class="radar-grid" markdown>
 
 <div class="radar-card" markdown>
-<span class="radar-card__icon">🗂️</span>
-### Coleta e Processamento
-Rastreamento automático de editais da UnB e extração de prazos, vagas e cursos a partir dos PDFs publicados.
+<span class="radar-card__icon">🧭</span>
+### Visão Geral & Quickstart
+Arquitetura modular em FastAPI, como subir com Docker Compose ou Python local e mapa completo de variáveis de ambiente.
+
+[Abrir Visão Geral →](backend/index.md)
 </div>
 
 <div class="radar-card" markdown>
-<span class="radar-card__icon">🔎</span>
-### Busca e Filtros
-Busca textual e filtros combinados por campus, curso, tipo de edital e status de inscrição.
+<span class="radar-card__icon">🔌</span>
+### Referência da API REST
+Os 19 endpoints (editais, autenticação JWT/Google, favoritos, alertas, notificações e feedback), filtros, cache SWR e exemplos `curl`/JSON.
+
+[Ver Referência da API →](backend/api.md)
 </div>
 
 <div class="radar-card" markdown>
-<span class="radar-card__icon">🔔</span>
-### Notificações e Alertas
-Avisos de novos editais, prazos a vencer e retificações — direto no e-mail ou push.
+<span class="radar-card__icon">🗄️</span>
+### Banco de Dados & Migrations
+Diagrama ER das 14 tabelas, enums nativos, constraints, pool do Neon e fluxo de migrações com Alembic.
+
+[Explorar Banco de Dados →](backend/banco-de-dados.md)
 </div>
 
 <div class="radar-card" markdown>
-<span class="radar-card__icon">♿</span>
-### Acessibilidade
-Interface responsiva, leve para dados móveis e aderente às diretrizes WCAG 2.1 AA.
+<span class="radar-card__icon">🤖</span>
+### Coleta, PDF & IA
+Os 33 portais registrados, extração com `pdfplumber`, enriquecimento híbrido (Camada 1 + Gemini) e script de backfill.
+
+[Ver Pipeline de Coleta →](backend/coleta-e-ia.md)
 </div>
 
 <div class="radar-card" markdown>
-<span class="radar-card__icon">⭐</span>
-### Favoritos
-Lista pessoal de editais salvos, com acompanhamento de status até o resultado final.
+<span class="radar-card__icon">🚀</span>
+### Operação, Alertas & Deploy
+Alertas via SendGrid (UTC-3), deploy no Render + Neon, suíte `pytest` e troubleshooting local/produção.
+
+[Abrir Guia Operacional →](backend/operacao-e-deploy.md)
+</div>
+
+<div class="radar-card" markdown>
+<span class="radar-card__icon">📐</span>
+### Arquitetura & ADRs
+Visão C4 do sistema, fontes de dados e as decisões arquiteturais (ADR 0001 a ADR 0006).
+
+[Ver Arquitetura →](Arquitetura.md)
 </div>
 
 </div>
 
-## 🗺️ Navegue pela documentação
+---
+
+## 🗺️ Produto, Requisitos e Estudos
 
 <div class="radar-grid" markdown>
-
-<div class="radar-card" markdown>
-<span class="radar-card__icon">📚</span>
-### Estudos
-Conteúdos técnicos estudados pelo grupo: agentes de IA, arquitetura, Docker, Git, Scrum e mais.
-
-[Ver estudos →](Estudos/sprint00/agentes_IA.md)
-</div>
 
 <div class="radar-card" markdown>
 <span class="radar-card__icon">📋</span>
-### Requisitos
-Visão de produto, critérios de aceitação, personas, story map, wireframe e protótipo.
+### Requisitos & Produto
+Visão de produto, personas, critérios de aceitação, story map, wireframe e backlog priorizado.
 
-[Ver requisitos →](Requisitos/produto/personas.md)
+[Ver requisitos →](Requisitos/Requisitos.md)
+</div>
+
+<div class="radar-card" markdown>
+<span class="radar-card__icon">📚</span>
+### Estudos Técnicos
+Estudos de arquitetura, Docker, Git/GitHub, segurança, agentes de IA, hospedagem e keep-alive.
+
+[Ver estudos →](Estudos/sprint00/arquitetura.md)
 </div>
 
 <div class="radar-card" markdown>
 <span class="radar-card__icon">🎨</span>
-### Design & Protótipo
-Board de planejamento e protótipo de alta fidelidade no Figma.
+### Design & Frontend
+Documentação da interface React/TypeScript, board de planejamento e protótipo de alta fidelidade.
 
-[Abrir Figma →](https://www.figma.com/make/yqHT0b3mk0T3EkHD2aUgns/UnB-Editais-Aggregator-Site?fullscreen=1)
+[Ver Frontend →](front.md)
 </div>
 
 <div class="radar-card" markdown>
 <span class="radar-card__icon">📦</span>
-### Backlog
-Épicos, histórias de usuário e priorização MoSCoW do produto.
+### Backlog do Produto
+Épicos, histórias de usuário e priorização MoSCoW do projeto.
 
 [Ver backlog →](Requisitos/produto/backlog.md)
 </div>

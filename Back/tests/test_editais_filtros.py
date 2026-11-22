@@ -349,3 +349,44 @@ def test_filtro_abertos_intercambio_exclui_antigos_e_encerrados():
         assert stats == {"total": 6, "abertos": 3, "encerrados": 3}
     finally:
         db.close()
+
+
+def test_filtro_campus_resolve_aliases_sigla_e_nome():
+    """Filtrar por 'FGA (Gama)' ou 'FUP (Planaltina)' deve encontrar registros salvos por sigla ou nome."""
+    db = _make_isolated_session()
+    try:
+        db.add_all([
+            Edital(
+                id=30,
+                titulo="Edital FGA 2026",
+                url_pagina="https://fga.unb.br/edital-1",
+                campus="FGA",
+                data_publicacao=datetime(2026, 10, 1),
+                status=StatusEdital.ABERTO,
+            ),
+            Edital(
+                id=31,
+                titulo="Edital Gama 2026",
+                url_pagina="https://fga.unb.br/edital-2",
+                campus="Gama",
+                data_publicacao=datetime(2026, 10, 2),
+                status=StatusEdital.ABERTO,
+            ),
+            Edital(
+                id=32,
+                titulo="Edital FUP Planaltina",
+                url_pagina="https://fup.unb.br/edital-1",
+                campus="Planaltina",
+                data_publicacao=datetime(2026, 10, 3),
+                status=StatusEdital.ABERTO,
+            ),
+        ])
+        db.commit()
+
+        gama = list_editais_com_filtros(db, campus="FGA (Gama)")
+        assert {e.id for e in gama} == {30, 31}
+
+        planaltina = list_editais_com_filtros(db, campus="FUP (Planaltina)")
+        assert {e.id for e in planaltina} == {32}
+    finally:
+        db.close()

@@ -15,6 +15,8 @@ export default function HomePage() {
   const [hasMore, setHasMore] = useState(false);
   const [categoria, setCategoria] = useState<string | null>(null);
   const [situacao, setSituacao] = useState<'aberto' | 'fechado' | null>(null);
+  const [campus, setCampus] = useState<string | null>(null);
+  const [ano, setAno] = useState<number | null>(null);
   const [totalAbertos, setTotalAbertos] = useState(0);
   const [destaquesAbertos, setDestaquesAbertos] = useState<Edital[]>([]);
   const [search, setSearch] = useState('');
@@ -45,6 +47,8 @@ export default function HomePage() {
       q: debouncedSearch,
       categoria,
       status: situacao,
+      campus,
+      ano,
       skip: 0,
       limit: PAGE_SIZE,
       signal: controller.signal,
@@ -62,7 +66,7 @@ export default function HomePage() {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [debouncedSearch, categoria, situacao]);
+  }, [debouncedSearch, categoria, situacao, campus, ano]);
 
   const editaisAbertos = useMemo(
     () => editais.filter((e) => e.status === 'aberto'),
@@ -87,6 +91,8 @@ export default function HomePage() {
         q: debouncedSearch,
         categoria,
         status: situacao,
+        campus,
+        ano,
         skip: editais.length,
         limit: PAGE_SIZE,
       });
@@ -102,6 +108,8 @@ export default function HomePage() {
   function clearSearchAndFilters() {
     setCategoria(null);
     setSituacao(null);
+    setCampus(null);
+    setAno(null);
     setSearch('');
   }
 
@@ -145,8 +153,12 @@ export default function HomePage() {
           areaCounts={areaCounts}
           activeCategoria={categoria}
           activeStatus={situacao}
+          activeCampus={campus}
+          activeAno={ano}
           onSelectCategoria={setCategoria}
           onSelectStatus={setSituacao}
+          onSelectCampus={setCampus}
+          onSelectAno={setAno}
           onClearFilters={clearSearchAndFilters}
         />
 
