@@ -1,12 +1,14 @@
 """Camada 2 — Orquestração híbrida (heurística + LLM) de títulos e resumos de editais.
 
-Issues #77 (resumo automático) e #106 (normalização de títulos vagos/genéricos).
+Issues #77 (resumo automático), #106 (normalização de títulos vagos/genéricos),
+#121/#125 (extração estruturada de metadados) e #129 (modelo econômico autônomo
+gemini-2.5-flash-lite com fallback de modelo e retry de rate limit).
 
 Fluxo:
 1. Calcula sempre o resultado determinístico da Camada 1 (``parser.py``):
    ``reconstruir_titulo_edital`` e ``extrair_objeto_edital``.
 2. Se ``GEMINI_API_KEY`` estiver configurada, houver conteúdo textual e o título
-   for vago ou o resumo estiver ausente/genérico, faz **uma única** chamada à
+   for vago ou o resumo estiver ausente/genérico, faz chamada à
    Google Gemini API (``generateContent``) via ``httpx``.
 3. Graceful degradation: ausência de chave, erro HTTP, timeout, JSON inválido ou
    título ainda vago resultam em ``logger.warning`` e fallback transparente para a
@@ -15,9 +17,11 @@ Fluxo:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Tuple
@@ -28,6 +32,7 @@ from app.core.config import settings
 from app.modules.scraper.parser import (
     MAX_RESUMO_CHARS,
     MAX_TITULO_CHARS,
+    _TITULOS_GENERICOS,
     _norm_key,
     extrair_objeto_edital,
     is_vague_title,
@@ -104,6 +109,7 @@ def selecionar_trechos_relevantes_prompt(
     combinado = "\n\n".join(partes)
     return truncar_texto(combinado, max_chars) or combinado[:max_chars]
 
+
 _RESUMOS_GENERICOS_PREFIXOS: Tuple[str, ...] = (
     "edital publicado pelo portal",
     "edital publicado no portal",
@@ -149,6 +155,14 @@ def _build_async_client(timeout: float) -> httpx.AsyncClient:
     return httpx.AsyncClient(timeout=timeout)
 
 
+def _is_rotulo_generico(texto: Optional[str]) -> bool:
+    """True quando o texto é apenas um rótulo genérico de botão/link (AQUI, Download, Edital...)."""
+    key = _norm_key(texto)
+    if not key:
+        return True
+    return key in _TITULOS_GENERICOS or any(key.startswith(p) for p in _RESUMOS_GENERICOS_PREFIXOS)
+
+
 def _resumo_heuristico(
     titulo: str,
     texto_extraido: Optional[str],
@@ -164,7 +178,9 @@ def _resumo_heuristico(
     if assunto and not is_generic_summary(assunto, titulo):
         return truncar_texto(assunto, MAX_RESUMO_CHARS)
     if resumo_atual and resumo_atual.strip() and _norm_key(resumo_atual) != _norm_key(titulo):
-        return truncar_texto(resumo_atual, MAX_RESUMO_CHARS)
+        # Issue #119: rótulos de botão/links ("AQUI", "Clique aqui", "Download") nunca viram resumo.
+        if not _is_rotulo_generico(resumo_atual):
+            return truncar_texto(resumo_atual, MAX_RESUMO_CHARS)
     return None
 
 
@@ -241,8 +257,9 @@ def _planejar(
     )
 
 
-def _request_args(prompt: str) -> Tuple[str, Dict[str, str], Dict[str, Any]]:
-    url = GEMINI_ENDPOINT.format(model=settings.GEMINI_MODEL)
+def _request_args(prompt: str, model: Optional[str] = None) -> Tuple[str, Dict[str, str], Dict[str, Any]]:
+    alvo = (model or settings.GEMINI_MODEL or "gemini-3.5-flash-lite").strip()
+    url = GEMINI_ENDPOINT.format(model=alvo)
     headers = {"x-goog-api-key": settings.GEMINI_API_KEY, "Content-Type": "application/json"}
     body = {
         "contents": [{"role": "user", "parts": [{"text": prompt}]}],
@@ -267,6 +284,95 @@ def _parse_resposta(response: httpx.Response) -> Dict[str, Any]:
     if not isinstance(dados, dict):
         raise ValueError(f"Resposta da Gemini não é um objeto JSON: {type(dados).__name__}")
     return dados
+
+
+_RETRY_DELAY_MAX_SECONDS = 10.0
+
+
+def _retry_delay(resp: httpx.Response) -> float:
+    """Espera antes do retry de 429: respeita ``Retry-After`` (limitado) ou usa o delay configurado."""
+    try:
+        base = float(getattr(settings, "GEMINI_RETRY_DELAY_SECONDS", 2.0) or 0.0)
+    except (TypeError, ValueError):
+        base = 2.0
+    try:
+        base = max(base, float(resp.headers.get("retry-after", 0) or 0))
+    except (TypeError, ValueError):
+        pass
+    return min(max(0.0, base), _RETRY_DELAY_MAX_SECONDS)
+
+
+_RETRYABLE_STATUS_CODES = (429, 502, 503, 504)
+
+
+def _post_with_retry_sync(
+    client: httpx.Client,
+    url: str,
+    headers: Dict[str, str],
+    body: Dict[str, Any],
+) -> httpx.Response:
+    resp = client.post(url, headers=headers, json=body)
+    if resp.status_code in _RETRYABLE_STATUS_CODES:
+        delay = _retry_delay(resp)
+        logger.warning(
+            f"Erro transitório (HTTP {resp.status_code}) na Gemini API; "
+            f"aguardando {delay:.1f}s antes de 1 nova tentativa."
+        )
+        if delay > 0:
+            time.sleep(delay)
+        resp = client.post(url, headers=headers, json=body)
+    return resp
+
+
+async def _post_with_retry_async(
+    client: httpx.AsyncClient,
+    url: str,
+    headers: Dict[str, str],
+    body: Dict[str, Any],
+) -> httpx.Response:
+    resp = await client.post(url, headers=headers, json=body)
+    if resp.status_code in _RETRYABLE_STATUS_CODES:
+        delay = _retry_delay(resp)
+        logger.warning(
+            f"Erro transitório (HTTP {resp.status_code}) na Gemini API; "
+            f"aguardando {delay:.1f}s antes de 1 nova tentativa."
+        )
+        if delay > 0:
+            await asyncio.sleep(delay)
+        resp = await client.post(url, headers=headers, json=body)
+    return resp
+
+
+def _call_gemini_sync(prompt: str) -> Dict[str, Any]:
+    """Executa chamada síncrona ao Gemini com retry em 429/503 e fallback automático de modelo em 404."""
+    primary_model = (settings.GEMINI_MODEL or "gemini-3.5-flash-lite").strip()
+    fallback_model = (getattr(settings, "GEMINI_FALLBACK_MODEL", "") or "").strip()
+    url, headers, body = _request_args(prompt, model=primary_model)
+    with _build_client(settings.GEMINI_TIMEOUT_SECONDS) as client:
+        resp = _post_with_retry_sync(client, url, headers, body)
+        if resp.status_code == 404 and fallback_model and fallback_model != primary_model:
+            logger.warning(
+                f"Modelo Gemini '{primary_model}' retornou HTTP 404; tentando fallback '{fallback_model}'."
+            )
+            fb_url, fb_headers, fb_body = _request_args(prompt, model=fallback_model)
+            resp = _post_with_retry_sync(client, fb_url, fb_headers, fb_body)
+        return _parse_resposta(resp)
+
+
+async def _call_gemini_async(prompt: str) -> Dict[str, Any]:
+    """Executa chamada assíncrona ao Gemini com retry em 429/503 e fallback automático de modelo em 404."""
+    primary_model = (settings.GEMINI_MODEL or "gemini-3.5-flash-lite").strip()
+    fallback_model = (getattr(settings, "GEMINI_FALLBACK_MODEL", "") or "").strip()
+    url, headers, body = _request_args(prompt, model=primary_model)
+    async with _build_async_client(settings.GEMINI_TIMEOUT_SECONDS) as client:
+        resp = await _post_with_retry_async(client, url, headers, body)
+        if resp.status_code == 404 and fallback_model and fallback_model != primary_model:
+            logger.warning(
+                f"Modelo Gemini '{primary_model}' retornou HTTP 404; tentando fallback '{fallback_model}'."
+            )
+            fb_url, fb_headers, fb_body = _request_args(prompt, model=fallback_model)
+            resp = await _post_with_retry_async(client, fb_url, fb_headers, fb_body)
+        return _parse_resposta(resp)
 
 
 def _finalizar(plano: _Plano, dados: Optional[Dict[str, Any]]) -> Tuple[str, Optional[str]]:
@@ -323,9 +429,7 @@ def enrich_title_and_summary(
 
     dados: Optional[Dict[str, Any]] = None
     try:
-        url, headers, body = _request_args(plano.prompt)
-        with _build_client(settings.GEMINI_TIMEOUT_SECONDS) as client:
-            dados = _parse_resposta(client.post(url, headers=headers, json=body))
+        dados = _call_gemini_sync(plano.prompt)
     except Exception as exc:
         _log_falha(exc)
     return _finalizar(plano, dados)
@@ -351,9 +455,7 @@ async def enrich_title_and_summary_async(
 
     dados: Optional[Dict[str, Any]] = None
     try:
-        url, headers, body = _request_args(plano.prompt)
-        async with _build_async_client(settings.GEMINI_TIMEOUT_SECONDS) as client:
-            dados = _parse_resposta(await client.post(url, headers=headers, json=body))
+        dados = await _call_gemini_async(plano.prompt)
     except Exception as exc:
         _log_falha(exc)
     return _finalizar(plano, dados)
@@ -601,9 +703,7 @@ def enrich_edital_with_llm(
     )
 
     try:
-        url, headers, body = _request_args(prompt)
-        with _build_client(settings.GEMINI_TIMEOUT_SECONDS) as client:
-            dados = _parse_resposta(client.post(url, headers=headers, json=body))
+        dados = _call_gemini_sync(prompt)
     except Exception as exc:
         _log_falha(exc)
         return resultado
@@ -645,11 +745,8 @@ def enrich_metadata_with_llm(
 
     try:
         prompt = _montar_prompt_metadados(texto_extraido, titulo)
-        url, headers, body = _request_args(prompt)
-        with _build_client(settings.GEMINI_TIMEOUT_SECONDS) as client:
-            resp = client.post(url, headers=headers, json=body)
-            dados = _parse_resposta(resp)
-            return _converter_metadados_llm(dados)
+        dados = _call_gemini_sync(prompt)
+        return _converter_metadados_llm(dados)
     except Exception as exc:
         logger.warning(f"Falha ao enriquecer metadados com Gemini ({type(exc).__name__}: {exc}); usando dados locais.")
         return {}
@@ -667,11 +764,8 @@ async def enrich_metadata_with_llm_async(
 
     try:
         prompt = _montar_prompt_metadados(texto_extraido, titulo)
-        url, headers, body = _request_args(prompt)
-        async with _build_async_client(settings.GEMINI_TIMEOUT_SECONDS) as client:
-            resp = await client.post(url, headers=headers, json=body)
-            dados = _parse_resposta(resp)
-            return _converter_metadados_llm(dados)
+        dados = await _call_gemini_async(prompt)
+        return _converter_metadados_llm(dados)
     except Exception as exc:
         logger.warning(f"Falha assíncrona ao enriquecer metadados com Gemini ({type(exc).__name__}: {exc}); usando dados locais.")
         return {}

@@ -149,7 +149,6 @@ Este relatório consolida todas as decisões arquiteturais tomadas pela equipe p
   - Compartilhamento de CPU e memória do container web entre requisições de usuários e processamento de scrapers.
 
 ---
-
 ## 3. Síntese do Estado Atual da Infraestrutura
 
 | Item | Situação Atual |

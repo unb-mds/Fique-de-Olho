@@ -132,6 +132,50 @@ def test_int_scraper_fetch_editais_and_docs(mock_get):
     assert docs[1]["tipo"] == "resultado_final"
 
 
+@patch("app.modules.scraper.int_scraper.httpx.get")
+def test_int_scraper_extrai_data_resumo_e_sei_resultado_definitivo(mock_get):
+    """Garante extração de data/resumo dos cards <article> e detecção de Resultado Final/Definitivo no SEI e PDFs."""
+    mock_list_resp = MagicMock()
+    mock_list_resp.text = """
+    <main>
+      <article>
+        <h2><a href="/edital-int-n-5-2025/">EDITAL INT N. 5/2025 – MOBILIDADE ESCALA</a></h2>
+        <time>10 de junho de 2026</time>
+        <p>A Secretaria de Assuntos Internacionais torna pública a pré-seleção ao Programa ESCALA Graduação.</p>
+      </article>
+    </main>
+    """
+    mock_list_resp.url = "https://int.unb.br/selecoes-abertas/"
+    mock_list_resp.raise_for_status.return_value = None
+
+    mock_doc_resp = MagicMock()
+    mock_doc_resp.text = """
+    <div class="entry-content">
+      <p>
+        <a href="https://sei.unb.br/sei/publicacoes/controlador_publicacoes.php?acao=publicacao_visualizar&id_documento=16120559">
+          Edital N. 5/INT/2026 – Resultado Definitivo da Seleção
+        </a>
+        – (<a href="/wp-content/uploads/2026/07/SEI_14207884_Resultado-Definitivo-da-Selecao.pdf">baixar em PDF</a>)
+      </p>
+    </div>
+    """
+    mock_doc_resp.url = "https://int.unb.br/edital-int-n-5-2025/"
+    mock_doc_resp.raise_for_status.return_value = None
+
+    mock_get.side_effect = [mock_list_resp, mock_doc_resp]
+
+    editais = int_scraper.fetch_editais()
+    assert len(editais) == 1
+    assert editais[0]["data_publicacao"] == "10 de junho de 2026"
+    assert "Programa ESCALA" in editais[0]["resumo"]
+
+    docs = int_scraper.fetch_documentos(editais[0]["link"])
+    assert len(docs) == 2
+    assert all(doc["tipo"] == "resultado_final" for doc in docs)
+    assert any("sei.unb.br" in doc["link"] for doc in docs)
+    assert any("Resultado Definitivo" in doc["titulo"] for doc in docs)
+
+
 # ============================================================================
 # 3. DEX (Decanato de Extensão)
 # ============================================================================

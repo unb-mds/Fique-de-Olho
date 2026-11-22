@@ -28,12 +28,15 @@ theme:
   features:
     - navigation.tabs
     - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.indexes
     - navigation.top
     - navigation.instant
     - navigation.tracking
     - search.suggest
     - search.highlight
     - content.code.copy
+    - content.tabs.link
     - toc.follow
 
 markdown_extensions:
@@ -42,15 +45,48 @@ markdown_extensions:
   - admonition
   - tables
   - footnotes
-  - pymdownx.superfences
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
 
 extra_css:
   - stylesheets/extra.css
 
 nav:
   - Início: index.md
-  - Arquitetura: Arquitetura.md
-  - Fontes de Dados: fontes-de-dados.md
+  - Backend:
+      - Visão Geral & Quickstart: backend/index.md
+      - Referência da API REST: backend/api.md
+      - Banco de Dados & Migrations: backend/banco-de-dados.md
+      - Pipeline de Coleta, PDF & IA: backend/coleta-e-ia.md
+      - Operação, Notificações & Deploy: backend/operacao-e-deploy.md
+  - Frontend: front.md
+  - Arquitetura:
+      - Visão Geral: Arquitetura.md
+      - Fontes de Dados: fontes-de-dados.md
+      - ADR 0001 - Stack do Backend: adr/0001-stack-backend.md
+      - ADR 0002 - Stack do Frontend: adr/0002-stack-frontend.md
+      - ADR 0003 - Schema do Banco de Dados: adr/0003-database-schema.md
+      - ADR 0004 - Plataformas de Hospedagem e Deploy: adr/0004-plataformas-de-deploy.md
+      - ADR 0005 - Pipeline Híbrido (Camada 1 + Gemini): adr/0005-enriquecimento-hibrido-camada1-gemini.md
+      - ADR 0006 - Evolução do Schema, Alertas e Notificações: adr/0006-evolucao-schema-catalogos-alertas-notificacoes.md
+  - Requisitos & Produto:
+      - Requisitos: Requisitos/Requisitos.md
+      - Visão de produto: Requisitos/Visão de produto.md
+      - Critérios de aceitação: Requisitos/Criterios de aceitacao.md
+      - Personas: Requisitos/produto/personas.md
+      - Backlog do Produto: Requisitos/produto/backlog.md
+      - Story Map: Requisitos/StoryMap.md
+      - Wireframe: Requisitos/Wireframe.md
+      - Protótipo de alta fidelidade: Requisitos/Protótipo de altafidelidade.md
   - Estudos:
       - Agentes de IA: Estudos/sprint00/agentes_IA.md
       - Arquitetura: Estudos/sprint00/arquitetura.md
@@ -63,23 +99,3 @@ nav:
       - Relatório de Decisões de Deploy: Estudos/relatorio_decisoes_infraestrutura_deploy.md
       - Keep-Alive e UptimeRobot: Estudos/guia_keep_awake_uptimerobot_e_ping.md
       - Operação de Deploy e CI/CD: Estudos/guia_operacional_deploy_ci_cd.md
-  - Requisitos:
-      - Requisitos: Requisitos/Requisitos.md
-      - Visão de produto: Requisitos/Visão de produto.md
-      - Critérios de aceitação: Requisitos/Criterios de aceitacao.md
-      - Story Map: Requisitos/StoryMap.md
-      - Wireframe: Requisitos/Wireframe.md
-      - Protótipo de alta fidelidade: Requisitos/Protótipo de altafidelidade.md
-  - Produto:
-      - Personas: Requisitos/produto/personas.md
-      - Backlog do Produto: Requisitos/produto/backlog.md
-  - Apresentação & Releases:
-      - Release Notes (R1): RealiseNotes/release-1.md
-  - Implementação:
-      - Backend: back.md
-      - Frontend: front.md
-  - Decisões Arquiteturais:
-      - ADR 0001 - Stack do Backend: adr/0001-stack-backend.md
-      - ADR 0002 - Stack do Frontend: adr/0002-stack-frontend.md
-      - ADR 0003 - Schema do Banco de Dados: adr/0003-database-schema.md
-      - ADR 0004 - Plataformas de Hospedagem e Deploy: adr/0004-plataformas-de-deploy.md

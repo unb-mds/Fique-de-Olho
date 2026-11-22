@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime, timedelta
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -7,6 +7,11 @@ from sqlalchemy.pool import StaticPool
 
 from app.core.database import Base, Edital, EditalDocumento, StatusEdital, TipoDocumento, get_db
 from app.main import app
+from app.modules.editais.service import (
+    _consultar_stats_editais,
+    list_editais_com_filtros,
+    serialize_edital,
+)
 
 
 @pytest.fixture
@@ -20,6 +25,7 @@ def db_session_editais():
     Base.metadata.create_all(bind=engine)
     TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     session = TestingSessionLocal()
+    prazo_futuro = date.today() + timedelta(days=30)
 
     # Cria editais variados de diferentes anos e títulos
     e1 = Edital(
@@ -29,6 +35,7 @@ def db_session_editais():
         campus="Darcy Ribeiro",
         tipo="monitoria",
         data_publicacao=datetime(2026, 3, 15),
+        fim_inscricao=prazo_futuro,
         status=StatusEdital.ABERTO,
     )
     doc1 = EditalDocumento(
@@ -55,6 +62,7 @@ def db_session_editais():
         campus="Darcy Ribeiro",
         tipo="estagio",
         data_publicacao=datetime(2026, 8, 10),
+        fim_inscricao=prazo_futuro,
         status=StatusEdital.ABERTO,
     )
 
@@ -163,3 +171,222 @@ def test_editais_stats_retorna_contagens_reais(client_editais):
         "abertos": 2,
         "encerrados": 1,
     }
+
+
+def _make_isolated_session():
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(bind=engine)
+    return sessionmaker(autocommit=False, autoflush=False, bind=engine)()
+
+
+def test_filtro_graduacao_nao_retorna_pos_graduacao():
+    """Ao filtrar por Graduação, editais de Pós-graduação (mestrado/doutorado/DPG/PPG) nunca podem vazar."""
+    db = _make_isolated_session()
+    try:
+        hoje = date.today()
+        db.add_all([
+            Edital(
+                id=10,
+                titulo="Edital DEG/UnB Nº 76/2026 – Diagnósticos sobre Licenciaturas",
+                url_pagina="https://deg.unb.br/edital-76-2026",
+                orgao_emissor="DEG",
+                assunto=None,
+                data_publicacao=datetime(hoje.year, hoje.month, hoje.day),
+                status=StatusEdital.ABERTO,
+            ),
+            Edital(
+                id=11,
+                titulo="Edital de Monitoria de Graduação 2026",
+                url_pagina="https://deg.unb.br/monitoria-grad-2026",
+                orgao_emissor="DEG",
+                resumo="Seleção de estudantes de graduação para monitoria.",
+                data_publicacao=datetime(hoje.year, hoje.month, hoje.day),
+                status=StatusEdital.ABERTO,
+            ),
+            Edital(
+                id=12,
+                titulo="Programa de Pós-Graduação em Física Edital 5/2026 - DOUTORADO",
+                url_pagina="https://sigaa.unb.br/fisica-doutorado",
+                orgao_emissor="SIGAA",
+                resumo="Edital de seleção para cursos de pós-graduação stricto sensu.",
+                assunto="Processo Seletivo de Pós-Graduação (Mestrado/Doutorado)",
+                data_publicacao=datetime(hoje.year, hoje.month, hoje.day),
+                status=StatusEdital.ABERTO,
+            ),
+            Edital(
+                id=13,
+                titulo="Seleção de Mestrado em Zoologia - Edital 2027.1",
+                url_pagina="https://sigaa.unb.br/zoologia-mestrado",
+                orgao_emissor="SIGAA",
+                resumo="Edital de seleção para cursos de pós-graduação stricto sensu.",
+                data_publicacao=datetime(hoje.year, hoje.month, hoje.day),
+                status=StatusEdital.ABERTO,
+            ),
+            Edital(
+                id=14,
+                titulo="Edital de Pós Graduação Lato Sensu em Gestão Pública",
+                url_pagina="https://dpg.unb.br/lato-sensu",
+                orgao_emissor="DPG",
+                data_publicacao=datetime(hoje.year, hoje.month, hoje.day),
+                status=StatusEdital.ABERTO,
+            ),
+            Edital(
+                id=15,
+                titulo="Edital 01/2026 - PPGCA",
+                url_pagina="https://sigaa.unb.br/ppgca",
+                orgao_emissor="PPGCONT",
+                resumo="Seleção para egressos de graduação interessados no programa.",
+                data_publicacao=datetime(hoje.year, hoje.month, hoje.day),
+                status=StatusEdital.ABERTO,
+            ),
+        ])
+        db.commit()
+
+        grad = list_editais_com_filtros(db, categoria="Graduação")
+        assert {e.id for e in grad} == {10, 11}
+        assert all(serialize_edital(e)["categoria"] != "Pós-graduação" for e in grad)
+
+        pos = list_editais_com_filtros(db, categoria="Pós-graduação")
+        assert {e.id for e in pos} == {12, 13, 14, 15}
+        assert all(serialize_edital(e)["categoria"] == "Pós-graduação" for e in pos)
+    finally:
+        db.close()
+
+
+def test_filtro_abertos_intercambio_exclui_antigos_e_encerrados():
+    """Editais abertos de Intercâmbio não devem incluir editais antigos sem prazo nem já finalizados."""
+    db = _make_isolated_session()
+    try:
+        hoje = date.today()
+        recente = hoje - timedelta(days=10)
+        antigo_meses = hoje - timedelta(days=180)
+
+        e_aberto_prazo = Edital(
+            id=20,
+            titulo="Edital INT N. 12/2026 – Programa de Intercâmbio Internacional",
+            url_pagina="https://int.unb.br/edital-12-2026",
+            orgao_emissor="INT",
+            data_publicacao=datetime(antigo_meses.year, antigo_meses.month, antigo_meses.day),
+            fim_inscricao=hoje + timedelta(days=15),
+            status=StatusEdital.ABERTO,
+        )
+        e_aberto_recente = Edital(
+            id=21,
+            titulo="Edital INT N. 15/2026",
+            url_pagina="https://int.unb.br/edital-15-2026",
+            orgao_emissor="INT",
+            resumo="Pré-seleção para mobilidade acadêmica internacional.",
+            data_publicacao=datetime(recente.year, recente.month, recente.day),
+            fim_inscricao=None,
+            status=StatusEdital.ABERTO,
+        )
+        e_antigo_2024 = Edital(
+            id=22,
+            titulo="EDITAL DE INTERCÂMBIO FÓRUNS EJA",
+            url_pagina="https://fup.unb.br/intercambio-2024",
+            orgao_emissor="FUP",
+            data_publicacao=datetime(2024, 1, 15),
+            fim_inscricao=None,
+            status=StatusEdital.ABERTO,
+        )
+        e_antigo_sem_prazo = Edital(
+            id=23,
+            titulo="EDITAL FAV/MARCA N°010/2026 — Mobilidade Acadêmica",
+            url_pagina="https://fav.unb.br/marca-2026",
+            orgao_emissor="FAL",
+            data_publicacao=datetime(antigo_meses.year, antigo_meses.month, antigo_meses.day),
+            fim_inscricao=None,
+            status=StatusEdital.ABERTO,
+        )
+        e_com_resultado_final = Edital(
+            id=24,
+            titulo="EDITAL INT N. 9/2026 – Intercâmbio SUSI",
+            url_pagina="https://int.unb.br/edital-9-2026",
+            orgao_emissor="INT",
+            data_publicacao=datetime(recente.year, recente.month, recente.day),
+            fim_inscricao=None,
+            status=StatusEdital.ABERTO,
+        )
+        e_com_resultado_final.documentos.append(
+            EditalDocumento(
+                url_pdf="https://sei.unb.br/sei/publicacoes/resultado-final-9",
+                tipo_documento=TipoDocumento.RESULTADO_FINAL,
+            )
+        )
+        e_estagio_int = Edital(
+            id=25,
+            titulo="Edital Nº 2/INT/2026 – ESTÁGIO PRESENCIAL NA SECRETARIA DE ASSUNTOS INTERNACIONAIS",
+            url_pagina="https://int.unb.br/estagio-int-2026",
+            orgao_emissor="INT",
+            data_publicacao=datetime(recente.year, recente.month, recente.day),
+            fim_inscricao=hoje + timedelta(days=20),
+            status=StatusEdital.ABERTO,
+        )
+
+        db.add_all([
+            e_aberto_prazo,
+            e_aberto_recente,
+            e_antigo_2024,
+            e_antigo_sem_prazo,
+            e_com_resultado_final,
+            e_estagio_int,
+        ])
+        db.commit()
+
+        abertos = list_editais_com_filtros(db, status="aberto", categoria="Intercâmbio")
+        assert {e.id for e in abertos} == {20, 21}
+        assert all(serialize_edital(e)["status"] == "aberto" for e in abertos)
+
+        fechados = list_editais_com_filtros(db, status="fechado", categoria="Intercâmbio")
+        assert {e.id for e in fechados} == {22, 23, 24}
+        assert all(serialize_edital(e)["status"] == "fechado" for e in fechados)
+
+        stats = _consultar_stats_editais(db)
+        assert stats == {"total": 6, "abertos": 3, "encerrados": 3}
+    finally:
+        db.close()
+
+
+def test_filtro_campus_resolve_aliases_sigla_e_nome():
+    """Filtrar por 'FGA (Gama)' ou 'FUP (Planaltina)' deve encontrar registros salvos por sigla ou nome."""
+    db = _make_isolated_session()
+    try:
+        db.add_all([
+            Edital(
+                id=30,
+                titulo="Edital FGA 2026",
+                url_pagina="https://fga.unb.br/edital-1",
+                campus="FGA",
+                data_publicacao=datetime(2026, 10, 1),
+                status=StatusEdital.ABERTO,
+            ),
+            Edital(
+                id=31,
+                titulo="Edital Gama 2026",
+                url_pagina="https://fga.unb.br/edital-2",
+                campus="Gama",
+                data_publicacao=datetime(2026, 10, 2),
+                status=StatusEdital.ABERTO,
+            ),
+            Edital(
+                id=32,
+                titulo="Edital FUP Planaltina",
+                url_pagina="https://fup.unb.br/edital-1",
+                campus="Planaltina",
+                data_publicacao=datetime(2026, 10, 3),
+                status=StatusEdital.ABERTO,
+            ),
+        ])
+        db.commit()
+
+        gama = list_editais_com_filtros(db, campus="FGA (Gama)")
+        assert {e.id for e in gama} == {30, 31}
+
+        planaltina = list_editais_com_filtros(db, campus="FUP (Planaltina)")
+        assert {e.id for e in planaltina} == {32}
+    finally:
+        db.close()

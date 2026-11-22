@@ -28,6 +28,7 @@ from app.modules.scraper.pdf import (
     PDFDownloadError,
     PDFExtractionError,
     extract_pdf,
+    is_google_drive_url,
 )
 from app.modules.notificacoes.service import (
     gerar_notificacoes_prazo as _gerar_notificacoes_prazo,
@@ -120,7 +121,17 @@ def map_tipo_documento(tipo_str: str, titulo_str: Optional[str] = None) -> TipoD
 
     if titulo_str:
         tit_low = titulo_str.lower()
-        if any(k in tit_low for k in ("resultado final", "resultado_final", "homologacao", "homologação")):
+        if any(
+            k in tit_low
+            for k in (
+                "resultado final",
+                "resultado_final",
+                "resultado definitivo",
+                "resultado_definitivo",
+                "homologacao",
+                "homologação",
+            )
+        ):
             return TipoDocumento.RESULTADO_FINAL
         if any(k in tit_low for k in ("resultado provisorio", "resultado provisório", "resultado preliminar")):
             return TipoDocumento.RESULTADO_PROVISORIO
@@ -260,6 +271,8 @@ def _is_likely_pdf_url(url: Optional[str]) -> bool:
     low = url.strip().lower()
     if not low.startswith(("http://", "https://")):
         return False
+    if is_google_drive_url(url):
+        return True
     base_path = low.split("?", 1)[0].split("#", 1)[0]
     if base_path.endswith(".pdf"):
         return True
@@ -710,6 +723,7 @@ def _resolve_edital_status(
     edital_data: Dict[str, Any],
     tem_resultado_final: bool,
     fim_inscricao: Optional[date],
+    data_publicacao: Optional[datetime] = None,
 ) -> StatusEdital:
     """Determina o status atualizado do edital de forma compatível com execuções periódicas."""
     if tem_resultado_final:
@@ -719,8 +733,29 @@ def _resolve_edital_status(
     if raw_status in ("fechado", "encerrado"):
         return StatusEdital.ENCERRADO
 
-    if fim_inscricao is not None and fim_inscricao < datetime.now(timezone.utc).date():
+    titulo_low = str(edital_data.get("titulo") or "").strip().lower()
+    if any(
+        k in titulo_low
+        for k in (
+            "resultado final",
+            "resultado definitivo",
+            "homologação final",
+            "homologacao final",
+            "edital encerrado",
+            "inscrições encerradas",
+            "inscricoes encerradas",
+        )
+    ):
         return StatusEdital.ENCERRADO
+
+    today = datetime.now(timezone.utc).date()
+    if fim_inscricao is not None and fim_inscricao < today:
+        return StatusEdital.ENCERRADO
+
+    if fim_inscricao is None and data_publicacao is not None:
+        pub_date = data_publicacao.date() if isinstance(data_publicacao, datetime) else data_publicacao
+        if pub_date.year < today.year:
+            return StatusEdital.ENCERRADO
 
     return StatusEdital.ABERTO
 
@@ -782,7 +817,7 @@ def upsert_edital(
         tem_resultado_final = True
 
     # Recalcula status DEPOIS do enriquecimento via PDF
-    novo_status = _resolve_edital_status(edital_data, tem_resultado_final, fim_insc)
+    novo_status = _resolve_edital_status(edital_data, tem_resultado_final, fim_insc, data_publicacao=data_pub)
     tipo = edital_data.get("tipo") or edital_data.get("tipo_edital")
 
     if edital:

@@ -2,9 +2,10 @@
 
 from collections import OrderedDict
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 import logging
+import re
 from threading import Lock
 import time
 from typing import Any, Callable, Dict, List, Optional
@@ -12,9 +13,43 @@ from sqlalchemy import and_, case, extract, func, or_
 from sqlalchemy.orm import Session, defer, sessionmaker
 
 from app.core.config import settings
-from app.core.database import Campus, Edital, StatusEdital, TipoEdital
+from app.core.database import Campus, Edital, EditalDocumento, StatusEdital, TipoDocumento, TipoEdital
 
 logger = logging.getLogger(__name__)
+
+# Editais sem data de fim_inscricao publicados há mais de 90 dias são tratados como encerrados
+# para evitar que editais antigos/sem prazo continuem aparecendo em "Abertos".
+SEM_PRAZO_MAX_DIAS_ABERTO = 90
+
+_POS_GRADUACAO_TERMOS_TEXTO: tuple[str, ...] = (
+    "pós-graduação",
+    "pos-graduacao",
+    "pós graduação",
+    "pos graduacao",
+    "mestrado",
+    "doutorado",
+    "stricto sensu",
+    "lato sensu",
+    "pós-doutorado",
+    "pos-doutorado",
+    "pós doutorado",
+    "pos doutorado",
+    "decanato de pós",
+    "decanato de pos",
+    "ppg",
+)
+
+_TITULO_ENCERRADO_TERMOS: tuple[str, ...] = (
+    "resultado final",
+    "resultado definitivo",
+    "homologação final",
+    "homologacao final",
+    "edital encerrado",
+    "inscrições encerradas",
+    "inscricoes encerradas",
+)
+
+_PPG_REGEX = re.compile(r"\bppg(?:[a-z0-9-]+)?\b")
 
 
 def _format_valor_bolsa_str(valor_bolsa: Any) -> Optional[str]:
@@ -32,6 +67,10 @@ def _format_valor_bolsa_str(valor_bolsa: Any) -> Optional[str]:
 
 def _infer_categoria(edital: Edital) -> str:
     """Classifica uma oportunidade a partir do texto disponível no registro."""
+    orgao_norm = _normalizar_texto_busca(edital.orgao_emissor or "").strip()
+    if orgao_norm == "dpg" or orgao_norm.startswith("ppg"):
+        return "Pós-graduação"
+
     partes = [
         edital.titulo or "",
         edital.resumo or "",
@@ -42,19 +81,48 @@ def _infer_categoria(edital: Edital) -> str:
     texto = _normalizar_texto_busca(" ".join(partes))
 
     regras = (
-        ("Pós-graduação", ("pos-graduacao", "mestrado", "doutorado", "stricto sensu", "decanato de pos")),
-        ("Intercâmbio", ("intercambio", "mobilidade", "exchange", "estudante internacional")),
+        (
+            "Pós-graduação",
+            (
+                "pos-graduacao",
+                "pos graduacao",
+                "mestrado",
+                "doutorado",
+                "stricto sensu",
+                "lato sensu",
+                "pos-doutorado",
+                "pos doutorado",
+                "decanato de pos",
+            ),
+        ),
+        (
+            "Intercâmbio",
+            (
+                "intercambio",
+                "mobilidade",
+                "exchange",
+                "estudante internacional",
+                "internacionalizacao",
+                "study of the u.s.",
+            ),
+        ),
         ("Evento", ("evento", "palestra", "seminario", "workshop", "congresso", "festival", "simpósio", "simposio")),
         ("Bolsa", ("bolsa", "bolsista", "auxilio", "auxílio", "pibic", "pibiti", "pibex")),
-        ("Graduação", ("graduacao", "graduação", "licenciatura", "monitoria")),
+        ("Graduação", ("graduacao", "graduação", "licenciatura", "bacharelado", "monitoria")),
         ("Pesquisa", ("pesquisa", "cientifica", "científica", "proic")),
         ("Estágio", ("estagio", "estágio")),
         ("Extensão", ("extensao", "extensão")),
         ("Vestibular", ("vestibular", "processo seletivo", "concurso")),
     )
+    if _PPG_REGEX.search(texto):
+        return "Pós-graduação"
+
     for categoria, termos in regras:
         if any(_normalizar_texto_busca(termo) in texto for termo in termos):
             return categoria
+
+    if orgao_norm == "int":
+        return "Intercâmbio"
 
     tipo_nome = edital.tipo or ((edital.tipos or [None])[0].nome if edital.tipos else None)
     return tipo_nome or "Geral"
@@ -67,17 +135,119 @@ def _normalizar_texto_busca(valor: str) -> str:
     return "".join(char for char in normalizado if unicodedata.category(char) != "Mn").lower()
 
 
-def serialize_edital(edital: Edital, detail: bool = False) -> Dict[str, Any]:
-    """Serializa uma entidade Edital para formato compatível com o schema e o frontend."""
-    today = date.today()
+def _titulo_indica_encerrado(titulo: Optional[str]) -> bool:
+    if not titulo:
+        return False
+    texto = _normalizar_texto_busca(titulo)
+    return any(_normalizar_texto_busca(termo) in texto for termo in _TITULO_ENCERRADO_TERMOS)
+
+
+def _edital_esta_aberto(edital: Edital, today: Optional[date] = None) -> bool:
+    """Determina se um edital está aberto de forma consistente com os filtros SQL."""
+    hoje = today or date.today()
+    docs_list = getattr(edital, "documentos", []) or []
+    tem_resultado_final = any(
+        (doc.tipo_documento == TipoDocumento.RESULTADO_FINAL)
+        or (getattr(doc.tipo_documento, "value", str(doc.tipo_documento)) == "resultado_final")
+        for doc in docs_list
+    )
+    if tem_resultado_final:
+        return False
 
     if edital.fim_inscricao:
         fim_d = edital.fim_inscricao.date() if isinstance(edital.fim_inscricao, datetime) else edital.fim_inscricao
-        status_edital = "aberto" if fim_d >= today else "fechado"
-    elif edital.status:
-        status_edital = edital.status.value if hasattr(edital.status, "value") else str(edital.status)
-    else:
-        status_edital = "aberto"
+        return fim_d >= hoje
+
+    if edital.status:
+        raw_status = edital.status.value if hasattr(edital.status, "value") else str(edital.status)
+        if raw_status.lower() in ("encerrado", "fechado"):
+            return False
+
+    if _titulo_indica_encerrado(edital.titulo):
+        return False
+
+    if edital.data_publicacao:
+        pub_d = (
+            edital.data_publicacao.date()
+            if isinstance(edital.data_publicacao, datetime)
+            else edital.data_publicacao
+        )
+        if pub_d < hoje - timedelta(days=SEM_PRAZO_MAX_DIAS_ABERTO):
+            return False
+
+    return True
+
+
+def _expandir_termos_case_acento(termos: tuple[str, ...]) -> tuple[str, ...]:
+    """Adiciona variante em maiúsculas para termos acentuados (compatibilidade SQLite + PostgreSQL)."""
+    expandidos: List[str] = []
+    vistos = set()
+    for termo in termos:
+        for variante in (termo, termo.upper()):
+            if variante not in vistos:
+                vistos.add(variante)
+                expandidos.append(variante)
+    return tuple(expandidos)
+
+
+def _condicao_pos_graduacao():
+    """Condição SQL que identifica editais de pós-graduação (segura para campos NULL)."""
+    filtros = [
+        func.coalesce(Edital.orgao_emissor, "").ilike("DPG"),
+        func.coalesce(Edital.orgao_emissor, "").ilike("PPG%"),
+    ]
+    for termo in _expandir_termos_case_acento(_POS_GRADUACAO_TERMOS_TEXTO):
+        pattern = f"%{termo}%"
+        filtros.extend([
+            func.coalesce(Edital.titulo, "").ilike(pattern),
+            func.coalesce(Edital.resumo, "").ilike(pattern),
+            func.coalesce(Edital.assunto, "").ilike(pattern),
+            func.coalesce(Edital.tipo, "").ilike(pattern),
+            Edital.tipos.any(TipoEdital.nome.ilike(pattern)),
+        ])
+    return or_(*filtros)
+
+
+def _condicao_edital_aberto(today: Optional[date] = None):
+    """Expressão SQL equivalente a `_edital_esta_aberto` para filtros e estatísticas."""
+    hoje = today or date.today()
+    cutoff_date = hoje - timedelta(days=SEM_PRAZO_MAX_DIAS_ABERTO)
+    cutoff_dt = datetime(cutoff_date.year, cutoff_date.month, cutoff_date.day, tzinfo=timezone.utc)
+
+    titulo_encerrado = or_(
+        *[
+            func.coalesce(Edital.titulo, "").ilike(f"%{termo}%")
+            for termo in _expandir_termos_case_acento(_TITULO_ENCERRADO_TERMOS)
+        ]
+    )
+    tem_resultado_final = Edital.documentos.any(
+        EditalDocumento.tipo_documento == TipoDocumento.RESULTADO_FINAL
+    )
+    publicacao_recente_ou_ausente = or_(
+        Edital.data_publicacao.is_(None),
+        Edital.data_publicacao >= cutoff_dt,
+    )
+
+    return or_(
+        and_(
+            Edital.fim_inscricao.isnot(None),
+            Edital.fim_inscricao >= hoje,
+            ~tem_resultado_final,
+        ),
+        and_(
+            Edital.fim_inscricao.is_(None),
+            or_(Edital.status.is_(None), Edital.status == StatusEdital.ABERTO),
+            publicacao_recente_ou_ausente,
+            ~tem_resultado_final,
+            ~titulo_encerrado,
+        ),
+    )
+
+
+def serialize_edital(edital: Edital, detail: bool = False) -> Dict[str, Any]:
+    """Serializa uma entidade Edital para formato compatível com o schema e o frontend."""
+    today = date.today()
+    status_edital = "aberto" if _edital_esta_aberto(edital, today) else "fechado"
 
     campi_list = getattr(edital, "campi", []) or []
     tipos_list = getattr(edital, "tipos", []) or []
@@ -289,62 +459,90 @@ def list_editais_com_filtros(
 
     status_norm = status.strip().lower() if status and status.strip() else None
     if status_norm == "aberto":
-        query = query.filter(
-            or_(
-                Edital.fim_inscricao >= today,
-                and_(
-                    Edital.fim_inscricao.is_(None),
-                    or_(Edital.status.is_(None), Edital.status == StatusEdital.ABERTO),
-                ),
-            )
-        )
+        query = query.filter(_condicao_edital_aberto(today))
     elif status_norm == "fechado":
-        query = query.filter(
-            or_(
-                Edital.fim_inscricao < today,
-                and_(
-                    Edital.fim_inscricao.is_(None),
-                    Edital.status == StatusEdital.ENCERRADO,
-                ),
-            )
-        )
+        query = query.filter(~_condicao_edital_aberto(today))
 
     if categoria and categoria.strip():
         categoria_normalizada = _normalizar_texto_busca(categoria)
-        alias_categoria: Dict[str, tuple[str, ...]] = {
-            "pos-graduacao": ("pós-graduação", "pos-graduacao", "mestrado", "doutorado", "stricto sensu", "ppg"),
-            "graduacao": ("graduação", "graduacao", "licenciatura", "monitoria"),
-            "intercambio": ("intercâmbio", "intercambio", "mobilidade", "exchange"),
-            "evento": ("evento", "palestra", "seminário", "seminario", "workshop", "congresso", "festival"),
-            "bolsa": ("bolsa", "bolsista", "auxílio", "auxilio", "pibic", "pibiti", "pibex"),
-            "pesquisa": ("pesquisa", "científica", "cientifica", "proic"),
-            "estagio": ("estágio", "estagio"),
-            "extensao": ("extensão", "extensao"),
-            "vestibular": ("vestibular", "concurso"),
-            "monitoria": ("monitoria", "monitor"),
-        }
-        termos = alias_categoria.get(categoria_normalizada, (categoria.strip(),))
-        filtros_categoria = []
-        for termo in termos:
-            pattern = f"%{termo}%"
-            filtros_categoria.extend([
-                Edital.titulo.ilike(pattern),
-                Edital.resumo.ilike(pattern),
-                Edital.assunto.ilike(pattern),
-                Edital.tipo.ilike(pattern),
-                Edital.tipos.any(TipoEdital.nome.ilike(pattern)),
-            ])
-        if filtros_categoria:
-            query = query.filter(or_(*filtros_categoria))
+        if categoria_normalizada == "pos-graduacao":
+            query = query.filter(_condicao_pos_graduacao())
+        else:
+            alias_categoria: Dict[str, tuple[str, ...]] = {
+                "graduacao": ("graduação", "graduacao", "licenciatura", "bacharelado", "monitoria"),
+                "intercambio": (
+                    "intercâmbio",
+                    "intercambio",
+                    "mobilidade",
+                    "exchange",
+                    "internacionalização",
+                    "internacionalizacao",
+                    "study of the u.s.",
+                ),
+                "evento": ("evento", "palestra", "seminário", "seminario", "workshop", "congresso", "festival"),
+                "bolsa": ("bolsa", "bolsista", "auxílio", "auxilio", "pibic", "pibiti", "pibex"),
+                "pesquisa": ("pesquisa", "científica", "cientifica", "proic"),
+                "estagio": ("estágio", "estagio"),
+                "extensao": ("extensão", "extensao"),
+                "vestibular": ("vestibular", "concurso"),
+                "monitoria": ("monitoria", "monitor"),
+            }
+            termos = _expandir_termos_case_acento(alias_categoria.get(categoria_normalizada, (categoria.strip(),)))
+            filtros_categoria = []
+            for termo in termos:
+                pattern = f"%{termo}%"
+                filtros_categoria.extend([
+                    func.coalesce(Edital.titulo, "").ilike(pattern),
+                    func.coalesce(Edital.resumo, "").ilike(pattern),
+                    func.coalesce(Edital.assunto, "").ilike(pattern),
+                    func.coalesce(Edital.tipo, "").ilike(pattern),
+                    Edital.tipos.any(TipoEdital.nome.ilike(pattern)),
+                ])
+            if categoria_normalizada == "graduacao":
+                filtros_categoria.append(func.coalesce(Edital.orgao_emissor, "").ilike("DEG"))
+            elif categoria_normalizada == "intercambio":
+                filtros_categoria.append(
+                    and_(
+                        func.coalesce(Edital.orgao_emissor, "").ilike("INT"),
+                        ~func.coalesce(Edital.titulo, "").ilike("%estágio%"),
+                        ~func.coalesce(Edital.titulo, "").ilike("%ESTÁGIO%"),
+                        ~func.coalesce(Edital.titulo, "").ilike("%estagio%"),
+                    )
+                )
+            if filtros_categoria:
+                query = query.filter(or_(*filtros_categoria))
+            if categoria_normalizada == "graduacao":
+                query = query.filter(~_condicao_pos_graduacao())
 
     if campus and campus.strip():
-        campus_pattern = f"%{campus.strip()}%"
-        query = query.filter(
-            or_(
-                Edital.campus.ilike(campus_pattern),
-                Edital.campi.any(Campus.nome.ilike(campus_pattern)),
-            )
+        campus_normalizado = _normalizar_texto_busca(campus.strip())
+        alias_campus: Dict[str, tuple[str, ...]] = {
+            "darcy ribeiro": ("darcy ribeiro", "plano piloto"),
+            "plano piloto": ("darcy ribeiro", "plano piloto"),
+            "fga": ("fga", "gama", "fcte"),
+            "gama": ("fga", "gama", "fcte"),
+            "fga (gama)": ("fga", "gama", "fcte"),
+            "fce": ("fce", "ceilândia", "ceilandia"),
+            "ceilandia": ("fce", "ceilândia", "ceilandia"),
+            "fce (ceilandia)": ("fce", "ceilândia", "ceilandia"),
+            "fup": ("fup", "planaltina"),
+            "planaltina": ("fup", "planaltina"),
+            "fup (planaltina)": ("fup", "planaltina"),
+            "fazenda agua limpa": ("fazenda água limpa", "fazenda agua limpa", "fal"),
+            "fal": ("fazenda água limpa", "fazenda agua limpa", "fal"),
+            "geral": ("geral",),
+        }
+        termos_campus = _expandir_termos_case_acento(
+            alias_campus.get(campus_normalizado, (campus.strip(),))
         )
+        filtros_campus = []
+        for termo in termos_campus:
+            campus_pattern = f"%{termo}%"
+            filtros_campus.extend([
+                func.coalesce(Edital.campus, "").ilike(campus_pattern),
+                Edital.campi.any(Campus.nome.ilike(campus_pattern)),
+            ])
+        query = query.filter(or_(*filtros_campus))
 
     ordered_query = query.order_by(Edital.data_publicacao.desc().nullslast()).offset(skip).limit(limit)
     resultados = ordered_query.all()
@@ -442,13 +640,7 @@ def invalidar_cache_editais() -> None:
 def _consultar_stats_editais(db: Session) -> Dict[str, int]:
     """Calcula total, abertos e encerrados em uma única consulta agregada."""
     today = date.today()
-    condicao_aberto = or_(
-        Edital.fim_inscricao >= today,
-        and_(
-            Edital.fim_inscricao.is_(None),
-            or_(Edital.status.is_(None), Edital.status == StatusEdital.ABERTO),
-        ),
-    )
+    condicao_aberto = _condicao_edital_aberto(today)
     row = db.query(
         func.count(Edital.id),
         func.coalesce(func.sum(case((condicao_aberto, 1), else_=0)), 0),

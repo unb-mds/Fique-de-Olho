@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_SECRET: str = ""
     SENDGRID_API_KEY: str = ""
     SENDGRID_FROM_EMAIL: str = ""
+    FEEDBACK_TO_EMAIL: str = "fiquedeolho1011@gmail.com"
     NOTIFICATION_SCHEDULER_ENABLED: bool = True
     NOTIFICATION_SCHEDULER_INTERVAL_SECONDS: int = 3600
 
@@ -48,18 +49,22 @@ class Settings(BaseSettings):
     EDITAIS_CACHE_TTL_SECONDS: int = 900
     EDITAIS_CACHE_MAXSIZE: int = 500
 
-    # Camada 2 (LLM) de resumo/normalização de títulos e metadados — Issues #77, #106, #121 e #125.
+    # Camada 2 (LLM) de resumo/normalização de títulos e metadados — Issues #77, #106, #121, #125 e #129.
     # Opcional: sem chave, o pipeline usa apenas a heurística local (Camada 1).
     GEMINI_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemini-2.5-flash-lite"
-    GEMINI_TIMEOUT_SECONDS: float = 10.0
+    GEMINI_MODEL: str = "gemini-3.5-flash-lite"
+    GEMINI_FALLBACK_MODEL: str = "gemini-flash-lite-latest"
+    GEMINI_TIMEOUT_SECONDS: float = 15.0
+    GEMINI_RETRY_DELAY_SECONDS: float = 2.0
 
     @field_validator(
         "ADMIN_API_KEY",
         "SENDGRID_API_KEY",
         "SENDGRID_FROM_EMAIL",
+        "FEEDBACK_TO_EMAIL",
         "GEMINI_API_KEY",
         "GEMINI_MODEL",
+        "GEMINI_FALLBACK_MODEL",
         mode="before",
     )
     @classmethod

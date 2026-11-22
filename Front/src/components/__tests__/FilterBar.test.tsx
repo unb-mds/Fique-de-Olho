@@ -23,4 +23,30 @@ describe('FilterBar', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Limpar filtros' }));
     expect(onClearFilters).toHaveBeenCalledOnce();
   });
+
+  it('permite filtrar por campus e ano de publicação', () => {
+    const onSelectCampus = vi.fn();
+    const onSelectAno = vi.fn();
+
+    render(
+      <FilterBar
+        areaCounts={[]}
+        activeCategoria={null}
+        activeStatus={null}
+        activeCampus={null}
+        activeAno={null}
+        onSelectCategoria={vi.fn()}
+        onSelectStatus={vi.fn()}
+        onSelectCampus={onSelectCampus}
+        onSelectAno={onSelectAno}
+        onClearFilters={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText('Campus'), { target: { value: 'FGA (Gama)' } });
+    expect(onSelectCampus).toHaveBeenCalledWith('FGA (Gama)');
+
+    fireEvent.change(screen.getByLabelText('Ano'), { target: { value: '2026' } });
+    expect(onSelectAno).toHaveBeenCalledWith(2026);
+  });
 });
