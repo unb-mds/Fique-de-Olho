@@ -7,7 +7,7 @@ import { categoryBadgeStyle, formatDate } from "@/utils/editalDisplay";
 import AlertButton from "@/components/AlertButton";
 import FavoriteButton from "@/components/FavoriteButton";
 
-function formatarDataSegura(data?: string): string {
+function formatarDataSegura(data?: string | null): string {
   if (!data) return "Não informado";
 
   const partes = /^(\d{4})-(\d{2})-(\d{2})/.exec(data);
@@ -47,6 +47,7 @@ export default function EditalDetailPage() {
   const [edital, setEdital] = useState<Edital | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reloadTick, setReloadTick] = useState(0);
 
   useEffect(() => {
     if (!id) {
@@ -75,7 +76,7 @@ export default function EditalDetailPage() {
     return () => {
       ativo = false;
     };
-  }, [id]);
+  }, [id, reloadTick]);
 
   if (loading) {
     return (
@@ -87,9 +88,25 @@ export default function EditalDetailPage() {
 
   if (error) {
     return (
-      <p className="status-message">
-        Erro ao carregar edital: {error}
-      </p>
+      <main className="detail-page">
+        <div className="detail-shell">
+          <div className="status-message" role="alert">
+            <p>Erro ao carregar edital: {error}</p>
+            <div className="status-message-actions">
+              <button
+                type="button"
+                className="button button-accent"
+                onClick={() => setReloadTick((prev) => prev + 1)}
+              >
+                Tentar novamente
+              </button>
+              <Link className="button" to="/">
+                ← Voltar para editais
+              </Link>
+            </div>
+          </div>
+        </div>
+      </main>
     );
   }
 
@@ -168,7 +185,7 @@ export default function EditalDetailPage() {
           <div>
             <dt>Início das inscrições</dt>
             <dd>
-              {formatarDataSegura(edital.inicioInscricao)}
+              {formatarDataSegura(edital.inicioInscricao ?? edital.inicio_inscricao)}
             </dd>
           </div>
 

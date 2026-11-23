@@ -1,18 +1,28 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useState,
   type ReactNode,
-} from "react";
+} from 'react';
 
 import {
   getCurrentUser,
   updateEmailPreference,
   type Usuario,
-} from "@/services/authService";
-import { limparCacheFavoritos } from "@/services/favoritosService";
-import { limparCacheAlertas } from "@/services/notificacoesService";
+} from '@/services/authService';
+import { isAuthError, isTransientError } from '@/services/apiClient';
+import { limparCacheFavoritos } from '@/services/favoritosService';
+import { limparCacheAlertas } from '@/services/notificacoesService';
+import {
+  lerUsuarioCacheado,
+  limparSessaoStorage,
+  obterTokenStorage,
+  salvarSessaoStorage,
+  tokenLocalExpirado,
+} from '@/utils/authStorage';
+import { safeStorageSet } from '@/utils/storage';
 
 type AuthContextType = {
   usuario: Usuario | null;
@@ -33,46 +43,69 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [carregando, setCarregando] = useState(true);
 
-  async function atualizarUsuario() {
-    const token = localStorage.getItem("token");
+  const limparSessaoLocal = useCallback(() => {
+    limparSessaoStorage();
+    limparCacheFavoritos();
+    limparCacheAlertas();
+    setUsuario(null);
+  }, []);
 
-    if (!token) {
-      setUsuario(null);
-      setCarregando(false);
-      return;
-    }
-
+  const atualizarUsuario = useCallback(async () => {
     try {
-      const usuarioAtual = await getCurrentUser();
+      const token = obterTokenStorage();
 
-      setUsuario(usuarioAtual);
-      localStorage.setItem("usuario", JSON.stringify(usuarioAtual));
-    } catch {
-      localStorage.removeItem("token");
-      localStorage.removeItem("usuario");
-      setUsuario(null);
+      if (!token) {
+        setUsuario(null);
+        return;
+      }
+
+      if (tokenLocalExpirado(token)) {
+        limparSessaoLocal();
+        return;
+      }
+
+      try {
+        const usuarioAtual = await getCurrentUser();
+        setUsuario(usuarioAtual);
+        salvarSessaoStorage(token, usuarioAtual);
+      } catch (err: unknown) {
+        if (isAuthError(err)) {
+          limparSessaoLocal();
+          return;
+        }
+
+        if (isTransientError(err)) {
+          if (tokenLocalExpirado(token)) {
+            limparSessaoLocal();
+            return;
+          }
+          const usuarioCacheado = lerUsuarioCacheado();
+          if (usuarioCacheado) {
+            setUsuario(usuarioCacheado);
+          }
+          return;
+        }
+
+        limparSessaoLocal();
+      }
     } finally {
       setCarregando(false);
     }
-  }
+  }, [limparSessaoLocal]);
 
   async function atualizarPreferenciaEmail(receberEmails: boolean) {
     const usuarioAtual = await updateEmailPreference(receberEmails);
     setUsuario(usuarioAtual);
-    localStorage.setItem("usuario", JSON.stringify(usuarioAtual));
+    safeStorageSet('usuario', JSON.stringify(usuarioAtual));
   }
 
   function logout() {
-    localStorage.removeItem("token");
-    localStorage.removeItem("usuario");
-    limparCacheFavoritos();
-    limparCacheAlertas();
-    setUsuario(null);
+    limparSessaoLocal();
   }
 
   useEffect(() => {
-    atualizarUsuario();
-  }, []);
+    void atualizarUsuario();
+  }, [atualizarUsuario]);
 
   return (
     <AuthContext.Provider
@@ -94,7 +127,7 @@ export function useAuth() {
   const context = useContext(AuthContext);
 
   if (!context) {
-    throw new Error("useAuth deve ser usado dentro de AuthProvider.");
+    throw new Error('useAuth deve ser usado dentro de AuthProvider.');
   }
 
   return context;

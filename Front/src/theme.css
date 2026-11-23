@@ -2294,3 +2294,48 @@ dialog::backdrop {
     transition-duration: 0.01ms !important;
   }
 }
+
+.error-boundary-page,
+.not-found-page {
+  background: var(--brand-soft);
+  min-height: calc(100vh - 180px);
+  padding: clamp(32px, 6vw, 72px) clamp(20px, 4vw, 64px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.error-boundary-card,
+.not-found-card {
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-offset);
+  max-width: 580px;
+  padding: clamp(24px, 4vw, 40px);
+  width: 100%;
+}
+
+.error-boundary-card h1,
+.not-found-card h1 {
+  font-family: var(--font-display);
+  font-size: clamp(28px, 4vw, 40px);
+  letter-spacing: -0.04em;
+  line-height: 1.08;
+  margin: 0 0 14px;
+}
+
+.error-boundary-card p:not(.eyebrow),
+.not-found-card p:not(.eyebrow) {
+  color: var(--muted);
+  line-height: 1.55;
+  margin: 0 0 24px;
+}
+
+.error-boundary-actions,
+.status-message-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+}

@@ -121,4 +121,54 @@ describe('HomePage', () => {
 
     expect(await screen.findByText('Nenhum edital encontrado')).toBeInTheDocument();
   });
+
+  it('permite tentar novamente quando a carga inicial falha', async () => {
+    let falhar = true;
+    vi.mocked(getEditais).mockImplementation(async (params) => {
+      if (params?.limit === 3) return criarEditais(3);
+      if (falhar) throw new Error('Servidor indisponível');
+      return criarEditais(2);
+    });
+
+    render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>,
+    );
+
+    const retryBtn = await screen.findByRole('button', { name: 'Tentar novamente' });
+    falhar = false;
+    fireEvent.click(retryBtn);
+
+    expect(await screen.findByText('Edital 1')).toBeInTheDocument();
+  });
+
+  it('preserva editais já carregados quando carregarMais falha e permite tentar novamente', async () => {
+    let falharPaginacao = true;
+    vi.mocked(getEditais).mockImplementation(async (params) => {
+      if (params?.limit === 3) return criarEditais(3);
+      if (params?.skip) {
+        if (falharPaginacao) throw new Error('Falha ao paginar editais');
+        return criarEditais(1).map((e) => ({ ...e, id: '13', titulo: 'Edital 13' }));
+      }
+      return criarEditais(12);
+    });
+
+    render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText('Edital 1');
+    fireEvent.click(screen.getByRole('button', { name: 'Carregar mais' }));
+
+    expect(await screen.findByText('Falha ao paginar editais')).toBeInTheDocument();
+    expect(screen.getByText('Edital 1')).toBeInTheDocument();
+
+    falharPaginacao = false;
+    fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }));
+
+    expect(await screen.findByText('Edital 13')).toBeInTheDocument();
+  });
 });

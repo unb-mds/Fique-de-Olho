@@ -9,7 +9,8 @@ interface HeroProps {
 }
 
 export default function Hero({ editaisAbertos, totalAbertos }: HeroProps) {
-  const destaques = editaisAbertos.slice(0, 3);
+  const safeEditais = Array.isArray(editaisAbertos) ? editaisAbertos : [];
+  const destaques = safeEditais.slice(0, 3);
 
   return (
     <section className="hero">
@@ -26,7 +27,7 @@ export default function Hero({ editaisAbertos, totalAbertos }: HeroProps) {
               Explorar editais <span aria-hidden="true">↘</span>
             </a>
             <span className="hero-count">
-              <strong>{totalAbertos ?? editaisAbertos.length}</strong>
+              <strong>{totalAbertos ?? safeEditais.length}</strong>
               oportunidades abertas
             </span>
           </div>
@@ -48,7 +49,7 @@ export default function Hero({ editaisAbertos, totalAbertos }: HeroProps) {
                   {edital.categoria && (
                     <span className="badge badge-highlight">{edital.categoria}</span>
                   )}
-                  {edital.vagas !== undefined && (
+                  {edital.vagas !== undefined && edital.vagas !== null && (
                     <span className="highlight-vagas">{edital.vagas} vagas</span>
                   )}
                 </div>

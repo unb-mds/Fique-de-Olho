@@ -1,15 +1,10 @@
-import type { Edital } from "./types";
-
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+import { ApiError, apiRequest } from '@/services/apiClient';
+import { obterTokenStorage } from '@/utils/authStorage';
+import type { Edital } from './types';
 
 let cachedToken: string | null = null;
 let cachedFavoritos: Edital[] | null = null;
 let inflightFavoritosRequest: Promise<Edital[]> | null = null;
-
-function getToken() {
-  return localStorage.getItem("token");
-}
 
 export function limparCacheFavoritos(): void {
   cachedToken = null;
@@ -18,7 +13,7 @@ export function limparCacheFavoritos(): void {
 }
 
 export async function listarFavoritos(): Promise<Edital[]> {
-  const token = getToken();
+  const token = obterTokenStorage();
   if (!token) {
     limparCacheFavoritos();
     return [];
@@ -38,79 +33,58 @@ export async function listarFavoritos(): Promise<Edital[]> {
     return inflightFavoritosRequest;
   }
 
-  inflightFavoritosRequest = (async () => {
+  let request: Promise<Edital[]> | undefined = undefined;
+  request = (async () => {
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/v1/editais/favoritos`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const dados = await apiRequest<Edital[]>('/api/v1/editais/favoritos', {
+        method: 'GET',
+        auth: true,
+        errorMessage: 'Erro ao listar favoritos.',
+      });
 
-      if (!response.ok) {
-        throw new Error("Erro ao listar favoritos.");
+      if (!Array.isArray(dados)) {
+        throw new ApiError('Resposta inválida ao listar favoritos.', { isTransient: true });
       }
 
-      const dados: Edital[] = await response.json();
       if (cachedToken === token) {
         cachedFavoritos = dados;
       }
       return dados;
     } finally {
-      inflightFavoritosRequest = null;
+      if (inflightFavoritosRequest === request) {
+        inflightFavoritosRequest = null;
+      }
     }
   })();
 
-  return inflightFavoritosRequest;
+  inflightFavoritosRequest = request;
+  return request;
 }
 
-export async function favoritarEdital(
-  editalId: string | number
-): Promise<void> {
-  const token = getToken();
-
-  const response = await fetch(
-    `${API_BASE_URL}/api/v1/editais/${editalId}/favoritar`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error("Erro ao favoritar edital.");
-  }
+export async function favoritarEdital(editalId: string | number): Promise<void> {
+  await apiRequest<void>(`/api/v1/editais/${editalId}/favoritar`, {
+    method: 'POST',
+    auth: true,
+    requireAuth: true,
+    parseResponse: 'void',
+    errorMessage: 'Erro ao favoritar edital.',
+  });
 
   cachedFavoritos = null;
 }
 
-export async function desfavoritarEdital(
-  editalId: string | number
-): Promise<void> {
-  const token = getToken();
-
-  const response = await fetch(
-    `${API_BASE_URL}/api/v1/editais/${editalId}/favoritar`,
-    {
-      method: "DELETE",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error("Erro ao desfavoritar edital.");
-  }
+export async function desfavoritarEdital(editalId: string | number): Promise<void> {
+  await apiRequest<void>(`/api/v1/editais/${editalId}/favoritar`, {
+    method: 'DELETE',
+    auth: true,
+    requireAuth: true,
+    parseResponse: 'void',
+    errorMessage: 'Erro ao desfavoritar edital.',
+  });
 
   if (cachedFavoritos !== null) {
     cachedFavoritos = cachedFavoritos.filter(
-      (edital) => String(edital.id) !== String(editalId)
+      (edital) => String(edital.id) !== String(editalId),
     );
   }
 }

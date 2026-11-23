@@ -21,11 +21,12 @@ export interface Edital {
   orgaoEmissor?: string;
   orgao_emissor?: string;
   assunto?: string;
-  inicioInscricao?: string;
+  inicioInscricao?: string | null;
+  inicio_inscricao?: string | null;
   documentos?: EditalDocumento[];
 
   // Campos opcionais existentes
-  vagas?: number;
-  valor?: string;
+  vagas?: number | null;
+  valor?: string | null;
 }
 

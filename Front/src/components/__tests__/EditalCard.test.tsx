@@ -65,5 +65,15 @@ describe('EditalCard Component', () => {
       '/editais/edital-123',
     );
   });
+
+  it('não exibe texto quebrado de vagas quando edital.vagas é null ou undefined', () => {
+    render(
+      <MemoryRouter>
+        <EditalCard edital={{ ...mockEdital, vagas: null }} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByText(/vagas/i)).not.toBeInTheDocument();
+  });
 });
 

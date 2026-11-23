@@ -1,14 +1,12 @@
-import { getAuthenticatedHeaders } from "./authService";
-
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+import { ApiError, apiRequest } from '@/services/apiClient';
+import { obterTokenStorage } from '@/utils/authStorage';
 
 export type Notificacao = {
   id: number;
   edital_id: number;
   edital_titulo: string;
-  tipo: "edital_atualizado" | "prazo_encerrando";
-  status: "pendente" | "enviada" | "falhou";
+  tipo: 'edital_atualizado' | 'prazo_encerrando';
+  status: 'pendente' | 'enviada' | 'falhou';
   criada_em: string;
   enviada_em: string | null;
 };
@@ -32,20 +30,22 @@ export function limparCacheAlertas(): void {
 }
 
 export async function listarNotificacoes(): Promise<Notificacao[]> {
-  const response = await fetch(
-    `${API_BASE_URL}/api/v1/auth/me/notifications`,
-    { headers: getAuthenticatedHeaders() },
-  );
+  const dados = await apiRequest<Notificacao[]>('/api/v1/auth/me/notifications', {
+    method: 'GET',
+    auth: true,
+    requireAuth: true,
+    errorMessage: 'Não foi possível carregar o histórico de notificações.',
+  });
 
-  if (!response.ok) {
-    throw new Error("Não foi possível carregar o histórico de notificações.");
+  if (!Array.isArray(dados)) {
+    throw new ApiError('Resposta inválida ao listar notificações.', { isTransient: true });
   }
 
-  return response.json();
+  return dados;
 }
 
 export async function listarAlertasEditais(): Promise<string[]> {
-  const token = localStorage.getItem("token");
+  const token = obterTokenStorage();
   if (!token) {
     limparCacheAlertas();
     return [];
@@ -65,47 +65,47 @@ export async function listarAlertasEditais(): Promise<string[]> {
     return inflightAlertRequest;
   }
 
-  inflightAlertRequest = (async () => {
+  let request: Promise<string[]> | undefined = undefined;
+  request = (async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/editais/alertas`, {
-        method: "GET",
-        headers: getAuthenticatedHeaders(),
-      });
+      const data = await apiRequest<{ edital_ids?: Array<string | number> }>(
+        '/api/v1/editais/alertas',
+        {
+          method: 'GET',
+          auth: true,
+          errorMessage: 'Erro ao listar alertas de editais.',
+        },
+      );
 
-      if (!response.ok) {
-        throw new Error("Erro ao listar alertas de editais.");
-      }
-
-      const data: { edital_ids?: Array<string | number> } = await response.json();
       const ids = (data.edital_ids ?? []).map((id) => String(id));
       if (cachedToken === token) {
         cachedAlertIds = new Set(ids);
       }
       return ids;
     } finally {
-      inflightAlertRequest = null;
+      if (inflightAlertRequest === request) {
+        inflightAlertRequest = null;
+      }
     }
   })();
 
-  return inflightAlertRequest;
+  inflightAlertRequest = request;
+  return request;
 }
 
 export async function ativarAlertaEdital(
   editalId: string | number,
 ): Promise<AlertaEditalResponse> {
-  const response = await fetch(
-    `${API_BASE_URL}/api/v1/editais/${editalId}/alertas`,
+  const data = await apiRequest<AlertaEditalResponse>(
+    `/api/v1/editais/${editalId}/alertas`,
     {
-      method: "POST",
-      headers: getAuthenticatedHeaders(),
+      method: 'POST',
+      auth: true,
+      requireAuth: true,
+      errorMessage: 'Erro ao ativar notificações por e-mail.',
     },
   );
 
-  if (!response.ok) {
-    throw new Error("Erro ao ativar notificações por e-mail.");
-  }
-
-  const data: AlertaEditalResponse = await response.json();
   if (cachedAlertIds !== null) {
     cachedAlertIds.add(String(editalId));
   }
@@ -115,19 +115,16 @@ export async function ativarAlertaEdital(
 export async function desativarAlertaEdital(
   editalId: string | number,
 ): Promise<AlertaEditalResponse> {
-  const response = await fetch(
-    `${API_BASE_URL}/api/v1/editais/${editalId}/alertas`,
+  const data = await apiRequest<AlertaEditalResponse>(
+    `/api/v1/editais/${editalId}/alertas`,
     {
-      method: "DELETE",
-      headers: getAuthenticatedHeaders(),
+      method: 'DELETE',
+      auth: true,
+      requireAuth: true,
+      errorMessage: 'Erro ao desativar notificações por e-mail.',
     },
   );
 
-  if (!response.ok) {
-    throw new Error("Erro ao desativar notificações por e-mail.");
-  }
-
-  const data: AlertaEditalResponse = await response.json();
   if (cachedAlertIds !== null) {
     cachedAlertIds.delete(String(editalId));
   }
