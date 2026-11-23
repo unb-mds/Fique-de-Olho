@@ -5,6 +5,12 @@ export default function Header() {
   const { usuario, autenticado, logout } = useAuth();
   const navigate = useNavigate();
 
+  const nomeUsuario =
+    typeof usuario?.nome === 'string' && usuario.nome.trim().length > 0
+      ? usuario.nome.trim()
+      : 'Usuário';
+  const inicialUsuario = nomeUsuario.charAt(0).toUpperCase();
+
   return (
     <header className="site-header">
       <Link className="brand" to="/" aria-label="Portal de Editais UnB — início">
@@ -25,13 +31,13 @@ export default function Header() {
         className="user-profile-button"
         type="button"
         onClick={() => navigate("/favoritos")}
-        aria-label={`Abrir perfil de ${usuario.nome} e ver editais favoritos`}
+        aria-label={`Abrir perfil de ${nomeUsuario} e ver favoritos`}
       >
         <span className="profile-avatar" aria-hidden="true">
-          {usuario.nome.trim().charAt(0).toUpperCase()}
+          {inicialUsuario}
         </span>
         <span className="profile-copy">
-          <strong>{usuario.nome}</strong>
+          <strong>{nomeUsuario}</strong>
           <small>Meus editais</small>
         </span>
       </button>

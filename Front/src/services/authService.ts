@@ -1,9 +1,7 @@
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+import { ApiError, apiRequest, getAuthHeaders } from '@/services/apiClient';
 
 export function getAuthenticatedHeaders(): HeadersInit {
-  const token = localStorage.getItem("token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  return getAuthHeaders();
 }
 
 export type Usuario = {
@@ -19,48 +17,48 @@ export type LoginResponse = {
   usuario: Usuario;
 };
 
-export async function login(
-  email: string,
-  senha: string
-): Promise<LoginResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      email,
-      senha,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error("E-mail ou senha inválidos.");
+export async function login(email: string, senha: string): Promise<LoginResponse> {
+  try {
+    return await apiRequest<LoginResponse>('/api/v1/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email,
+        senha,
+      }),
+      errorMessage: 'E-mail ou senha inválidos.',
+    });
+  } catch (err: unknown) {
+    if (
+      err instanceof ApiError &&
+      !err.isTransient &&
+      (err.status === 401 || err.status === 400)
+    ) {
+      throw new ApiError('E-mail ou senha inválidos.', {
+        status: err.status,
+        isTransient: false,
+        detail: err.detail,
+      });
+    }
+    throw err;
   }
-
-  return response.json();
 }
 
-export async function loginWithGoogle(
-  credential: string
-): Promise<LoginResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/auth/google`, {
-    method: "POST",
+export async function loginWithGoogle(credential: string): Promise<LoginResponse> {
+  return apiRequest<LoginResponse>('/api/v1/auth/google', {
+    method: 'POST',
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({
       credential,
     }),
+    errorMessage: 'Falha na autenticação com o Google.',
   });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || "Falha na autenticação com o Google.");
-  }
-
-  return response.json();
 }
+
 export type RegisterResponse = {
   id: number;
   nome: string;
@@ -70,71 +68,40 @@ export type RegisterResponse = {
 export async function register(
   nome: string,
   email: string,
-  senha: string
+  senha: string,
 ): Promise<RegisterResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/auth/register`, {
-    method: "POST",
+  return apiRequest<RegisterResponse>('/api/v1/auth/register', {
+    method: 'POST',
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({
       nome,
       email,
       senha,
     }),
+    errorMessage: 'Não foi possível realizar o cadastro.',
   });
-
-  if (!response.ok) {
-    throw new Error("Não foi possível realizar o cadastro.");
-  }
-
-  return response.json();
 }
+
 export async function getCurrentUser(): Promise<Usuario> {
-  const token = localStorage.getItem("token");
-
-  if (!token) {
-    throw new Error("Usuário não autenticado.");
-  }
-
-  const response = await fetch(`${API_BASE_URL}/api/v1/auth/me`, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+  return apiRequest<Usuario>('/api/v1/auth/me', {
+    method: 'GET',
+    auth: true,
+    requireAuth: true,
+    errorMessage: 'Sessão inválida ou expirada.',
   });
-
-  if (!response.ok) {
-    throw new Error("Sessão inválida ou expirada.");
-  }
-
-  return response.json();
 }
 
-export async function updateEmailPreference(
-  receberEmails: boolean,
-): Promise<Usuario> {
-  const token = localStorage.getItem("token");
-
-  if (!token) {
-    throw new Error("Usuário não autenticado.");
-  }
-
-  const response = await fetch(
-    `${API_BASE_URL}/api/v1/auth/me/email-preferences`,
-    {
-      method: "PATCH",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ receber_emails: receberEmails }),
+export async function updateEmailPreference(receberEmails: boolean): Promise<Usuario> {
+  return apiRequest<Usuario>('/api/v1/auth/me/email-preferences', {
+    method: 'PATCH',
+    auth: true,
+    requireAuth: true,
+    headers: {
+      'Content-Type': 'application/json',
     },
-  );
-
-  if (!response.ok) {
-    throw new Error("Não foi possível atualizar a preferência de emails.");
-  }
-
-  return response.json();
+    body: JSON.stringify({ receber_emails: receberEmails }),
+    errorMessage: 'Não foi possível atualizar a preferência de emails.',
+  });
 }

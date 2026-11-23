@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Header from '@/components/Header';
 import Hero from '@/components/Hero';
 import FilterBar from '@/components/FilterBar';
@@ -22,6 +22,9 @@ export default function HomePage() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
+  const [reloadTick, setReloadTick] = useState(0);
+  const loadMoreControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (!search.trim()) {
@@ -35,11 +38,32 @@ export default function HomePage() {
   }, [search]);
 
   useEffect(() => {
-    getEditaisStats().then((stats) => setTotalAbertos(stats.abertos)).catch(() => setTotalAbertos(0));
-    getEditais({ status: 'aberto', limit: 3 }).then(setDestaquesAbertos).catch(() => setDestaquesAbertos([]));
-  }, []);
+    let ativo = true;
+    getEditaisStats()
+      .then((stats) => {
+        if (ativo) setTotalAbertos(stats.abertos);
+      })
+      .catch(() => {
+        if (ativo) setTotalAbertos(0);
+      });
+    getEditais({ status: 'aberto', limit: 3 })
+      .then((dados) => {
+        if (ativo) setDestaquesAbertos(dados);
+      })
+      .catch(() => {
+        if (ativo) setDestaquesAbertos([]);
+      });
+    return () => {
+      ativo = false;
+    };
+  }, [reloadTick]);
 
   useEffect(() => {
+    loadMoreControllerRef.current?.abort();
+    loadMoreControllerRef.current = null;
+    setLoadingMore(false);
+    setLoadMoreError(null);
+
     const controller = new AbortController();
     setLoading(true);
     setError(null);
@@ -65,8 +89,11 @@ export default function HomePage() {
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false);
       });
-    return () => controller.abort();
-  }, [debouncedSearch, categoria, situacao, campus, ano]);
+    return () => {
+      controller.abort();
+      loadMoreControllerRef.current?.abort();
+    };
+  }, [debouncedSearch, categoria, situacao, campus, ano, reloadTick]);
 
   const editaisAbertos = useMemo(
     () => editais.filter((e) => e.status === 'aberto'),
@@ -85,7 +112,12 @@ export default function HomePage() {
   }, [editaisAbertos]);
 
   async function carregarMais() {
+    loadMoreControllerRef.current?.abort();
+    const controller = new AbortController();
+    loadMoreControllerRef.current = controller;
+
     setLoadingMore(true);
+    setLoadMoreError(null);
     try {
       const dados = await getEditais({
         q: debouncedSearch,
@@ -95,13 +127,27 @@ export default function HomePage() {
         ano,
         skip: editais.length,
         limit: PAGE_SIZE,
+        signal: controller.signal,
       });
+      if (controller.signal.aborted) return;
       setEditais((atuais) => [...atuais, ...dados]);
       setHasMore(dados.length === PAGE_SIZE);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível carregar mais editais.');
+    } catch (err: unknown) {
+      if (
+        controller.signal.aborted ||
+        (err instanceof Error && err.name === 'AbortError')
+      ) {
+        return;
+      }
+      setLoadMoreError(
+        err instanceof Error
+          ? err.message
+          : 'Não foi possível carregar mais editais.',
+      );
     } finally {
-      setLoadingMore(false);
+      if (!controller.signal.aborted) {
+        setLoadingMore(false);
+      }
     }
   }
 
@@ -174,9 +220,21 @@ export default function HomePage() {
           </div>
         )}
         {!loading && error && (
-          <p className="status-message" role="alert">
-            Não foi possível carregar os editais. Verifique se a API está disponível.
-          </p>
+          <div className="status-message status-message--error" role="alert">
+            <div className="status-message-copy">
+              <strong>Não foi possível carregar os editais</strong>
+              <p>A conexão com o servidor falhou. Tente carregar a listagem novamente.</p>
+            </div>
+            <div className="status-message-actions">
+              <button
+                type="button"
+                className="button button-accent"
+                onClick={() => setReloadTick((prev) => prev + 1)}
+              >
+                Tentar novamente
+              </button>
+            </div>
+          </div>
         )}
         {!loading && !error && (
           editais.length === 0 ? (
@@ -193,7 +251,23 @@ export default function HomePage() {
             </div>
           )
         )}
-        {!loading && !error && hasMore && (
+        {!loading && !error && loadMoreError && (
+          <div className="status-message status-message--error status-message--compact" role="alert">
+            <div className="status-message-copy">
+              <p>{loadMoreError}</p>
+            </div>
+            <div className="status-message-actions">
+              <button
+                type="button"
+                className="button button-accent"
+                onClick={() => void carregarMais()}
+              >
+                Tentar novamente
+              </button>
+            </div>
+          </div>
+        )}
+        {!loading && !error && hasMore && !loadMoreError && (
           <nav className="pagination" aria-label="Mais editais">
             <button
               type="button"

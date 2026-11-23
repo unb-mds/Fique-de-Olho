@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { ApiError, isTransientError } from "@/services/apiClient";
 import { login } from "@/services/authService";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { favoritarEdital } from "@/services/favoritosService";
 import { ativarAlertaEdital } from "@/services/notificacoesService";
+import { salvarSessaoStorage } from "@/utils/authStorage";
 
 type LoginLocationState = {
   fromFavorite?: boolean;
@@ -35,9 +37,10 @@ export default function LoginPage() {
       // Mesmo se a ação pendente falhar, conclui o login normalmente.
     }
 
+    const returnTo = loginState?.returnTo;
     const destino =
-      loginState?.returnTo && loginState.returnTo.startsWith("/")
-        ? loginState.returnTo
+      returnTo && /^\/(?![/\\])/.test(returnTo)
+        ? returnTo
         : "/";
     window.location.href = destino;
   }
@@ -51,12 +54,15 @@ export default function LoginPage() {
     try {
       const data = await login(email, senha);
 
-      localStorage.setItem("token", data.access_token);
-      localStorage.setItem("usuario", JSON.stringify(data.usuario));
+      salvarSessaoStorage(data.access_token, data.usuario);
 
       await finalizarPosLogin();
-    } catch {
-      setErro("E-mail ou senha inválidos.");
+    } catch (err: unknown) {
+      if (err instanceof Error && (isTransientError(err) || err instanceof ApiError)) {
+        setErro(err.message);
+      } else {
+        setErro("E-mail ou senha inválidos.");
+      }
     } finally {
       setCarregando(false);
     }

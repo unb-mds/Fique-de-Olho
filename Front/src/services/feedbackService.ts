@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
+import { apiRequest } from '@/services/apiClient';
 
 export type TipoFeedback = 'sugestao' | 'problema' | 'elogio';
 
@@ -20,29 +20,18 @@ export interface FeedbackResponse {
 }
 
 export async function enviarFeedback(payload: FeedbackPayload): Promise<FeedbackResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/feedback`, {
+  return apiRequest<FeedbackResponse>('/api/v1/feedback', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       tipo: payload.tipo,
       mensagem: payload.mensagem.trim(),
       email: payload.email?.trim() || undefined,
-      pagina: payload.pagina || (typeof window !== 'undefined' ? window.location.pathname : undefined),
+      pagina:
+        payload.pagina ||
+        (typeof window !== 'undefined' ? window.location.pathname : undefined),
     }),
+    errorMessage:
+      'Não foi possível enviar seu feedback agora. Tente novamente em instantes.',
   });
-
-  if (!response.ok) {
-    let detalhe = 'Não foi possível enviar seu feedback agora. Tente novamente em instantes.';
-    try {
-      const body = await response.json();
-      if (typeof body?.detail === 'string') {
-        detalhe = body.detail;
-      }
-    } catch {
-      // mantém mensagem amigável padrão
-    }
-    throw new Error(detalhe);
-  }
-
-  return response.json();
 }
