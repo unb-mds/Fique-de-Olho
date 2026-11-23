@@ -28,7 +28,12 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import Edital, SessionLocal
 from app.modules.scraper.parser import is_vague_title, parse_edital_metadados
-from app.modules.scraper.summarizer import enrich_edital_with_llm, is_generic_summary
+from app.modules.scraper.summarizer import (
+    enrich_edital_with_llm,
+    is_clipped_summary,
+    is_generic_summary,
+    is_weak_heuristic_summary,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -56,9 +61,18 @@ def _para_data(valor: Optional[date | datetime]) -> Optional[date]:
     return valor
 
 
+def _resumo_precisa_upgrade(edital: Edital) -> bool:
+    """True quando o resumo é genérico, cortado ou recorte bruto da Camada 1 elegível a Gemini."""
+    if is_generic_summary(edital.resumo, edital.titulo) or is_clipped_summary(edital.resumo):
+        return True
+    if settings.GEMINI_API_KEY and is_weak_heuristic_summary(edital.resumo, edital.texto_extraido):
+        return True
+    return False
+
+
 def precisa_backfill(edital: Edital) -> bool:
-    """Edital com título vago, resumo genérico/ausente ou datas ausentes com texto extraído."""
-    precisa_texto = is_vague_title(edital.titulo) or is_generic_summary(edital.resumo, edital.titulo)
+    """Edital com título vago, resumo genérico/fraco ou datas ausentes com texto extraído."""
+    precisa_texto = is_vague_title(edital.titulo) or _resumo_precisa_upgrade(edital)
     precisa_datas = bool(
         edital.texto_extraido
         and edital.texto_extraido.strip()
@@ -120,11 +134,12 @@ def run_backfill(
                 bolsa_novo = Decimal(str(round(parsed.valor_bolsa, 2)))
 
         # 2. Camada 2 unificada (título + resumo + metadados ainda ausentes em no máximo 1 chamada)
-        resumo_atual = None if is_generic_summary(edital.resumo, edital.titulo) else edital.resumo
+        precisa_resumo = _resumo_precisa_upgrade(edital)
+        resumo_atual = None if precisa_resumo else edital.resumo
         faltam_metadados = bool(edital.texto_extraido and (ini_novo is None or fim_novo is None))
         chamou_llm = bool(
             (edital.texto_extraido or edital.assunto)
-            and (is_vague_title(edital.titulo) or is_generic_summary(edital.resumo, edital.titulo) or faltam_metadados)
+            and (is_vague_title(edital.titulo) or precisa_resumo or faltam_metadados)
         )
         llm_res = enrich_edital_with_llm(
             titulo=edital.titulo,
@@ -132,7 +147,7 @@ def run_backfill(
             assunto=edital.assunto,
             orgao_emissor=edital.orgao_emissor,
             url_pdf=edital.url_pdf,
-            resumo_atual=resumo_atual or edital.resumo,
+            resumo_atual=resumo_atual,
             pedir_metadados=faltam_metadados,
         )
         if sleep_seconds > 0 and settings.GEMINI_API_KEY and chamou_llm:

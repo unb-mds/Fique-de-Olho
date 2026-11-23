@@ -42,7 +42,9 @@ export default function EditalCard({
       </div>
 
       <h3 className="edital-card-title">
-        <Link to={`/editais/${edital.id}`}>{edital.titulo}</Link>
+        <Link to={`/editais/${edital.id}`} title={edital.titulo}>
+          {edital.titulo}
+        </Link>
       </h3>
       <p className="edital-card-desc">{edital.descricao}</p>
 
