@@ -220,8 +220,11 @@ export default function HomePage() {
           </div>
         )}
         {!loading && error && (
-          <div className="status-message" role="alert">
-            <p>Não foi possível carregar os editais. Verifique se a API está disponível.</p>
+          <div className="status-message status-message--error" role="alert">
+            <div className="status-message-copy">
+              <strong>Não foi possível carregar os editais</strong>
+              <p>A conexão com o servidor falhou. Tente carregar a listagem novamente.</p>
+            </div>
             <div className="status-message-actions">
               <button
                 type="button"
@@ -249,8 +252,10 @@ export default function HomePage() {
           )
         )}
         {!loading && !error && loadMoreError && (
-          <div className="status-message" role="alert">
-            <p>{loadMoreError}</p>
+          <div className="status-message status-message--error status-message--compact" role="alert">
+            <div className="status-message-copy">
+              <p>{loadMoreError}</p>
+            </div>
             <div className="status-message-actions">
               <button
                 type="button"
@@ -262,7 +267,7 @@ export default function HomePage() {
             </div>
           </div>
         )}
-        {!loading && !error && hasMore && (
+        {!loading && !error && hasMore && !loadMoreError && (
           <nav className="pagination" aria-label="Mais editais">
             <button
               type="button"

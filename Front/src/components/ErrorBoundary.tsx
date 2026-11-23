@@ -64,34 +64,42 @@ export default class ErrorBoundary extends Component<
       return (
         <main className="error-boundary-page" role="alert">
           <section className="error-boundary-card">
-            <p className="eyebrow">Ops, algo deu errado</p>
-            <h1>Não foi possível exibir esta página</h1>
-            <p>
-              Ocorreu uma falha inesperada ao carregar os componentes da tela. Você pode
-              tentar novamente ou voltar para a listagem principal de editais.
-            </p>
-            <div className="error-boundary-actions">
-              <button
-                type="button"
-                className="button button-accent"
-                onClick={this.handleRetry}
-              >
-                Tentar novamente
-              </button>
-              <button
-                type="button"
-                className="button"
-                onClick={this.handleGoHome}
-              >
-                Voltar para o início
-              </button>
-              <button
-                type="button"
-                className="button"
-                onClick={this.handleReload}
-              >
-                Recarregar página
-              </button>
+            <div className="error-boundary-header">
+              <a className="brand" href="/">
+                <span className="brand-mark" aria-hidden="true">U</span>
+                <span className="brand-name">Fique de Olho</span>
+              </a>
+              <span className="state-pill state-pill--danger">Interrupção na tela</span>
+            </div>
+            <div className="error-boundary-body">
+              <h1>Não foi possível exibir esta página</h1>
+              <p>
+                Um erro inesperado interrompeu a montagem desta tela. Tente
+                renderizá-la novamente ou retorne para o início do portal.
+              </p>
+              <div className="error-boundary-actions">
+                <button
+                  type="button"
+                  className="button button-accent"
+                  onClick={this.handleRetry}
+                >
+                  Tentar novamente
+                </button>
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  onClick={this.handleGoHome}
+                >
+                  Voltar para o início
+                </button>
+                <button
+                  type="button"
+                  className="button-text-link"
+                  onClick={this.handleReload}
+                >
+                  Recarregar página
+                </button>
+              </div>
             </div>
           </section>
         </main>

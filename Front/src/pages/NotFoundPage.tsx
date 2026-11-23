@@ -11,15 +11,29 @@ export default function NotFoundPage() {
       <Header />
       <main className="not-found-page">
         <section className="not-found-card">
-          <p className="eyebrow">Erro 404</p>
-          <h1>Página não encontrada</h1>
-          <p>
-            O endereço acessado não existe ou foi movido. Volte para o portal para
-            explorar os editais abertos da UnB.
-          </p>
-          <Link className="button button-accent" to="/">
-            Voltar para editais
-          </Link>
+          <div className="not-found-copy">
+            <h1>Página não encontrada</h1>
+            <p>
+              Este endereço não existe ou mudou de lugar no portal. Volte para a
+              listagem e explore os editais abertos da UnB.
+            </p>
+            <div className="not-found-actions">
+              <Link className="button button-accent" to="/">
+                Voltar para editais
+              </Link>
+            </div>
+          </div>
+          <div className="not-found-visual" aria-hidden="true">
+            <span className="not-found-spark not-found-spark-one">✦</span>
+            <div className="not-found-code">
+              <span>4</span>
+              <span className="not-found-eye-frame">
+                <img src="/assets/af98f.svg" alt="" width="376" height="376" />
+              </span>
+              <span>4</span>
+            </div>
+            <span className="not-found-spark not-found-spark-two">✦</span>
+          </div>
         </section>
       </main>
       <Footer />

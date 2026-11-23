@@ -80,9 +80,21 @@ export default function EditalDetailPage() {
 
   if (loading) {
     return (
-      <p className="status-message">
-        Carregando edital...
-      </p>
+      <main className="detail-page">
+        <div className="detail-shell">
+          <Link className="page-back-link detail-back-link" to="/">
+            ← Voltar para editais
+          </Link>
+          <section className="detail-card detail-state-card" aria-busy="true">
+            <p className="detail-state-text">Carregando edital...</p>
+            <div className="detail-state-skeleton" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </div>
+          </section>
+        </div>
+      </main>
     );
   }
 
@@ -90,9 +102,14 @@ export default function EditalDetailPage() {
     return (
       <main className="detail-page">
         <div className="detail-shell">
-          <div className="status-message" role="alert">
-            <p>Erro ao carregar edital: {error}</p>
-            <div className="status-message-actions">
+          <Link className="page-back-link detail-back-link" to="/">
+            ← Voltar para editais
+          </Link>
+          <section className="detail-card detail-state-card detail-state-card--error" role="alert">
+            <span className="state-pill state-pill--danger">Não foi possível carregar</span>
+            <h1>Falha ao abrir este edital</h1>
+            <p className="detail-state-message">Erro ao carregar edital: {error}</p>
+            <div className="detail-state-actions">
               <button
                 type="button"
                 className="button button-accent"
@@ -100,11 +117,8 @@ export default function EditalDetailPage() {
               >
                 Tentar novamente
               </button>
-              <Link className="button" to="/">
-                ← Voltar para editais
-              </Link>
             </div>
-          </div>
+          </section>
         </div>
       </main>
     );
@@ -112,9 +126,17 @@ export default function EditalDetailPage() {
 
   if (!edital) {
     return (
-      <p className="status-message">
-        Edital não encontrado.
-      </p>
+      <main className="detail-page">
+        <div className="detail-shell">
+          <Link className="page-back-link detail-back-link" to="/">
+            ← Voltar para editais
+          </Link>
+          <section className="detail-card detail-state-card">
+            <h1>Edital não encontrado</h1>
+            <p className="detail-state-message">Edital não encontrado.</p>
+          </section>
+        </div>
+      </main>
     );
   }
 
