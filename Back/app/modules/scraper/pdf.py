@@ -22,6 +22,13 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_TIMEOUT = 15.0
 DEFAULT_USER_AGENT = "Fique-de-Olho/1.0 (+https://github.com/unb-mds/Fique-de-Olho)"
+DEFAULT_MAX_PDF_BYTES = 15 * 1024 * 1024  # 15 MiB
+DEFAULT_MAX_PAGES = 30
+DEFAULT_HEAD_PAGES = 20
+_TABLE_PAGE_HINT_RE = re.compile(
+    r"(?:cronograma|calend[aá]rio|per[ií]odo|inscri[cç]|etapa|resultado|vaga|bolsa|\b\d{1,2}/\d{1,2}\b)",
+    re.IGNORECASE,
+)
 
 
 class PDFExtractionError(Exception):
@@ -113,6 +120,7 @@ def download_pdf(
     url: str,
     timeout: float = DEFAULT_TIMEOUT,
     user_agent: str = DEFAULT_USER_AGENT,
+    max_bytes: int = DEFAULT_MAX_PDF_BYTES,
 ) -> bytes:
     """Baixa um arquivo PDF a partir de uma URL remota.
 
@@ -120,12 +128,13 @@ def download_pdf(
         url: URL completa para o arquivo PDF.
         timeout: Limite de tempo em segundos para download.
         user_agent: Header User-Agent para identificação da requisição.
+        max_bytes: Tamanho máximo permitido em bytes para evitar estouro de memória.
 
     Returns:
         bytes: Conteúdo binário do PDF.
 
     Raises:
-        PDFDownloadError: Caso o download falhe por timeout, erro HTTP ou conexão.
+        PDFDownloadError: Caso o download falhe por timeout, erro HTTP, tamanho excedido ou conexão.
     """
     url = normalize_google_drive_url(url)
     try:
@@ -136,7 +145,26 @@ def download_pdf(
             headers={"User-Agent": user_agent},
         )
         response.raise_for_status()
-        return response.content
+
+        headers = getattr(response, "headers", None)
+        declared_size = 0
+        if isinstance(headers, (dict, httpx.Headers)):
+            content_length_raw = headers.get("content-length")
+            if content_length_raw is not None:
+                try:
+                    declared_size = int(str(content_length_raw).strip())
+                except ValueError:
+                    declared_size = 0
+
+        content = response.content
+        actual_size = len(content) if isinstance(content, (bytes, bytearray)) else 0
+        if declared_size > max_bytes or actual_size > max_bytes:
+            raise PDFDownloadError(
+                f"PDF de {url} excede o limite máximo permitido de {max_bytes} bytes."
+            )
+        return content
+    except PDFDownloadError:
+        raise
     except httpx.HTTPStatusError as exc:
         msg = f"Falha HTTP {exc.response.status_code} ao baixar PDF de {url}"
         logger.warning(msg)
@@ -154,12 +182,14 @@ def download_pdf(
 def extract_pdf_from_bytes(
     data: Union[bytes, io.BytesIO],
     source_name: str = "memory",
+    max_pages: int = DEFAULT_MAX_PAGES,
 ) -> PDFDocumentExtraction:
     """Extrai texto e tabelas de um PDF a partir de fluxo de bytes em memória.
 
     Args:
         data: Binário do PDF ou objeto BytesIO.
         source_name: Identificador legível da origem do documento (URL ou path).
+        max_pages: Limite máximo de páginas processadas (preservando início e anexos finais).
 
     Returns:
         PDFDocumentExtraction: Estrutura completa de texto e tabelas por página.
@@ -175,37 +205,56 @@ def extract_pdf_from_bytes(
             all_tables: List[List[List[Optional[str]]]] = []
             full_text_chunks: List[str] = []
 
-            for idx, page in enumerate(pdf.pages, start=1):
-                raw_text = page.extract_text() or ""
-                cleaned_text = normalize_extracted_text(raw_text)
+            total_pages = len(pdf.pages)
+            if total_pages <= max_pages:
+                selected_pages = list(enumerate(pdf.pages, start=1))
+            else:
+                head_count = min(DEFAULT_HEAD_PAGES, max_pages)
+                tail_count = max(0, max_pages - head_count)
+                selected_pages = list(enumerate(pdf.pages[:head_count], start=1))
+                if tail_count > 0:
+                    tail_start = total_pages - tail_count
+                    selected_pages.extend(enumerate(pdf.pages[tail_start:], start=tail_start + 1))
 
-                # Extrai tabelas com tratamento seguro
-                page_tables: List[List[List[Optional[str]]]] = []
+            for idx, page in selected_pages:
                 try:
-                    raw_tables = page.extract_tables() or []
-                    for table in raw_tables:
-                        if table:
-                            page_tables.append(table)
-                            all_tables.append(table)
-                except Exception as table_err:
-                    logger.debug(f"Aviso ao extrair tabelas da página {idx} de {source_name}: {table_err}")
+                    raw_text = page.extract_text() or ""
+                    cleaned_text = normalize_extracted_text(raw_text)
 
-                pages_extracted.append(
-                    PDFPageExtraction(
-                        index=idx,
-                        text=cleaned_text,
-                        tables=page_tables,
+                    # Extrai tabelas apenas quando o PDF é curto ou a página indica cronograma/vagas/bolsas
+                    page_tables: List[List[List[Optional[str]]]] = []
+                    if total_pages <= 5 or _TABLE_PAGE_HINT_RE.search(cleaned_text):
+                        try:
+                            raw_tables = page.extract_tables() or []
+                            for table in raw_tables:
+                                if table:
+                                    page_tables.append(table)
+                                    all_tables.append(table)
+                        except Exception as table_err:
+                            logger.debug(
+                                f"Aviso ao extrair tabelas da página {idx} de {source_name}: {table_err}"
+                            )
+
+                    pages_extracted.append(
+                        PDFPageExtraction(
+                            index=idx,
+                            text=cleaned_text,
+                            tables=page_tables,
+                        )
                     )
-                )
 
-                if cleaned_text:
-                    full_text_chunks.append(cleaned_text)
+                    if cleaned_text:
+                        full_text_chunks.append(cleaned_text)
+                finally:
+                    flush_fn = getattr(page, "flush_cache", None)
+                    if callable(flush_fn):
+                        flush_fn()
 
             full_text = "\n\n".join(full_text_chunks)
 
             return PDFDocumentExtraction(
                 source=source_name,
-                num_pages=len(pdf.pages),
+                num_pages=total_pages,
                 full_text=full_text,
                 pages=pages_extracted,
                 tables=all_tables,

@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import threading
 from collections.abc import Callable
-from typing import Any, List, Optional
+from contextlib import contextmanager
+from typing import Any, Iterator, List, Optional
 
 from sqlalchemy.orm import Session
 
@@ -15,6 +17,22 @@ from app.modules.editais.service import invalidar_cache_editais
 from app.modules.scraper.service import sync_all_portais
 
 logger = logging.getLogger(__name__)
+SCRAPER_SYNC_LOCK = threading.Lock()
+
+
+class ColetaEmAndamentoError(RuntimeError):
+    """Lançada quando uma nova coleta é solicitada com outra já em execução."""
+
+
+@contextmanager
+def controlar_concorrencia_coleta() -> Iterator[None]:
+    """Garante exclusão mútua não bloqueante entre execuções manuais e periódicas de coleta."""
+    if not SCRAPER_SYNC_LOCK.acquire(blocking=False):
+        raise ColetaEmAndamentoError("Já existe uma coleta de editais em andamento.")
+    try:
+        yield
+    finally:
+        SCRAPER_SYNC_LOCK.release()
 
 
 def executar_ciclo_scraping(
@@ -30,31 +48,36 @@ def executar_ciclo_scraping(
     captura exceções inesperadas sem propagá-las ao loop assíncrono e fecha a sessão
     do banco de dados no bloco ``finally``.
     """
-    eff_fetch_docs = settings.SCRAPER_SCHEDULER_FETCH_DOCS if fetch_docs is None else fetch_docs
-    eff_pdf_enrichment = (
-        settings.SCRAPER_SCHEDULER_PDF_ENRICHMENT
-        if enable_pdf_enrichment is None
-        else enable_pdf_enrichment
-    )
-    db = session_factory()
     try:
-        resultado = sync_all_portais(
-            db=db,
-            orgaos=orgaos,
-            max_items_per_orgao=max_items_per_orgao,
-            fetch_docs=eff_fetch_docs,
-            enable_pdf_enrichment=eff_pdf_enrichment,
-        )
-        invalidar_cache_editais()
-        return resultado
-    except Exception as exc:
-        logger.exception("Falha no ciclo automático de coleta de editais.")
-        return {
-            "status": "error",
-            "erro": str(exc),
-        }
-    finally:
-        db.close()
+        with controlar_concorrencia_coleta():
+            eff_fetch_docs = settings.SCRAPER_SCHEDULER_FETCH_DOCS if fetch_docs is None else fetch_docs
+            eff_pdf_enrichment = (
+                settings.SCRAPER_SCHEDULER_PDF_ENRICHMENT
+                if enable_pdf_enrichment is None
+                else enable_pdf_enrichment
+            )
+            db = session_factory()
+            try:
+                resultado = sync_all_portais(
+                    db=db,
+                    orgaos=orgaos,
+                    max_items_per_orgao=max_items_per_orgao,
+                    fetch_docs=eff_fetch_docs,
+                    enable_pdf_enrichment=eff_pdf_enrichment,
+                )
+                invalidar_cache_editais()
+                return resultado
+            except Exception as exc:
+                logger.exception("Falha no ciclo automático de coleta de editais.")
+                return {
+                    "status": "error",
+                    "erro": str(exc),
+                }
+            finally:
+                db.close()
+    except ColetaEmAndamentoError:
+        logger.warning("Ciclo periódico de coleta ignorado: já existe uma coleta de editais em andamento.")
+        return {"status": "skipped", "motivo": "coleta_em_andamento"}
 
 
 async def executar_scheduler_scraper(

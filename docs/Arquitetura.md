@@ -47,7 +47,7 @@ Este documento descreve a arquitetura implementada e planejada no repositório d
 | **Frontend Web** | Vercel | [fique-de-olho.vercel.app](https://fique-de-olho.vercel.app) | SPA React 18, roteamento com `vercel.json` |
 | **Backend REST** | Render | [fique-de-olho-api.onrender.com](https://fique-de-olho-api.onrender.com) | FastAPI em Docker, porta dinâmica `${PORT}` |
 | **Documentação da API** | Render | [fique-de-olho-api.onrender.com/docs](https://fique-de-olho-api.onrender.com/docs) | Swagger UI interativo |
-| **Keep-Alive & Ping** | Render | [fique-de-olho-api.onrender.com/ping](https://fique-de-olho-api.onrender.com/ping) | Sonda ultraleve (GET/HEAD) sem I/O de banco (ver [Guia Keep-Alive](Estudos/guia_keep_awake_uptimerobot_e_ping.md)) |
+| **Keep-Alive & Ping** | Render | [fique-de-olho-api.onrender.com/ping](https://fique-de-olho-api.onrender.com/ping) | Sonda ultraleve (GET/HEAD) sem I/O de banco (ver [Guia Keep-Alive](Estudos/guia_keep_awake_uptimerobot_e_ping.md) e [Guia Operacional](Estudos/guia_operacional_deploy_ci_cd.md)) |
 | **Healthcheck** | Render | [fique-de-olho-api.onrender.com/health](https://fique-de-olho-api.onrender.com/health) | Verificação profunda de integridade e conectividade com o banco |
 | **Banco de Dados** | Neon | Região `sa-east-1` (São Paulo) | PostgreSQL 16 Serverless com connection pooler |
 

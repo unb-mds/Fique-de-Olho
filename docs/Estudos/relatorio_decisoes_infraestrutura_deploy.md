@@ -129,12 +129,26 @@ Este relatório consolida todas as decisões arquiteturais tomadas pela equipe p
   - Eliminação total dos *cold starts* de 1 minuto para o usuário final.
   - Custo R$ 0,00 contínuo, mantendo o Render acordado durante todo o mês (720h dentro do limite de 750h gratuitas).
   - Preservação da cota do Neon, permitindo que o PostgreSQL entre em repouso (*scale-to-zero*) quando não houver consultas reais.
-  - Suporte ao método `HEAD` (padrão do plano gratuito do UptimeRobot).
+  - Suporte nativo ao método `HEAD` (padrão do plano gratuito do UptimeRobot).
 * **Desvantagens:**
   - Dependência de um serviço externo de monitoramento para emitir o pulso HTTP periódico.
 
 ---
 
+### Decisão 9: Arquitetura Unificada de Schedulers e Pipeline Automatizado de CI/CD
+* **Contexto:** Necessidade de rotinas contínuas de scraping e alertas por e-mail sem incorrer em custos com instâncias dedicadas de *Background Workers* no Render (US$ 7/mês), aliada à necessidade de validação determinística de código e deploys seguros com capacidade de rollback.
+* **Solução implementada:** 
+  1. Execução de tarefas assíncronas via `@asynccontextmanager lifespan(app: FastAPI)` dentro do próprio container web, garantindo execução 24/7 viabilizada pelo keep-alive do UptimeRobot.
+  2. Esteira automatizada de CI com GitHub Actions ([`.github/workflows/pipeline.yml`](../../.github/workflows/pipeline.yml)) com container efêmero de PostgreSQL 16 para testes e migrations do Alembic.
+  3. Procedimentos operacionais de rollback mapeados para Vercel, Render e Neon (detalhes no [Guia Operacional de Deploy](guia_operacional_deploy_ci_cd.md)).
+* **Vantagens:**
+  - Zero custo financeiro de infraestrutura com alta disponibilidade funcional.
+  - Rastreabilidade total do ciclo de desenvolvimento até a entrega contínua em produção.
+  - Mitigação de riscos com procedimentos de contingência claros.
+* **Desvantagens:**
+  - Compartilhamento de CPU e memória do container web entre requisições de usuários e processamento de scrapers.
+
+---
 ## 3. Síntese do Estado Atual da Infraestrutura
 
 | Item | Situação Atual |

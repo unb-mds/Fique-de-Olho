@@ -1,5 +1,6 @@
 """Camada de serviço para operações de banco de dados do módulo de Editais."""
 
+from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
@@ -587,6 +588,7 @@ def get_edital_by_id(db: Session, edital_id: int) -> Optional[Edital]:
 
 
 EDITAIS_CACHE_TTL_SECONDS = settings.EDITAIS_CACHE_TTL_SECONDS
+EDITAIS_CACHE_MAXSIZE = settings.EDITAIS_CACHE_MAXSIZE
 
 
 def _normalizar_filtro(valor: Optional[str]) -> Optional[str]:
@@ -619,7 +621,7 @@ class _CacheEntry:
     refreshing: bool = False
 
 
-_EDITAIS_CACHE: Dict[_CacheKey, _CacheEntry] = {}
+_EDITAIS_CACHE: "OrderedDict[_CacheKey, _CacheEntry]" = OrderedDict()
 _STATS_CACHE: Dict[str, _CacheEntry] = {}
 _CACHE_LOCK = Lock()
 _CACHE_GENERATION = 0
@@ -718,6 +720,10 @@ def _salvar_entrada_cache(chave: _CacheKey, geracao: int, payload: List[Dict[str
                 payload=payload,
                 refreshing=False,
             )
+            _EDITAIS_CACHE.move_to_end(chave)
+            maxsize = max(1, int(getattr(settings, "EDITAIS_CACHE_MAXSIZE", EDITAIS_CACHE_MAXSIZE)))
+            while len(_EDITAIS_CACHE) > maxsize:
+                _EDITAIS_CACHE.popitem(last=False)
 
 
 def _revalidar_cache_editais(chave: _CacheKey, bind: Any, geracao: int) -> None:
@@ -790,6 +796,7 @@ def listar_editais_com_cache(
         entrada = _EDITAIS_CACHE.get(chave_cache)
         geracao_atual = _CACHE_GENERATION
         if entrada is not None:
+            _EDITAIS_CACHE.move_to_end(chave_cache)
             if agora - entrada.timestamp >= EDITAIS_CACHE_TTL_SECONDS and not entrada.refreshing:
                 entrada.refreshing = True
                 if bind is not None and agendar_tarefa is not None:

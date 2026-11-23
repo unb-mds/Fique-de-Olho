@@ -2,7 +2,7 @@
 
 Issues #77 (resumo automático), #106 (normalização de títulos vagos/genéricos),
 #121/#125 (extração estruturada de metadados) e #129 (modelo econômico autônomo
-gemini-2.5-flash-lite com fallback de modelo e retry de rate limit).
+gemini-3.5-flash-lite com fallback de modelo e retry de rate limit).
 
 Fluxo:
 1. Calcula sempre o resultado determinístico da Camada 1 (``parser.py``):

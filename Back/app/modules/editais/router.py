@@ -1,10 +1,12 @@
 import logging
+import secrets
 from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
+from app.core.config import settings
 from app.core.database import Usuario, get_db
 from app.modules.editais.service import (
     get_edital_by_id,
@@ -27,6 +29,7 @@ from app.modules.notificacoes.service import (
     desativar_alerta_edital,
     listar_alertas_usuario,
 )
+from app.modules.scraper.scheduler import ColetaEmAndamentoError, controlar_concorrencia_coleta
 from app.modules.usuarios import get_current_user
 
 router = APIRouter(prefix="/editais", tags=["Editais"])
@@ -184,6 +187,19 @@ def get_edital(id: str, response: Response, db: Session = Depends(get_db)):
     )
 
 
+def verificar_chave_admin(
+    x_admin_key: Optional[str] = Header(None, alias="X-Admin-Key"),
+) -> None:
+    """Valida a chave administrativa caso ``ADMIN_API_KEY`` esteja configurada no ambiente."""
+    if not settings.ADMIN_API_KEY:
+        return
+    if not x_admin_key or not secrets.compare_digest(x_admin_key, settings.ADMIN_API_KEY):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Chave administrativa inválida ou ausente.",
+        )
+
+
 @router.post("/sync", response_model=Dict[str, Any])
 def sync_editais(
     max_itens: int = Query(30, ge=1, le=500, description="Número máximo de editais a processar por portal"),
@@ -191,21 +207,28 @@ def sync_editais(
         None,
         description="Sigla do órgão a sincronizar. Se omitido, sincroniza todos os portais registrados.",
     ),
+    _admin: None = Depends(verificar_chave_admin),
     db: Session = Depends(get_db),
 ):
-    """Dispara a sincronização periódica com o portal informado (ou todos os registrados em SCRAPERS_REGISTRY)."""
+    """Dispara a coleta periódica com o portal informado (ou todos os registrados em SCRAPERS_REGISTRY)."""
     try:
-        from app.modules.scraper.service import sync_orgaos_editais
+        with controlar_concorrencia_coleta():
+            from app.modules.scraper.service import sync_orgaos_editais
 
-        resultado = sync_orgaos_editais(
-            db=db,
-            orgao=orgao,
-            max_items_per_orgao=max_itens,
-            fetch_docs=True,
-            enable_pdf_enrichment=True,
+            resultado = sync_orgaos_editais(
+                db=db,
+                orgao=orgao,
+                max_items_per_orgao=max_itens,
+                fetch_docs=True,
+                enable_pdf_enrichment=True,
+            )
+            invalidar_cache_editais()
+            return resultado
+    except ColetaEmAndamentoError as lock_exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(lock_exc),
         )
-        invalidar_cache_editais()
-        return resultado
     except ValueError as val_exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -214,7 +237,7 @@ def sync_editais(
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erro ao sincronizar editais: {str(exc)}",
+            detail=f"Erro ao coletar editais: {str(exc)}",
         )
 
 

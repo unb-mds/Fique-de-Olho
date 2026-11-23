@@ -35,11 +35,19 @@ class TipoDocumento(PyEnum):
     RETIFICACAO = "retificacao"
 
 
+def build_db_connect_args(database_url: str) -> dict[str, int]:
+    """Retorna argumentos extras de conexão (connect_timeout=15 exclusivo para PostgreSQL)."""
+    return {"connect_timeout": 15} if database_url.startswith("postgresql") else {}
+
+
+_db_connect_args = build_db_connect_args(settings.DATABASE_URL)
+
 # Engine de conexão do SQLAlchemy
 engine = create_engine(
     settings.DATABASE_URL,
     pool_pre_ping=True,  # Verifica se a conexão com o banco ainda está viva antes de usar
     pool_recycle=300,  # Recicla conexões antes da janela de auto-suspend do Neon (5 min)
+    connect_args=_db_connect_args,
 )
 
 # Fábrica de sessões para requisições
