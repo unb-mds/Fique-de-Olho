@@ -28,8 +28,8 @@ function formatarDataSegura(data?: string | null): string {
   }
 
  return dataValida.toLocaleDateString("pt-BR", {
-  day: "numeric",
-  month: "short",
+  day: "2-digit",
+  month: "2-digit",
   year: "numeric",
   timeZone: "UTC",
 });
