@@ -57,7 +57,24 @@ export const KNOWN_CAMPI = [
   'Geral',
 ];
 
-export const KNOWN_YEARS = [2026, 2025, 2024];
+export function buildAvailableYears(
+  extraYears: number[] = [],
+  baseYear: number = new Date().getFullYear(),
+): number[] {
+  const years = new Set<number>();
+  const minYear = Math.min(2020, baseYear - 5);
+  for (let year = baseYear + 1; year >= minYear; year -= 1) {
+    years.add(year);
+  }
+  for (const year of extraYears) {
+    if (Number.isInteger(year) && year >= 2000 && year <= baseYear + 5) {
+      years.add(year);
+    }
+  }
+  return Array.from(years).sort((a, b) => b - a);
+}
+
+export const KNOWN_YEARS = buildAvailableYears();
 
 /**
  * Dias restantes até o prazo final (pode ser negativo se já venceu).

@@ -158,7 +158,7 @@ def sync_portal_editais(
                 "resumo_fallback": (
                     f"Edital publicado pelo portal {sigla} em {item.get('data_publicacao') or 'data não informada'}."
                 ),
-                "campus": item.get("campus") or "Darcy Ribeiro",
+                "campus": item.get("campus"),
                 "tipo": item.get("tipo") or item.get("tipo_edital") or inferir_categoria(titulo),
             }
             edital_salvo = upsert_edital(

@@ -12,6 +12,7 @@ interface FilterBarProps {
   activeStatus: 'aberto' | 'fechado' | null;
   activeCampus?: string | null;
   activeAno?: number | null;
+  availableYears?: number[];
   onSelectCategoria: (categoria: string | null) => void;
   onSelectStatus: (situacao: 'aberto' | 'fechado' | null) => void;
   onSelectCampus?: (campus: string | null) => void;
@@ -25,6 +26,7 @@ export default function FilterBar({
   activeStatus,
   activeCampus = null,
   activeAno = null,
+  availableYears = KNOWN_YEARS,
   onSelectCategoria,
   onSelectStatus,
   onSelectCampus,
@@ -103,7 +105,7 @@ export default function FilterBar({
               }
             >
               <option value="">Todos os anos</option>
-              {KNOWN_YEARS.map((ano) => (
+              {availableYears.map((ano) => (
                 <option key={ano} value={ano}>
                   {ano}
                 </option>

@@ -88,13 +88,49 @@ ORGAOS_UNB: Dict[str, Tuple[str, ...]] = {
     "PPGGIPP": ("gestao publica", "ppggipp", "ppgipp"),
 }
 
-# Campus da UnB
+# Campus da UnB (campi fora de sede avaliados antes de Darcy Ribeiro para evitar falso positivo do rodapé SEI/Reitoria)
 CAMPUS_UNB: Dict[str, Tuple[str, ...]] = {
+    "FGA": (
+        "faculdade do gama",
+        "faculdade de ciencias e tecnologias em engenharia",
+        "campus gama",
+        "campus do gama",
+        "campus unb gama",
+        "unb gama",
+        "fcte",
+        "fga",
+    ),
+    "FCE": (
+        "faculdade de ceilandia",
+        "faculdade da ceilandia",
+        "faculdade de ciencias e tecnologias em saude",
+        "campus ceilandia",
+        "campus de ceilandia",
+        "campus unb ceilandia",
+        "unb ceilandia",
+        "fcts",
+        "fce",
+        "ceilandia",
+    ),
+    "FUP": (
+        "faculdade de planaltina",
+        "faculdade unb planaltina",
+        "campus planaltina",
+        "campus de planaltina",
+        "unb planaltina",
+        "fup",
+        "planaltina",
+    ),
+    "Fazenda Água Limpa": ("fazenda agua limpa",),
     "Darcy Ribeiro": ("darcy ribeiro", "plano piloto", "campus darcy", "asa norte"),
-    "FGA": ("faculdade do gama", "campus gama", "fga", "gama"),
-    "FCE": ("faculdade de ceilandia", "faculdade da ceilândia", "campus ceilandia", "fce", "ceilandia", "ceilândia"),
-    "FUP": ("faculdade de planaltina", "campus planaltina", "fup", "planaltina"),
 }
+
+_MULTI_CAMPUS_TERMOS: Tuple[str, ...] = (
+    "todos os campi",
+    "quatro campi",
+    "campi da unb",
+    "todos os campus",
+)
 
 
 class CronogramaEtapa(BaseModel):
@@ -444,10 +480,22 @@ def detect_campus(text: str) -> Optional[str]:
     """Identifica o campus da UnB mencionado com maior relevância no texto."""
     clean = _strip_accents(text)
 
-    for campus, termos in CAMPUS_UNB.items():
-        for termo in termos:
-            if re.search(rf"\b{re.escape(termo)}\b", clean):
-                return campus
+    if any(termo in clean for termo in _MULTI_CAMPUS_TERMOS):
+        return "Geral"
+
+    campi_satelite = [
+        campus
+        for campus in ("FGA", "FCE", "FUP", "Fazenda Água Limpa")
+        if any(re.search(rf"\b{re.escape(termo)}\b", clean) for termo in CAMPUS_UNB[campus])
+    ]
+    if len(campi_satelite) >= 2:
+        return "Geral"
+    if len(campi_satelite) == 1:
+        return campi_satelite[0]
+
+    for termo in CAMPUS_UNB["Darcy Ribeiro"]:
+        if re.search(rf"\b{re.escape(termo)}\b", clean):
+            return "Darcy Ribeiro"
 
     # Se menciona 'Universidade de Brasília' genérico sem campus específico
     if "universidade de brasilia" in clean:

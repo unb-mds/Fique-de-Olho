@@ -15,12 +15,13 @@ export default function EditalCard({
   favoriteInitially = false,
   onFavoriteChange,
 }: EditalCardProps) {
+  const encerrado = edital.status === 'fechado';
   const restantes = daysUntil(edital.prazoFinal);
-  const urgente = restantes !== null && restantes >= 0 && restantes <= 7;
+  const urgente = !encerrado && restantes !== null && restantes >= 0 && restantes <= 7;
   const orgao = edital.orgaoEmissor || edital.orgao_emissor;
 
   return (
-    <article className="edital-card">
+    <article className={`edital-card${encerrado ? ' edital-card--closed' : ''}`}>
       <div className="edital-card-actions">
         <AlertButton editalId={edital.id} />
         <FavoriteButton
@@ -31,6 +32,11 @@ export default function EditalCard({
       </div>
       <div className="edital-card-badges">
         <div className="badge-group">
+          <span
+            className={`badge ${encerrado ? 'badge-status-closed' : 'badge-status-open'}`}
+          >
+            {encerrado ? 'Encerrado' : 'Aberto'}
+          </span>
           {edital.categoria && (
             <span className="badge" style={categoryBadgeStyle(edital.categoria)}>
               {edital.categoria}
