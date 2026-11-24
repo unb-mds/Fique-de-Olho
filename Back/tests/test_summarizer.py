@@ -1139,3 +1139,132 @@ def test_upsert_e_backfill_fazem_upgrade_de_resumo_cortado_e_camada_1_para_gemin
     assert [m.edital_id for m in mudancas] == [bruto.id]
     assert chamadas["n"] == 2
     assert bf_mod.run_backfill(db_session, apply=True) == []
+
+
+def test_backfill_only_open_processa_apenas_editais_abertos(db_session, no_gemini_key):
+    from datetime import date, timedelta
+    import app.modules.scraper.backfill_titles_summaries as bf_mod
+    from app.core.database import StatusEdital
+
+    hoje = date.today()
+    aberto = Edital(
+        titulo="AQUI",
+        url_pagina="https://cead.unb.br/editais/aberto-only-open",
+        orgao_emissor="CEAD",
+        resumo="Edital publicado pelo portal CEAD em 2026-11-01.",
+        texto_extraido=TEXTO_EDITAL_TUTORES,
+        fim_inscricao=hoje + timedelta(days=10),
+        status=StatusEdital.ABERTO,
+    )
+    encerrado_por_data = Edital(
+        titulo="AQUI",
+        url_pagina="https://cead.unb.br/editais/encerrado-data-only-open",
+        orgao_emissor="CEAD",
+        resumo="Edital publicado pelo portal CEAD em 2024-01-01.",
+        texto_extraido=TEXTO_EDITAL_TUTORES,
+        fim_inscricao=hoje - timedelta(days=10),
+        status=StatusEdital.ABERTO,
+    )
+    encerrado_por_status = Edital(
+        titulo="AQUI",
+        url_pagina="https://cead.unb.br/editais/encerrado-status-only-open",
+        orgao_emissor="CEAD",
+        resumo="Edital publicado pelo portal CEAD em 2026-11-01.",
+        texto_extraido=TEXTO_EDITAL_TUTORES,
+        status=StatusEdital.ENCERRADO,
+    )
+    db_session.add_all([aberto, encerrado_por_data, encerrado_por_status])
+    db_session.commit()
+
+    mudancas = bf_mod.run_backfill(db_session, apply=True, only_open=True)
+    assert [m.edital_id for m in mudancas] == [aberto.id]
+    db_session.refresh(encerrado_por_data)
+    db_session.refresh(encerrado_por_status)
+    assert encerrado_por_data.titulo == "AQUI"
+    assert encerrado_por_status.titulo == "AQUI"
+
+
+def test_backfill_commit_incremental_preserva_progresso_em_erro(db_session, no_gemini_key, monkeypatch):
+    import app.modules.scraper.backfill_titles_summaries as bf_mod
+
+    editais = [
+        Edital(
+            titulo="AQUI",
+            url_pagina=f"https://cead.unb.br/editais/inc-{i}",
+            orgao_emissor="CEAD",
+            resumo="Edital publicado pelo portal CEAD em 2026-11-01.",
+            texto_extraido=TEXTO_EDITAL_TUTORES,
+        )
+        for i in range(3)
+    ]
+    db_session.add_all(editais)
+    db_session.commit()
+
+    commits = {"n": 0}
+    real_commit = db_session.commit
+
+    def counting_commit():
+        commits["n"] += 1
+        return real_commit()
+
+    monkeypatch.setattr(db_session, "commit", counting_commit)
+
+    chamadas = {"n": 0}
+    real_enrich = bf_mod.enrich_edital_with_llm
+
+    def fail_on_third(**kwargs):
+        chamadas["n"] += 1
+        if chamadas["n"] == 3:
+            raise RuntimeError("interrupção simulada no meio do lote")
+        return real_enrich(**kwargs)
+
+    monkeypatch.setattr(bf_mod, "enrich_edital_with_llm", fail_on_third)
+
+    reportados = []
+    with pytest.raises(RuntimeError, match="interrupção simulada"):
+        bf_mod.run_backfill(
+            db_session,
+            apply=True,
+            on_change=lambda m, idx: reportados.append((idx, m.edital_id)),
+        )
+
+    assert commits["n"] == 2
+    assert reportados == [(1, editais[0].id), (2, editais[1].id)]
+
+    for e in editais:
+        db_session.refresh(e)
+    assert "158/2024" in editais[0].titulo
+    assert "158/2024" in editais[1].titulo
+    assert editais[2].titulo == "AQUI"
+
+
+def test_backfill_recupera_de_operational_error_ao_salvar(db_session, no_gemini_key, monkeypatch):
+    from sqlalchemy.exc import OperationalError
+    import app.modules.scraper.backfill_titles_summaries as bf_mod
+
+    alvo = Edital(
+        titulo="AQUI",
+        url_pagina="https://cead.unb.br/editais/op-err-retry",
+        orgao_emissor="CEAD",
+        resumo="Edital publicado pelo portal CEAD em 2026-11-01.",
+        texto_extraido=TEXTO_EDITAL_TUTORES,
+    )
+    db_session.add(alvo)
+    db_session.commit()
+
+    tentativas = {"n": 0}
+    real_commit = db_session.commit
+
+    def flaky_commit():
+        tentativas["n"] += 1
+        if tentativas["n"] == 1:
+            raise OperationalError("UPDATE editais", {}, Exception("SSL connection has been closed unexpectedly"))
+        return real_commit()
+
+    monkeypatch.setattr(db_session, "commit", flaky_commit)
+
+    mudancas = bf_mod.run_backfill(db_session, apply=True)
+    assert len(mudancas) == 1
+    assert tentativas["n"] == 2
+    db_session.refresh(alvo)
+    assert "158/2024" in alvo.titulo

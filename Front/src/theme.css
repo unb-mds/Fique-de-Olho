@@ -828,6 +828,26 @@ a {
   color: var(--brand);
 }
 
+.badge-status-open {
+  background: #dcfce7;
+  border: 1.5px solid #166534;
+  color: #14532d;
+}
+
+.badge-status-closed {
+  background: #fde2e7;
+  border: 1.5px solid var(--danger);
+  color: var(--danger);
+}
+
+.edital-card--closed {
+  opacity: 0.84;
+}
+
+.edital-card--closed:hover {
+  opacity: 1;
+}
+
 .skeleton-list {
   cursor: wait;
 }

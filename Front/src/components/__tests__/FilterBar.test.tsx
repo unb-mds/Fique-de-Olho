@@ -49,4 +49,28 @@ describe('FilterBar', () => {
     fireEvent.change(screen.getByLabelText('Ano'), { target: { value: '2026' } });
     expect(onSelectAno).toHaveBeenCalledWith(2026);
   });
+
+  it('oferece o próximo ano no seletor de Ano para editais futuros', () => {
+    const proximoAno = new Date().getFullYear() + 1;
+    const onSelectAno = vi.fn();
+
+    render(
+      <FilterBar
+        areaCounts={[]}
+        activeCategoria={null}
+        activeStatus={null}
+        activeCampus={null}
+        activeAno={null}
+        onSelectCategoria={vi.fn()}
+        onSelectStatus={vi.fn()}
+        onSelectCampus={vi.fn()}
+        onSelectAno={onSelectAno}
+        onClearFilters={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('option', { name: String(proximoAno) })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Ano'), { target: { value: String(proximoAno) } });
+    expect(onSelectAno).toHaveBeenCalledWith(proximoAno);
+  });
 });

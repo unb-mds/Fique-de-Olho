@@ -9,6 +9,7 @@ e ``url_pdf`` salvos no banco — sem baixar PDFs novamente. Por padrão roda em
 Uso (dentro de ``Back/``):
     python -m app.modules.scraper.backfill_titles_summaries               # dry-run
     python -m app.modules.scraper.backfill_titles_summaries --apply       # grava
+    python -m app.modules.scraper.backfill_titles_summaries --only-open --apply --sleep 4.0
     python -m app.modules.scraper.backfill_titles_summaries --orgao CEAD --limit 50 --no-llm
     python -m app.modules.scraper.backfill_titles_summaries --apply --sleep 4.0
 """
@@ -21,12 +22,14 @@ import time
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from decimal import Decimal
-from typing import Iterable, List, Optional
+from typing import Callable, Iterable, List, Optional
 
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import Edital, SessionLocal
+from app.modules.editais.service import _condicao_edital_aberto
 from app.modules.scraper.parser import is_vague_title, parse_edital_metadados
 from app.modules.scraper.summarizer import (
     enrich_edital_with_llm,
@@ -81,11 +84,147 @@ def precisa_backfill(edital: Edital) -> bool:
     return precisa_texto or precisa_datas
 
 
-def _candidatos(db: Session, orgao: Optional[str]) -> Iterable[Edital]:
-    query = db.query(Edital).order_by(Edital.id)
-    if orgao:
-        query = query.filter(Edital.orgao_emissor == orgao.upper().strip())
-    return query.yield_per(200)
+@dataclass(frozen=True)
+class _EditalSnapshot:
+    """Cópia leve em memória para evitar cursor/transação aberta durante chamadas ao LLM."""
+
+    id: int
+    titulo: str
+    resumo: Optional[str]
+    texto_extraido: Optional[str]
+    assunto: Optional[str]
+    orgao_emissor: Optional[str]
+    url_pdf: Optional[str]
+    data_publicacao: Optional[date | datetime]
+    inicio_inscricao: Optional[date]
+    fim_inscricao: Optional[date]
+    vagas: Optional[int]
+    valor_bolsa: Optional[Decimal]
+
+
+def _liberar_transacao_leitura(db: Session) -> None:
+    """Devolve a conexão ao pool antes de chamadas lentas ao LLM, se não houver alterações pendentes."""
+    if not db.new and not db.dirty and not db.deleted:
+        db.rollback()
+
+
+def _buscar_pagina_candidatos(
+    db: Session,
+    orgao: Optional[str],
+    *,
+    only_open: bool = False,
+    ultimo_id: int = 0,
+    page_size: int = 200,
+) -> List[_EditalSnapshot]:
+    """Lê uma página de editais por ID e libera o cursor imediatamente (com 1 retry em queda de conexão)."""
+    for tentativa in range(2):
+        try:
+            query = db.query(
+                Edital.id,
+                Edital.titulo,
+                Edital.resumo,
+                Edital.texto_extraido,
+                Edital.assunto,
+                Edital.orgao_emissor,
+                Edital.url_pdf,
+                Edital.data_publicacao,
+                Edital.inicio_inscricao,
+                Edital.fim_inscricao,
+                Edital.vagas,
+                Edital.valor_bolsa,
+            ).filter(Edital.id > ultimo_id)
+            if orgao:
+                query = query.filter(Edital.orgao_emissor == orgao.upper().strip())
+            if only_open:
+                query = query.filter(_condicao_edital_aberto())
+            rows = query.order_by(Edital.id).limit(page_size).all()
+            snaps = [
+                _EditalSnapshot(
+                    id=row.id,
+                    titulo=row.titulo,
+                    resumo=row.resumo,
+                    texto_extraido=row.texto_extraido,
+                    assunto=row.assunto,
+                    orgao_emissor=row.orgao_emissor,
+                    url_pdf=row.url_pdf,
+                    data_publicacao=row.data_publicacao,
+                    inicio_inscricao=_para_data(row.inicio_inscricao),
+                    fim_inscricao=_para_data(row.fim_inscricao),
+                    vagas=row.vagas,
+                    valor_bolsa=row.valor_bolsa,
+                )
+                for row in rows
+            ]
+            _liberar_transacao_leitura(db)
+            return snaps
+        except OperationalError as exc:
+            db.rollback()
+            if tentativa == 1:
+                raise
+            logger.warning(
+                "Conexão com o banco caiu ao listar candidatos após ID %s (%s); reconectando...",
+                ultimo_id,
+                exc,
+            )
+    return []
+
+
+def _candidatos(
+    db: Session,
+    orgao: Optional[str],
+    only_open: bool = False,
+    page_size: int = 200,
+) -> Iterable[_EditalSnapshot]:
+    ultimo_id = 0
+    while True:
+        pagina = _buscar_pagina_candidatos(
+            db,
+            orgao,
+            only_open=only_open,
+            ultimo_id=ultimo_id,
+            page_size=page_size,
+        )
+        if not pagina:
+            break
+        for snap in pagina:
+            yield snap
+        ultimo_id = pagina[-1].id
+
+
+def _persistir_mudanca(
+    db: Session,
+    edital_id: int,
+    *,
+    titulo: str,
+    resumo: Optional[str],
+    inicio_inscricao: Optional[date],
+    fim_inscricao: Optional[date],
+    vagas: Optional[int],
+    valor_bolsa: Optional[Decimal],
+) -> None:
+    """Persiste e faz commit imediato de um único edital, com 1 retry em caso de queda de conexão."""
+    for tentativa in range(2):
+        try:
+            alvo = db.get(Edital, edital_id)
+            if alvo is None:
+                return
+            alvo.titulo = titulo
+            alvo.resumo = resumo
+            alvo.inicio_inscricao = inicio_inscricao
+            alvo.fim_inscricao = fim_inscricao
+            alvo.vagas = vagas
+            alvo.valor_bolsa = valor_bolsa
+            db.commit()
+            return
+        except OperationalError as exc:
+            db.rollback()
+            if tentativa == 1:
+                raise
+            logger.warning(
+                "Conexão com o banco caiu ao salvar Edital #%s (%s); reconectando e tentando novamente.",
+                edital_id,
+                exc,
+            )
 
 
 def run_backfill(
@@ -94,10 +233,12 @@ def run_backfill(
     orgao: Optional[str] = None,
     limit: Optional[int] = None,
     sleep_seconds: float = 0.0,
+    only_open: bool = False,
+    on_change: Optional[Callable[[BackfillChange, int], None]] = None,
 ) -> List[BackfillChange]:
-    """Calcula (e opcionalmente aplica) correções de título, resumo e datas/metadados. Idempotente."""
+    """Calcula (e opcionalmente aplica com commit incremental) correções de título, resumo e datas. Idempotente."""
     mudancas: List[BackfillChange] = []
-    for edital in _candidatos(db, orgao):
+    for edital in _candidatos(db, orgao, only_open=only_open):
         if limit is not None and len(mudancas) >= limit:
             break
         if not precisa_backfill(edital):
@@ -150,8 +291,6 @@ def run_backfill(
             resumo_atual=resumo_atual,
             pedir_metadados=faltam_metadados,
         )
-        if sleep_seconds > 0 and settings.GEMINI_API_KEY and chamou_llm:
-            time.sleep(sleep_seconds)
 
         titulo_novo = llm_res.get("titulo") or edital.titulo
         resumo_novo = llm_res.get("resumo") or edital.resumo
@@ -178,11 +317,8 @@ def run_backfill(
             or vagas_novo != edital.vagas
             or bolsa_novo != edital.valor_bolsa
         )
-        if not alterou:
-            continue
-
-        mudancas.append(
-            BackfillChange(
+        if alterou:
+            mudanca = BackfillChange(
                 edital_id=edital.id,
                 titulo_antes=edital.titulo,
                 titulo_depois=titulo_novo,
@@ -193,39 +329,57 @@ def run_backfill(
                 fim_inscricao_antes=_para_data(edital.fim_inscricao),
                 fim_inscricao_depois=fim_novo,
             )
-        )
-        if apply:
-            edital.titulo = titulo_novo
-            edital.resumo = resumo_novo
-            edital.inicio_inscricao = ini_novo
-            edital.fim_inscricao = fim_novo
-            edital.vagas = vagas_novo
-            edital.valor_bolsa = bolsa_novo
+            if apply:
+                _persistir_mudanca(
+                    db,
+                    edital.id,
+                    titulo=titulo_novo,
+                    resumo=resumo_novo,
+                    inicio_inscricao=ini_novo,
+                    fim_inscricao=fim_novo,
+                    vagas=vagas_novo,
+                    valor_bolsa=bolsa_novo,
+                )
+            mudancas.append(mudanca)
+            if on_change is not None:
+                on_change(mudanca, len(mudancas))
 
-    if apply and mudancas:
-        db.commit()
+        if sleep_seconds > 0 and settings.GEMINI_API_KEY and chamou_llm:
+            time.sleep(sleep_seconds)
+
     return mudancas
 
 
-def _imprimir(mudancas: List[BackfillChange], apply: bool) -> None:
+def _imprimir_mudanca(m: BackfillChange, apply: bool, indice: Optional[int] = None) -> None:
     modo = "APLICADO" if apply else "DRY-RUN"
+    prefixo = f"[{modo} #{indice}]" if indice is not None else f"[{modo}]"
+    print(f"{prefixo} Edital #{m.edital_id}", flush=True)
+    if m.titulo_antes != m.titulo_depois:
+        print(f"  título: {m.titulo_antes!r}\n       -> {m.titulo_depois!r}", flush=True)
+    if m.resumo_antes != m.resumo_depois:
+        print(f"  resumo: {m.resumo_antes!r}\n       -> {m.resumo_depois!r}", flush=True)
+    if m.inicio_inscricao_antes != m.inicio_inscricao_depois or m.fim_inscricao_antes != m.fim_inscricao_depois:
+        print(
+            f"  inscrição: {m.inicio_inscricao_antes}..{m.fim_inscricao_antes} "
+            f"-> {m.inicio_inscricao_depois}..{m.fim_inscricao_depois}",
+            flush=True,
+        )
+
+
+def _imprimir(mudancas: List[BackfillChange], apply: bool) -> None:
     for m in mudancas:
-        print(f"[{modo}] Edital #{m.edital_id}")
-        if m.titulo_antes != m.titulo_depois:
-            print(f"  título: {m.titulo_antes!r}\n       -> {m.titulo_depois!r}")
-        if m.resumo_antes != m.resumo_depois:
-            print(f"  resumo: {m.resumo_antes!r}\n       -> {m.resumo_depois!r}")
-        if m.inicio_inscricao_antes != m.inicio_inscricao_depois or m.fim_inscricao_antes != m.fim_inscricao_depois:
-            print(
-                f"  inscrição: {m.inicio_inscricao_antes}..{m.fim_inscricao_antes} "
-                f"-> {m.inicio_inscricao_depois}..{m.fim_inscricao_depois}"
-            )
-    print(f"\nTotal: {len(mudancas)} edital(is) {'atualizado(s)' if apply else 'com mudanças propostas'}.")
+        _imprimir_mudanca(m, apply)
+    print(f"\nTotal: {len(mudancas)} edital(is) {'atualizado(s)' if apply else 'com mudanças propostas'}.", flush=True)
 
 
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--apply", action="store_true", help="Grava as mudanças (padrão: dry-run).")
+    parser.add_argument(
+        "--only-open",
+        action="store_true",
+        help="Processa apenas editais abertos (mesmo critério da listagem/estatísticas da API).",
+    )
     parser.add_argument("--orgao", help="Restringe a um órgão emissor (ex.: CEAD, DEG).")
     parser.add_argument("--limit", type=int, help="Número máximo de editais alterados.")
     parser.add_argument("--no-llm", action="store_true", help="Usa apenas a heurística local (Camada 1).")
@@ -248,8 +402,10 @@ def main(argv: Optional[List[str]] = None) -> int:
             orgao=args.orgao,
             limit=args.limit,
             sleep_seconds=args.sleep,
+            only_open=args.only_open,
+            on_change=lambda m, idx: _imprimir_mudanca(m, args.apply, indice=idx),
         )
-    _imprimir(mudancas, args.apply)
+    print(f"\nTotal: {len(mudancas)} edital(is) {'atualizado(s)' if args.apply else 'com mudanças propostas'}.", flush=True)
     return 0
 
 

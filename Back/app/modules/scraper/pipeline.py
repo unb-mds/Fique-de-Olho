@@ -16,7 +16,7 @@ from app.core.database import (
     TipoDocumento,
 )
 from app.modules.scraper import deg
-from app.modules.scraper.parser import detect_orgao_emissor, is_vague_title, parse_edital_metadados
+from app.modules.scraper.parser import detect_campus, detect_orgao_emissor, is_vague_title, parse_edital_metadados
 from app.modules.scraper.summarizer import (
     enrich_edital_with_llm,
     enrich_metadata_with_llm,
@@ -610,11 +610,15 @@ def _enrich_edital_metadata(
             fallback = edital_data.get("resumo_fallback")
             resumo_final = str(fallback).strip() if fallback else None
 
-    # Se ainda não identificou órgão emissor no PDF nem veio estruturado, tenta detectar pelo título/resumo
+    # Se ainda não identificou órgão emissor ou campus, tenta detectar pelo título/assunto/resumo
     if not orgao_emissor:
         detected = detect_orgao_emissor(f"{titulo_final} {resumo_final or ''}")
         if detected:
             orgao_emissor = detected[:50]
+    if not campus:
+        detected_campus = detect_campus(f"{titulo_final} {assunto or ''} {resumo_final or ''}")
+        if detected_campus:
+            campus = detected_campus[:255]
 
     # 4. Ciclo de status_processamento
     has_complete_metadata = bool(
