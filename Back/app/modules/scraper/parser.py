@@ -88,13 +88,49 @@ ORGAOS_UNB: Dict[str, Tuple[str, ...]] = {
     "PPGGIPP": ("gestao publica", "ppggipp", "ppgipp"),
 }
 
-# Campus da UnB
+# Campus da UnB (campi fora de sede avaliados antes de Darcy Ribeiro para evitar falso positivo do rodapé SEI/Reitoria)
 CAMPUS_UNB: Dict[str, Tuple[str, ...]] = {
+    "FGA": (
+        "faculdade do gama",
+        "faculdade de ciencias e tecnologias em engenharia",
+        "campus gama",
+        "campus do gama",
+        "campus unb gama",
+        "unb gama",
+        "fcte",
+        "fga",
+    ),
+    "FCE": (
+        "faculdade de ceilandia",
+        "faculdade da ceilandia",
+        "faculdade de ciencias e tecnologias em saude",
+        "campus ceilandia",
+        "campus de ceilandia",
+        "campus unb ceilandia",
+        "unb ceilandia",
+        "fcts",
+        "fce",
+        "ceilandia",
+    ),
+    "FUP": (
+        "faculdade de planaltina",
+        "faculdade unb planaltina",
+        "campus planaltina",
+        "campus de planaltina",
+        "unb planaltina",
+        "fup",
+        "planaltina",
+    ),
+    "Fazenda Água Limpa": ("fazenda agua limpa",),
     "Darcy Ribeiro": ("darcy ribeiro", "plano piloto", "campus darcy", "asa norte"),
-    "FGA": ("faculdade do gama", "campus gama", "fga", "gama"),
-    "FCE": ("faculdade de ceilandia", "faculdade da ceilândia", "campus ceilandia", "fce", "ceilandia", "ceilândia"),
-    "FUP": ("faculdade de planaltina", "campus planaltina", "fup", "planaltina"),
 }
+
+_MULTI_CAMPUS_TERMOS: Tuple[str, ...] = (
+    "todos os campi",
+    "quatro campi",
+    "campi da unb",
+    "todos os campus",
+)
 
 
 class CronogramaEtapa(BaseModel):
@@ -158,8 +194,8 @@ _MES_WORD_RE = r"([a-zçáéíóúãõâêîôû]{3,12}\.?)"
 # Aceita DD/MM/AA(AA) com barra OU DD.MM.AAAA / DD-MM-AAAA exigindo ano de 4 dígitos
 # (evita falsos positivos com numeração de itens como "3.1.10" ou "2.1-3").
 _DATE_NUM_RE = r"(?:(\d{1,2})/(\d{1,2})/(\d{2,4})|(\d{1,2})[.\-](\d{1,2})[.\-]((?:19|20)\d{2}))"
-_INTERVAL_CONN_RE = r"(?:a\s+at[eé]|at[eé]|ate|[aà]s|as|a|[-–—])"
-_INTERVAL_WORD_CONN_RE = r"(?:a\s+at[eé]|at[eé]|ate|[aà]s|as|a)"
+_INTERVAL_CONN_RE = r"(?:a\s+at[eé]|at[eé]|ate|[aà]s|as|[aà]|[-–—])"
+_INTERVAL_WORD_CONN_RE = r"(?:a\s+at[eé]|at[eé]|ate|[aà]s|as|[aà])"
 
 
 def _parse_date_num_groups(g1, g2, g3, g4, g5, g6) -> Optional[datetime]:
@@ -389,6 +425,17 @@ def parse_data_interval(text: str, default_year: Optional[int] = None) -> Tuple[
             if dt_ini and dt_fim:
                 return dt_ini, dt_fim
 
+        p6_single_ext = re.search(
+            rf"(\d{{1,2}})\s+de\s+{_MES_WORD_RE}",
+            clean,
+            re.I,
+        )
+        if p6_single_ext:
+            d, m = p6_single_ext.groups()
+            single = parse_date_pt(d, m, y_str)
+            if single:
+                return single, single
+
     return None, None
 
 
@@ -433,10 +480,22 @@ def detect_campus(text: str) -> Optional[str]:
     """Identifica o campus da UnB mencionado com maior relevância no texto."""
     clean = _strip_accents(text)
 
-    for campus, termos in CAMPUS_UNB.items():
-        for termo in termos:
-            if re.search(rf"\b{re.escape(termo)}\b", clean):
-                return campus
+    if any(termo in clean for termo in _MULTI_CAMPUS_TERMOS):
+        return "Geral"
+
+    campi_satelite = [
+        campus
+        for campus in ("FGA", "FCE", "FUP", "Fazenda Água Limpa")
+        if any(re.search(rf"\b{re.escape(termo)}\b", clean) for termo in CAMPUS_UNB[campus])
+    ]
+    if len(campi_satelite) >= 2:
+        return "Geral"
+    if len(campi_satelite) == 1:
+        return campi_satelite[0]
+
+    for termo in CAMPUS_UNB["Darcy Ribeiro"]:
+        if re.search(rf"\b{re.escape(termo)}\b", clean):
+            return "Darcy Ribeiro"
 
     # Se menciona 'Universidade de Brasília' genérico sem campus específico
     if "universidade de brasilia" in clean:
@@ -810,7 +869,22 @@ def parse_edital_metadados(
 
         if (
             "inscric" in etapa_clean
-            and not any(k in etapa_clean for k in ("homologac", "resultado", "deferimento", "indeferimento", "recurso"))
+            and not any(
+                k in etapa_clean
+                for k in (
+                    "homologac",
+                    "resultado",
+                    "deferimento",
+                    "indeferimento",
+                    "recurso",
+                    "analise",
+                    "avaliac",
+                    "verificac",
+                    "conferencia",
+                    "validac",
+                    "divulgac",
+                )
+            )
         ):
             if not inicio_inscricao and item.inicio:
                 inicio_inscricao = item.inicio
@@ -937,7 +1011,7 @@ _CAIXA_ALTA_INICIAL_RE = re.compile(
 )
 
 _TORNA_PUBLICO_RE = re.compile(
-    r"torna(?:m)?\s+p[úu]blic[oa]s?\s+(?:a|o|as|os)?\s*(.+?)(?:\.\s|\.$|$)",
+    r"torna(?:m)?\s+p[úu]blic[oa]s?\s+(?:(?:as|os|a|o)\s+)?(.+?)(?:\.\s|\.$|$)",
     re.IGNORECASE,
 )
 

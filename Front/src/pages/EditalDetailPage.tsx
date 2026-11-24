@@ -7,7 +7,7 @@ import { categoryBadgeStyle, formatDate } from "@/utils/editalDisplay";
 import AlertButton from "@/components/AlertButton";
 import FavoriteButton from "@/components/FavoriteButton";
 
-function formatarDataSegura(data?: string): string {
+function formatarDataSegura(data?: string | null): string {
   if (!data) return "Não informado";
 
   const partes = /^(\d{4})-(\d{2})-(\d{2})/.exec(data);
@@ -47,6 +47,7 @@ export default function EditalDetailPage() {
   const [edital, setEdital] = useState<Edital | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reloadTick, setReloadTick] = useState(0);
 
   useEffect(() => {
     if (!id) {
@@ -75,29 +76,67 @@ export default function EditalDetailPage() {
     return () => {
       ativo = false;
     };
-  }, [id]);
+  }, [id, reloadTick]);
 
   if (loading) {
     return (
-      <p className="status-message">
-        Carregando edital...
-      </p>
+      <main className="detail-page">
+        <div className="detail-shell">
+          <Link className="page-back-link detail-back-link" to="/">
+            ← Voltar para editais
+          </Link>
+          <section className="detail-card detail-state-card" aria-busy="true">
+            <p className="detail-state-text">Carregando edital...</p>
+            <div className="detail-state-skeleton" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </div>
+          </section>
+        </div>
+      </main>
     );
   }
 
   if (error) {
     return (
-      <p className="status-message">
-        Erro ao carregar edital: {error}
-      </p>
+      <main className="detail-page">
+        <div className="detail-shell">
+          <Link className="page-back-link detail-back-link" to="/">
+            ← Voltar para editais
+          </Link>
+          <section className="detail-card detail-state-card detail-state-card--error" role="alert">
+            <span className="state-pill state-pill--danger">Não foi possível carregar</span>
+            <h1>Falha ao abrir este edital</h1>
+            <p className="detail-state-message">Erro ao carregar edital: {error}</p>
+            <div className="detail-state-actions">
+              <button
+                type="button"
+                className="button button-accent"
+                onClick={() => setReloadTick((prev) => prev + 1)}
+              >
+                Tentar novamente
+              </button>
+            </div>
+          </section>
+        </div>
+      </main>
     );
   }
 
   if (!edital) {
     return (
-      <p className="status-message">
-        Edital não encontrado.
-      </p>
+      <main className="detail-page">
+        <div className="detail-shell">
+          <Link className="page-back-link detail-back-link" to="/">
+            ← Voltar para editais
+          </Link>
+          <section className="detail-card detail-state-card">
+            <h1>Edital não encontrado</h1>
+            <p className="detail-state-message">Edital não encontrado.</p>
+          </section>
+        </div>
+      </main>
     );
   }
 
@@ -168,7 +207,7 @@ export default function EditalDetailPage() {
           <div>
             <dt>Início das inscrições</dt>
             <dd>
-              {formatarDataSegura(edital.inicioInscricao)}
+              {formatarDataSegura(edital.inicioInscricao ?? edital.inicio_inscricao)}
             </dd>
           </div>
 

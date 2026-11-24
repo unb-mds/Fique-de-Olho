@@ -1,7 +1,8 @@
+import { ApiError, apiRequest } from '@/services/apiClient';
 import type { Edital } from './types';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 const CACHE_TTL_MS = 120_000; // 2 minutos em memória para navegação instantânea
+const MAX_CACHE_ENTRIES = 100;
 
 export interface GetEditaisParams {
   q?: string;
@@ -31,6 +32,18 @@ const detailCache = new Map<string, CacheItem<Edital>>();
 const detailInflight = new Map<string, Promise<Edital>>();
 let statsCache: CacheItem<EditaisStats> | null = null;
 let statsInflight: Promise<EditaisStats> | null = null;
+
+function setBoundedCache<T>(cache: Map<string, CacheItem<T>>, key: string, data: T): void {
+  if (cache.has(key)) {
+    cache.delete(key);
+  } else if (cache.size >= MAX_CACHE_ENTRIES) {
+    const oldestKey = cache.keys().next().value;
+    if (oldestKey !== undefined) {
+      cache.delete(oldestKey);
+    }
+  }
+  cache.set(key, { timestamp: Date.now(), data });
+}
 
 export function limparCacheEditais(): void {
   listCache.clear();
@@ -62,20 +75,26 @@ export async function getEditais(params: GetEditaisParams = {}): Promise<Edital[
     if (inflight) return inflight;
   }
 
-  const request = (async () => {
+  let request: Promise<Edital[]> | undefined = undefined;
+  request = (async () => {
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/v1/editais/${query ? `?${query}` : ''}`,
-        params.signal ? { signal: params.signal } : undefined,
+      const dados = await apiRequest<Edital[]>(
+        `/api/v1/editais/${query ? `?${query}` : ''}`,
+        {
+          method: 'GET',
+          signal: params.signal,
+          errorMessage: 'Erro ao buscar editais.',
+        },
       );
-      if (!response.ok) {
-        throw new Error(`Erro ao buscar editais: ${response.status}`);
+      if (!Array.isArray(dados)) {
+        throw new ApiError('Resposta inválida ao buscar editais.', { isTransient: true });
       }
-      const dados: Edital[] = await response.json();
-      listCache.set(query, { timestamp: Date.now(), data: dados });
+      setBoundedCache(listCache, query, dados);
       return dados;
     } finally {
-      listInflight.delete(query);
+      if (!params.signal && listInflight.get(query) === request) {
+        listInflight.delete(query);
+      }
     }
   })();
 
@@ -91,21 +110,24 @@ export async function getEditaisStats(): Promise<EditaisStats> {
   }
   if (statsInflight) return statsInflight;
 
-  statsInflight = (async () => {
+  let request: Promise<EditaisStats> | undefined = undefined;
+  request = (async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/editais/stats`);
-      if (!response.ok) {
-        throw new Error(`Erro ao buscar estatísticas: ${response.status}`);
-      }
-      const dados: EditaisStats = await response.json();
+      const dados = await apiRequest<EditaisStats>('/api/v1/editais/stats', {
+        method: 'GET',
+        errorMessage: 'Erro ao buscar estatísticas.',
+      });
       statsCache = { timestamp: Date.now(), data: dados };
       return dados;
     } finally {
-      statsInflight = null;
+      if (statsInflight === request) {
+        statsInflight = null;
+      }
     }
   })();
 
-  return statsInflight;
+  statsInflight = request;
+  return request;
 }
 
 export async function getEditalById(id: string): Promise<Edital> {
@@ -118,17 +140,19 @@ export async function getEditalById(id: string): Promise<Edital> {
   const inflight = detailInflight.get(key);
   if (inflight) return inflight;
 
-  const request = (async () => {
+  let request: Promise<Edital> | undefined = undefined;
+  request = (async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/editais/${key}`);
-      if (!response.ok) {
-        throw new Error(`Erro ao buscar edital ${key}: ${response.status}`);
-      }
-      const dados: Edital = await response.json();
-      detailCache.set(key, { timestamp: Date.now(), data: dados });
+      const dados = await apiRequest<Edital>(`/api/v1/editais/${key}`, {
+        method: 'GET',
+        errorMessage: `Erro ao buscar edital ${key}.`,
+      });
+      setBoundedCache(detailCache, key, dados);
       return dados;
     } finally {
-      detailInflight.delete(key);
+      if (detailInflight.get(key) === request) {
+        detailInflight.delete(key);
+      }
     }
   })();
 

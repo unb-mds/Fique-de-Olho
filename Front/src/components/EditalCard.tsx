@@ -15,12 +15,13 @@ export default function EditalCard({
   favoriteInitially = false,
   onFavoriteChange,
 }: EditalCardProps) {
+  const encerrado = edital.status === 'fechado';
   const restantes = daysUntil(edital.prazoFinal);
-  const urgente = restantes !== null && restantes >= 0 && restantes <= 7;
-  const orgao = edital.orgaoEmissor || (edital as any).orgao_emissor;
+  const urgente = !encerrado && restantes !== null && restantes >= 0 && restantes <= 7;
+  const orgao = edital.orgaoEmissor || edital.orgao_emissor;
 
   return (
-    <article className="edital-card">
+    <article className={`edital-card${encerrado ? ' edital-card--closed' : ''}`}>
       <div className="edital-card-actions">
         <AlertButton editalId={edital.id} />
         <FavoriteButton
@@ -31,6 +32,11 @@ export default function EditalCard({
       </div>
       <div className="edital-card-badges">
         <div className="badge-group">
+          <span
+            className={`badge ${encerrado ? 'badge-status-closed' : 'badge-status-open'}`}
+          >
+            {encerrado ? 'Encerrado' : 'Aberto'}
+          </span>
           {edital.categoria && (
             <span className="badge" style={categoryBadgeStyle(edital.categoria)}>
               {edital.categoria}
@@ -42,7 +48,9 @@ export default function EditalCard({
       </div>
 
       <h3 className="edital-card-title">
-        <Link to={`/editais/${edital.id}`}>{edital.titulo}</Link>
+        <Link to={`/editais/${edital.id}`} title={edital.titulo}>
+          {edital.titulo}
+        </Link>
       </h3>
       <p className="edital-card-desc">{edital.descricao}</p>
 
@@ -54,7 +62,9 @@ export default function EditalCard({
             <span><strong>Prazo</strong> {formatDate(edital.prazoFinal)}</span>
           )}
           <div className="edital-card-footer-right">
-            {edital.vagas !== undefined && <span>{edital.vagas} vagas</span>}
+            {edital.vagas !== undefined && edital.vagas !== null && (
+              <span>{edital.vagas} vagas</span>
+            )}
             {edital.valor && <span className="edital-card-valor">{edital.valor}</span>}
           </div>
         </div>

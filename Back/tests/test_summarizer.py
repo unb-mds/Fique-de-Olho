@@ -1004,3 +1004,267 @@ def test_backfill_suporta_sleep_seconds_com_llm_ativo(db_session, gemini_key, mo
     mudancas = bf_mod.run_backfill(db_session, apply=True, sleep_seconds=1.5)
     assert len(mudancas) == 1
     assert sleeps == [1.5]
+
+
+# ============================================================================
+# Regressões: _TORNA_PUBLICO_RE ("os"/"as"), cronograma com "à" e upgrade Camada 1 -> 2
+# ============================================================================
+
+
+def test_extrair_objeto_torna_publicos_os_procedimentos_nao_corta_artigo():
+    texto_os = (
+        "1.1. A SDH, o DEG e o DAC tornam públicos os procedimentos que serão adotados para "
+        "o preenchimento de vagas reservadas no CEI-UnB."
+    )
+    resumo_os = extrair_objeto_edital(texto_os)
+    assert resumo_os is not None
+    assert not resumo_os.startswith("S ")
+    assert resumo_os.startswith("Procedimentos que serão adotados")
+
+    texto_as = (
+        "O Decanato de Extensão torna públicas as normas para submissão de projetos "
+        "de extensão universitária na UnB."
+    )
+    resumo_as = extrair_objeto_edital(texto_as)
+    assert resumo_as is not None
+    assert not resumo_as.startswith("S ")
+    assert resumo_as.startswith("Normas para submissão de projetos")
+
+
+def test_parse_cronograma_cei_unb_com_crase_e_sem_ano():
+    from datetime import datetime, timezone
+    from app.modules.scraper.parser import parse_edital_metadados
+
+    tabela = [
+        ["Atividade", "Data"],
+        ["Publicação do Edital", "19 de novembro"],
+        ["Período de Inscrições", "19 de novembro à 4 de dezembro"],
+        ["Análise das Inscrições", "7 à 11 de dezembro"],
+        ["Resultado Preliminar", "14 de dezembro"],
+        ["Resultado Final", "21 de dezembro"],
+    ]
+    doc = PDFDocumentExtraction(
+        source="cei.pdf",
+        num_pages=3,
+        full_text="EDITAL SDH/DEG/DEX Nº 1/2026 - CEI-UnB",
+        tables=[tabela],
+    )
+    meta = parse_edital_metadados(doc, ano_referencia=2026)
+    assert meta.inicio_inscricao == datetime(2026, 11, 19, tzinfo=timezone.utc)
+    assert meta.fim_inscricao == datetime(2026, 12, 4, tzinfo=timezone.utc)
+    assert meta.data_resultado_preliminar == datetime(2026, 12, 14, tzinfo=timezone.utc)
+    assert meta.data_resultado_final == datetime(2026, 12, 21, tzinfo=timezone.utc)
+
+
+def test_upsert_e_backfill_fazem_upgrade_de_resumo_cortado_e_camada_1_para_gemini(
+    db_session, gemini_key, monkeypatch
+):
+    import app.modules.scraper.backfill_titles_summaries as bf_mod
+    from app.modules.scraper.pipeline import _hash_edital, upsert_edital
+    from app.modules.scraper.summarizer import is_clipped_summary, is_weak_heuristic_summary
+
+    assert is_clipped_summary("S procedimentos que serão adotados no CEI-UnB.") is True
+    assert is_clipped_summary("A seleção de bolsistas para o projeto.") is False
+    assert is_weak_heuristic_summary("O presente Edital tem por objeto selecionar pesquisadores.") is True
+    assert is_weak_heuristic_summary("Seleção de bolsistas de graduação com bolsa de R$ 700,00.") is False
+
+    chamadas = {"n": 0}
+
+    def handler(req):
+        chamadas["n"] += 1
+        return httpx.Response(
+            200,
+            json=_gemini_payload(
+                {
+                    "resumo": "Seleção para preenchimento de vagas reservadas à comunidade acadêmica da UnB no CEI-UnB.",
+                }
+            ),
+        )
+
+    _install_mock_transport(monkeypatch, handler)
+
+    texto_cei = (
+        "1.1. A SDH, o DEG e o DAC tornam públicos os procedimentos que serão adotados para "
+        "o preenchimento de vagas reservadas à Comunidade Acadêmica da UnB no CEI-UnB."
+    )
+    payload = {
+        "titulo": "Edital SDH/DEG/DEX Nº 1/2026 – Vagas no CEI-UnB",
+        "link": "https://deg.unb.br/editais/cei-unb-2026",
+        "orgao_emissor": "DEG",
+    }
+    hash_conteudo = _hash_edital(payload, [])
+
+    from datetime import date
+
+    legado = Edital(
+        titulo=payload["titulo"],
+        url_pagina=payload["link"],
+        orgao_emissor="DEG",
+        resumo="S procedimentos que serão adotados para o preenchimento de vagas reservadas no CEI-UnB.",
+        texto_extraido=texto_cei,
+        inicio_inscricao=date(2026, 11, 19),
+        fim_inscricao=date(2026, 12, 4),
+        hash_conteudo=hash_conteudo,
+        status_processamento="processado",
+    )
+    db_session.add(legado)
+    db_session.commit()
+
+    # Reprocessamento com Gemini ativo deve sobrescrever o resumo cortado da Camada 1
+    atualizado = upsert_edital(db=db_session, edital_data=payload, enable_pdf_enrichment=False)
+    assert chamadas["n"] == 1
+    assert atualizado.resumo == (
+        "Seleção para preenchimento de vagas reservadas à comunidade acadêmica da UnB no CEI-UnB."
+    )
+
+    # Nova execução com o resumo já melhorado pelo Gemini NÃO chama a API novamente
+    estavel = upsert_edital(db=db_session, edital_data=payload, enable_pdf_enrichment=False)
+    assert chamadas["n"] == 1
+    assert estavel.resumo == atualizado.resumo
+
+    # Backfill também detecta e faz upgrade de resumo bruto da Camada 1 ("O presente Edital...")
+    bruto = Edital(
+        titulo="Edital DEG/UnB Nº 76/2026 – Seleção de Pesquisadores",
+        url_pagina="https://deg.unb.br/editais/deg-76-2026",
+        orgao_emissor="DEG",
+        resumo="O presente Edital tem por objeto selecionar pesquisadores para diagnósticos das licenciaturas.",
+        texto_extraido="1. DO OBJETO\nO presente Edital tem por objeto selecionar pesquisadores.",
+        inicio_inscricao=date(2026, 11, 19),
+        fim_inscricao=date(2026, 11, 30),
+    )
+    db_session.add(bruto)
+    db_session.commit()
+
+    mudancas = bf_mod.run_backfill(db_session, apply=True)
+    assert [m.edital_id for m in mudancas] == [bruto.id]
+    assert chamadas["n"] == 2
+    assert bf_mod.run_backfill(db_session, apply=True) == []
+
+
+def test_backfill_only_open_processa_apenas_editais_abertos(db_session, no_gemini_key):
+    from datetime import date, timedelta
+    import app.modules.scraper.backfill_titles_summaries as bf_mod
+    from app.core.database import StatusEdital
+
+    hoje = date.today()
+    aberto = Edital(
+        titulo="AQUI",
+        url_pagina="https://cead.unb.br/editais/aberto-only-open",
+        orgao_emissor="CEAD",
+        resumo="Edital publicado pelo portal CEAD em 2026-11-01.",
+        texto_extraido=TEXTO_EDITAL_TUTORES,
+        fim_inscricao=hoje + timedelta(days=10),
+        status=StatusEdital.ABERTO,
+    )
+    encerrado_por_data = Edital(
+        titulo="AQUI",
+        url_pagina="https://cead.unb.br/editais/encerrado-data-only-open",
+        orgao_emissor="CEAD",
+        resumo="Edital publicado pelo portal CEAD em 2024-01-01.",
+        texto_extraido=TEXTO_EDITAL_TUTORES,
+        fim_inscricao=hoje - timedelta(days=10),
+        status=StatusEdital.ABERTO,
+    )
+    encerrado_por_status = Edital(
+        titulo="AQUI",
+        url_pagina="https://cead.unb.br/editais/encerrado-status-only-open",
+        orgao_emissor="CEAD",
+        resumo="Edital publicado pelo portal CEAD em 2026-11-01.",
+        texto_extraido=TEXTO_EDITAL_TUTORES,
+        status=StatusEdital.ENCERRADO,
+    )
+    db_session.add_all([aberto, encerrado_por_data, encerrado_por_status])
+    db_session.commit()
+
+    mudancas = bf_mod.run_backfill(db_session, apply=True, only_open=True)
+    assert [m.edital_id for m in mudancas] == [aberto.id]
+    db_session.refresh(encerrado_por_data)
+    db_session.refresh(encerrado_por_status)
+    assert encerrado_por_data.titulo == "AQUI"
+    assert encerrado_por_status.titulo == "AQUI"
+
+
+def test_backfill_commit_incremental_preserva_progresso_em_erro(db_session, no_gemini_key, monkeypatch):
+    import app.modules.scraper.backfill_titles_summaries as bf_mod
+
+    editais = [
+        Edital(
+            titulo="AQUI",
+            url_pagina=f"https://cead.unb.br/editais/inc-{i}",
+            orgao_emissor="CEAD",
+            resumo="Edital publicado pelo portal CEAD em 2026-11-01.",
+            texto_extraido=TEXTO_EDITAL_TUTORES,
+        )
+        for i in range(3)
+    ]
+    db_session.add_all(editais)
+    db_session.commit()
+
+    commits = {"n": 0}
+    real_commit = db_session.commit
+
+    def counting_commit():
+        commits["n"] += 1
+        return real_commit()
+
+    monkeypatch.setattr(db_session, "commit", counting_commit)
+
+    chamadas = {"n": 0}
+    real_enrich = bf_mod.enrich_edital_with_llm
+
+    def fail_on_third(**kwargs):
+        chamadas["n"] += 1
+        if chamadas["n"] == 3:
+            raise RuntimeError("interrupção simulada no meio do lote")
+        return real_enrich(**kwargs)
+
+    monkeypatch.setattr(bf_mod, "enrich_edital_with_llm", fail_on_third)
+
+    reportados = []
+    with pytest.raises(RuntimeError, match="interrupção simulada"):
+        bf_mod.run_backfill(
+            db_session,
+            apply=True,
+            on_change=lambda m, idx: reportados.append((idx, m.edital_id)),
+        )
+
+    assert commits["n"] == 2
+    assert reportados == [(1, editais[0].id), (2, editais[1].id)]
+
+    for e in editais:
+        db_session.refresh(e)
+    assert "158/2024" in editais[0].titulo
+    assert "158/2024" in editais[1].titulo
+    assert editais[2].titulo == "AQUI"
+
+
+def test_backfill_recupera_de_operational_error_ao_salvar(db_session, no_gemini_key, monkeypatch):
+    from sqlalchemy.exc import OperationalError
+    import app.modules.scraper.backfill_titles_summaries as bf_mod
+
+    alvo = Edital(
+        titulo="AQUI",
+        url_pagina="https://cead.unb.br/editais/op-err-retry",
+        orgao_emissor="CEAD",
+        resumo="Edital publicado pelo portal CEAD em 2026-11-01.",
+        texto_extraido=TEXTO_EDITAL_TUTORES,
+    )
+    db_session.add(alvo)
+    db_session.commit()
+
+    tentativas = {"n": 0}
+    real_commit = db_session.commit
+
+    def flaky_commit():
+        tentativas["n"] += 1
+        if tentativas["n"] == 1:
+            raise OperationalError("UPDATE editais", {}, Exception("SSL connection has been closed unexpectedly"))
+        return real_commit()
+
+    monkeypatch.setattr(db_session, "commit", flaky_commit)
+
+    mudancas = bf_mod.run_backfill(db_session, apply=True)
+    assert len(mudancas) == 1
+    assert tentativas["n"] == 2
+    db_session.refresh(alvo)
+    assert "158/2024" in alvo.titulo

@@ -390,3 +390,98 @@ def test_filtro_campus_resolve_aliases_sigla_e_nome():
         assert {e.id for e in planaltina} == {32}
     finally:
         db.close()
+
+
+def test_filtro_campus_gama_e_ceilandia_reconhece_fcte_fcts_e_mencoes_no_texto():
+    """Editais que citam FGA/FCTE (Gama) ou FCE/FCTS (Ceilândia) no título/resumo devem aparecer mesmo com campus legado."""
+    from app.modules.scraper.parser import detect_campus
+
+    assert detect_campus("Edital FCTE/UnB - Campus Gama. Rodapé: Campus Universitário Darcy Ribeiro, Asa Norte.") == "FGA"
+    assert detect_campus("Seleção na Faculdade de Ciências e Tecnologias em Saúde (FCTS).") == "FCE"
+    assert detect_campus("Vagas para todos os campi da Universidade de Brasília.") == "Geral"
+    assert detect_campus("Vagas na FGA e na FCE para estudantes da UnB.") == "Geral"
+
+    db = _make_isolated_session()
+    try:
+        db.add_all([
+            Edital(
+                id=40,
+                titulo="Edital de Monitoria FCTE - Campus Gama 2026",
+                url_pagina="https://deg.unb.br/edital-fcte-gama",
+                campus="Darcy Ribeiro",
+                data_publicacao=datetime(2026, 10, 1),
+                status=StatusEdital.ABERTO,
+            ),
+            Edital(
+                id=41,
+                titulo="Seleção de Bolsistas da Faculdade de Ciências e Tecnologias em Saúde (FCTS)",
+                url_pagina="https://deg.unb.br/edital-fcts-ceilandia",
+                campus="Darcy Ribeiro",
+                resumo="Oportunidade para estudantes do Campus Ceilândia.",
+                data_publicacao=datetime(2026, 10, 2),
+                status=StatusEdital.ABERTO,
+            ),
+            Edital(
+                id=42,
+                titulo="Edital FCE 02/2026",
+                url_pagina="https://sigaa.unb.br/edital-fce",
+                campus="FCE",
+                data_publicacao=datetime(2026, 10, 3),
+                status=StatusEdital.ABERTO,
+            ),
+            Edital(
+                id=43,
+                titulo="Edital com ampla gama de projetos no Plano Piloto",
+                url_pagina="https://deg.unb.br/edital-darcy",
+                campus="Darcy Ribeiro",
+                data_publicacao=datetime(2026, 10, 4),
+                status=StatusEdital.ABERTO,
+            ),
+        ])
+        db.commit()
+
+        gama = list_editais_com_filtros(db, campus="FGA (Gama)")
+        assert {e.id for e in gama} == {40}
+
+        ceilandia = list_editais_com_filtros(db, campus="FCE (Ceilândia)")
+        assert {e.id for e in ceilandia} == {41, 42}
+    finally:
+        db.close()
+
+
+def test_filtro_ano_inclui_editais_do_ano_seguinte_por_inscricao_ou_titulo():
+    """Filtrar pelo próximo ano deve encontrar editais publicados no fim do ano anterior com prazo ou referência ao ano seguinte."""
+    db = _make_isolated_session()
+    try:
+        db.add_all([
+            Edital(
+                id=50,
+                titulo="Seleção de Mestrado em Computação - Ingresso 2027.1",
+                url_pagina="https://dpg.unb.br/mestrado-2027",
+                data_publicacao=datetime(2026, 11, 20),
+                fim_inscricao=date(2026, 12, 15),
+                status=StatusEdital.ABERTO,
+            ),
+            Edital(
+                id=51,
+                titulo="Edital de Bolsas de Verão",
+                url_pagina="https://dex.unb.br/verao",
+                data_publicacao=datetime(2026, 11, 22),
+                fim_inscricao=date(2027, 1, 20),
+                status=StatusEdital.ABERTO,
+            ),
+            Edital(
+                id=52,
+                titulo="Edital Encerrado 2025",
+                url_pagina="https://deg.unb.br/antigo-2025",
+                data_publicacao=datetime(2025, 5, 10),
+                fim_inscricao=date(2025, 5, 30),
+                status=StatusEdital.ENCERRADO,
+            ),
+        ])
+        db.commit()
+
+        editais_2027 = list_editais_com_filtros(db, ano=2027)
+        assert {e.id for e in editais_2027} == {50, 51}
+    finally:
+        db.close()

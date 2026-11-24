@@ -137,3 +137,4 @@ Com essa alteração:
 | **Horas do Render Web** | Variável (~200h) | ~720h/mês (**Totalmente coberto** pelas 750h gratuitas) |
 | **Horas de Computação Neon** | ~720h/mês (**Estouro de cota** em 4 dias) | **~15h a 30h/mês** (Apenas acessos e consultas reais) |
 | **Custo Mensal** | R$ 0,00 (porém com queda por cota) | **R$ 0,00 real e perene** |
+

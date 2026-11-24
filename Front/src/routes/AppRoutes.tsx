@@ -1,10 +1,11 @@
 import { Routes, Route } from 'react-router-dom';
 import HomePage from '@/pages/HomePage';
 import EditalDetailPage from '@/pages/EditalDetailPage';
-import LoginPage from "@/pages/LoginPage";
-import RegisterPage from "@/pages/RegisterPage";
-import FavoritesPage from "@/pages/FavoritesPage";
-import ProtectedRoute from "@/components/ProtectedRoute";
+import LoginPage from '@/pages/LoginPage';
+import RegisterPage from '@/pages/RegisterPage';
+import FavoritesPage from '@/pages/FavoritesPage';
+import NotFoundPage from '@/pages/NotFoundPage';
+import ProtectedRoute from '@/components/ProtectedRoute';
 
 export default function AppRoutes() {
   return (
@@ -16,6 +17,7 @@ export default function AppRoutes() {
       <Route element={<ProtectedRoute />}>
         <Route path="/favoritos" element={<FavoritesPage />} />
       </Route>
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 }

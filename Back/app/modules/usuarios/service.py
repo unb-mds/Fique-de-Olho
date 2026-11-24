@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional
 from sqlalchemy.orm import Session
 
 from app.core.database import Notificacao, Usuario, StatusNotificacao
-from app.modules.usuarios.security import get_password_hash, verify_password
+from app.modules.usuarios.security import get_password_hash, verify_and_update_password
 
 
 def buscar_usuario_por_email(db: Session, email: str) -> Optional[Usuario]:
@@ -44,8 +44,15 @@ def autenticar_usuario(
 ) -> Optional[Usuario]:
     """Verifica e-mail e senha. Retorna a entidade Usuario se válido ou None se inválido."""
     usuario = buscar_usuario_por_email(db, email)
-    if usuario is None or not verify_password(senha, usuario.senha_hash):
+    if usuario is None:
         return None
+    valido, novo_hash = verify_and_update_password(senha, usuario.senha_hash)
+    if not valido:
+        return None
+    if novo_hash:
+        usuario.senha_hash = novo_hash
+        db.commit()
+        db.refresh(usuario)
     return usuario
 
 

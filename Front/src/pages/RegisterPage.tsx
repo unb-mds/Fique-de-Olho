@@ -22,8 +22,12 @@ export default function RegisterPage() {
       await register(nome, email, senha);
 
       navigate("/login");
-    } catch {
-      setErro("Não foi possível realizar o cadastro.");
+    } catch (err: unknown) {
+      setErro(
+        err instanceof Error && err.message
+          ? err.message
+          : "Não foi possível realizar o cadastro.",
+      );
     } finally {
       setCarregando(false);
     }
@@ -82,7 +86,7 @@ export default function RegisterPage() {
           />
         </div>
 
-        {erro && <p>{erro}</p>}
+        {erro && <p className="form-error" role="alert">{erro}</p>}
 
         <button type="submit" disabled={carregando}>
           {carregando ? "Cadastrando..." : "Cadastrar"}

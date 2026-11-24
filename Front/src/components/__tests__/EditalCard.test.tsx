@@ -65,5 +65,45 @@ describe('EditalCard Component', () => {
       '/editais/edital-123',
     );
   });
+
+  it('não exibe texto quebrado de vagas quando edital.vagas é null ou undefined', () => {
+    render(
+      <MemoryRouter>
+        <EditalCard edital={{ ...mockEdital, vagas: null }} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByText(/vagas/i)).not.toBeInTheDocument();
+  });
+
+  it('exibe a flag "Aberto" para editais abertos', () => {
+    render(
+      <MemoryRouter>
+        <EditalCard edital={mockEdital} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('Aberto')).toHaveClass('badge-status-open');
+    expect(screen.queryByText('Encerrado')).not.toBeInTheDocument();
+  });
+
+  it('exibe a flag "Encerrado" e classe diferenciada para editais fechados', () => {
+    const { container } = render(
+      <MemoryRouter>
+        <EditalCard
+          edital={{
+            ...mockEdital,
+            status: 'fechado',
+            prazoFinal: new Date().toISOString().slice(0, 10),
+          }}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('Encerrado')).toHaveClass('badge-status-closed');
+    expect(screen.queryByText('Aberto')).not.toBeInTheDocument();
+    expect(screen.queryByText(/d restantes/i)).not.toBeInTheDocument();
+    expect(container.querySelector('.edital-card--closed')).toBeInTheDocument();
+  });
 });
 

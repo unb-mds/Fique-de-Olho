@@ -1,5 +1,6 @@
 """Camada de serviço para operações de banco de dados do módulo de Editais."""
 
+from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
@@ -454,7 +455,15 @@ def list_editais_com_filtros(
         )
 
     if ano is not None:
-        query = query.filter(extract("year", Edital.data_publicacao) == ano)
+        ano_pattern = f"%{ano}%"
+        query = query.filter(
+            or_(
+                extract("year", Edital.data_publicacao) == ano,
+                extract("year", Edital.inicio_inscricao) == ano,
+                extract("year", Edital.fim_inscricao) == ano,
+                func.coalesce(Edital.titulo, "").ilike(ano_pattern),
+            )
+        )
 
     status_norm = status.strip().lower() if status and status.strip() else None
     if status_norm == "aberto":
@@ -518,18 +527,35 @@ def list_editais_com_filtros(
         alias_campus: Dict[str, tuple[str, ...]] = {
             "darcy ribeiro": ("darcy ribeiro", "plano piloto"),
             "plano piloto": ("darcy ribeiro", "plano piloto"),
-            "fga": ("fga", "gama", "fcte"),
-            "gama": ("fga", "gama", "fcte"),
-            "fga (gama)": ("fga", "gama", "fcte"),
-            "fce": ("fce", "ceilândia", "ceilandia"),
-            "ceilandia": ("fce", "ceilândia", "ceilandia"),
-            "fce (ceilandia)": ("fce", "ceilândia", "ceilandia"),
+            "fga": ("fga", "gama", "fcte", "faculdade do gama"),
+            "gama": ("fga", "gama", "fcte", "faculdade do gama"),
+            "fga (gama)": ("fga", "gama", "fcte", "faculdade do gama"),
+            "fcte": ("fga", "gama", "fcte", "faculdade do gama"),
+            "fce": ("fce", "fcts", "ceilândia", "ceilandia", "faculdade de ceilândia", "faculdade de ceilandia"),
+            "ceilandia": ("fce", "fcts", "ceilândia", "ceilandia", "faculdade de ceilândia", "faculdade de ceilandia"),
+            "fce (ceilandia)": ("fce", "fcts", "ceilândia", "ceilandia", "faculdade de ceilândia", "faculdade de ceilandia"),
+            "fcts": ("fce", "fcts", "ceilândia", "ceilandia", "faculdade de ceilândia", "faculdade de ceilandia"),
             "fup": ("fup", "planaltina"),
             "planaltina": ("fup", "planaltina"),
             "fup (planaltina)": ("fup", "planaltina"),
             "fazenda agua limpa": ("fazenda água limpa", "fazenda agua limpa", "fal"),
             "fal": ("fazenda água limpa", "fazenda agua limpa", "fal"),
             "geral": ("geral",),
+        }
+        alias_campus_texto: Dict[str, tuple[str, ...]] = {
+            "fga": ("fga", "fcte", "campus gama", "campus do gama", "unb gama", "faculdade do gama", "ciências e tecnologias em engenharia", "ciencias e tecnologias em engenharia"),
+            "gama": ("fga", "fcte", "campus gama", "campus do gama", "unb gama", "faculdade do gama", "ciências e tecnologias em engenharia", "ciencias e tecnologias em engenharia"),
+            "fga (gama)": ("fga", "fcte", "campus gama", "campus do gama", "unb gama", "faculdade do gama", "ciências e tecnologias em engenharia", "ciencias e tecnologias em engenharia"),
+            "fcte": ("fga", "fcte", "campus gama", "campus do gama", "unb gama", "faculdade do gama", "ciências e tecnologias em engenharia", "ciencias e tecnologias em engenharia"),
+            "fce": ("fce", "fcts", "ceilândia", "ceilandia", "ciências e tecnologias em saúde", "ciencias e tecnologias em saude"),
+            "ceilandia": ("fce", "fcts", "ceilândia", "ceilandia", "ciências e tecnologias em saúde", "ciencias e tecnologias em saude"),
+            "fce (ceilandia)": ("fce", "fcts", "ceilândia", "ceilandia", "ciências e tecnologias em saúde", "ciencias e tecnologias em saude"),
+            "fcts": ("fce", "fcts", "ceilândia", "ceilandia", "ciências e tecnologias em saúde", "ciencias e tecnologias em saude"),
+            "fup": ("fup", "planaltina"),
+            "planaltina": ("fup", "planaltina"),
+            "fup (planaltina)": ("fup", "planaltina"),
+            "fazenda agua limpa": ("fazenda água limpa", "fazenda agua limpa"),
+            "fal": ("fazenda água limpa", "fazenda agua limpa"),
         }
         termos_campus = _expandir_termos_case_acento(
             alias_campus.get(campus_normalizado, (campus.strip(),))
@@ -540,6 +566,15 @@ def list_editais_com_filtros(
             filtros_campus.extend([
                 func.coalesce(Edital.campus, "").ilike(campus_pattern),
                 Edital.campi.any(Campus.nome.ilike(campus_pattern)),
+            ])
+        termos_texto = _expandir_termos_case_acento(alias_campus_texto.get(campus_normalizado, ()))
+        for termo in termos_texto:
+            texto_pattern = f"%{termo}%"
+            filtros_campus.extend([
+                func.coalesce(Edital.titulo, "").ilike(texto_pattern),
+                func.coalesce(Edital.resumo, "").ilike(texto_pattern),
+                func.coalesce(Edital.assunto, "").ilike(texto_pattern),
+                func.coalesce(Edital.orgao_emissor, "").ilike(texto_pattern),
             ])
         query = query.filter(or_(*filtros_campus))
 
@@ -587,6 +622,7 @@ def get_edital_by_id(db: Session, edital_id: int) -> Optional[Edital]:
 
 
 EDITAIS_CACHE_TTL_SECONDS = settings.EDITAIS_CACHE_TTL_SECONDS
+EDITAIS_CACHE_MAXSIZE = settings.EDITAIS_CACHE_MAXSIZE
 
 
 def _normalizar_filtro(valor: Optional[str]) -> Optional[str]:
@@ -619,7 +655,7 @@ class _CacheEntry:
     refreshing: bool = False
 
 
-_EDITAIS_CACHE: Dict[_CacheKey, _CacheEntry] = {}
+_EDITAIS_CACHE: "OrderedDict[_CacheKey, _CacheEntry]" = OrderedDict()
 _STATS_CACHE: Dict[str, _CacheEntry] = {}
 _CACHE_LOCK = Lock()
 _CACHE_GENERATION = 0
@@ -718,6 +754,10 @@ def _salvar_entrada_cache(chave: _CacheKey, geracao: int, payload: List[Dict[str
                 payload=payload,
                 refreshing=False,
             )
+            _EDITAIS_CACHE.move_to_end(chave)
+            maxsize = max(1, int(getattr(settings, "EDITAIS_CACHE_MAXSIZE", EDITAIS_CACHE_MAXSIZE)))
+            while len(_EDITAIS_CACHE) > maxsize:
+                _EDITAIS_CACHE.popitem(last=False)
 
 
 def _revalidar_cache_editais(chave: _CacheKey, bind: Any, geracao: int) -> None:
@@ -790,6 +830,7 @@ def listar_editais_com_cache(
         entrada = _EDITAIS_CACHE.get(chave_cache)
         geracao_atual = _CACHE_GENERATION
         if entrada is not None:
+            _EDITAIS_CACHE.move_to_end(chave_cache)
             if agora - entrada.timestamp >= EDITAIS_CACHE_TTL_SECONDS and not entrada.refreshing:
                 entrada.refreshing = True
                 if bind is not None and agendar_tarefa is not None:

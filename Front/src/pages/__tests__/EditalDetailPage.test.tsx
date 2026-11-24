@@ -1,6 +1,6 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 import EditalDetailPage from "../EditalDetailPage";
@@ -158,5 +158,26 @@ describe("EditalDetailPage", () => {
         name: "Ver documento oficial",
       })
     ).toBeInTheDocument();
+  });
+
+  it("lê inicio_inscricao em snake_case e exibe botões de recuperação quando a carga falha", async () => {
+    vi.mocked(getEditalById).mockRejectedValueOnce(new Error("Servidor indisponível"));
+
+    renderizarPagina();
+
+    const retryBtn = await screen.findByRole("button", { name: "Tentar novamente" });
+    expect(screen.getByText(/Erro ao carregar edital: Servidor indisponível/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Voltar para editais/i })).toHaveAttribute("href", "/");
+
+    vi.mocked(getEditalById).mockResolvedValueOnce({
+      ...mockEdital,
+      inicioInscricao: undefined,
+      inicio_inscricao: "2026-11-15T12:00:00Z",
+    });
+
+    fireEvent.click(retryBtn);
+
+    expect(await screen.findByRole("heading", { name: "Edital de Monitoria" })).toBeInTheDocument();
+    expect(screen.queryByText("Não informado")).not.toBeInTheDocument();
   });
 });
