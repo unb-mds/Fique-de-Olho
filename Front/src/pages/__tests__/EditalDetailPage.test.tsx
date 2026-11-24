@@ -102,7 +102,19 @@ describe("EditalDetailPage", () => {
       screen.getByText("R$ 700,00")
     ).toBeInTheDocument();
   });
+  it("exibe as datas no formato DD/MM/AAAA", async () => {
+    renderizarPagina();
 
+    await screen.findByRole("heading", {
+      name: "Edital de Monitoria",
+    });
+
+    expect(screen.getByText("01/10/2026")).toBeInTheDocument();
+
+    expect(screen.getByText("01/11/2026")).toBeInTheDocument();
+
+    expect(screen.getByText("31/12/2026")).toBeInTheDocument();
+  });
   it("exibe todos os documentos anexados", async () => {
     renderizarPagina();
 
