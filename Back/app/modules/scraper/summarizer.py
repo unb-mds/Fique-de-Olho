@@ -117,7 +117,49 @@ _RESUMOS_GENERICOS_PREFIXOS: Tuple[str, ...] = (
     "resumo nao disponivel",
 )
 
+# Prefixos típicos de recortes brutos da Camada 1 que merecem reescrita pelo Gemini (Camada 2).
+_RESUMOS_HEURISTICOS_PREFIXOS: Tuple[str, ...] = (
+    "o presente edital",
+    "este edital tem por objeto",
+    "o presente instrumento",
+    "o presente regulamento",
+    "a presente chamada",
+    "os procedimentos que serao adotados",
+    "procedimentos que serao adotados",
+)
+
+# Detecta resumo truncado no início por consoante isolada (ex.: "S procedimentos..." de bug antigo de regex).
+_RESUMO_CORTADO_RE = re.compile(r"^[B-DF-HJ-NP-TV-Zb-df-hj-np-tv-z]\s+[a-zà-ÿ]{3,}")
+
 _missing_key_warned = False
+
+
+def is_clipped_summary(resumo: Optional[str]) -> bool:
+    """Indica se o resumo começa com palavra cortada por bug antigo de extração (ex.: 'S procedimentos...')."""
+    if not resumo or not str(resumo).strip():
+        return False
+    clean = " ".join(str(resumo).split())
+    return bool(_RESUMO_CORTADO_RE.match(clean))
+
+
+def is_weak_heuristic_summary(
+    resumo: Optional[str],
+    texto_extraido: Optional[str] = None,
+) -> bool:
+    """Indica se o resumo parece um recorte bruto da Camada 1 que pode ser melhorado pela Camada 2 (Gemini)."""
+    if not resumo or not str(resumo).strip():
+        return False
+    if is_clipped_summary(resumo):
+        return True
+    clean = " ".join(str(resumo).split())
+    key = _norm_key(clean)
+    if any(key.startswith(p) for p in _RESUMOS_HEURISTICOS_PREFIXOS):
+        return True
+    if texto_extraido and texto_extraido.strip():
+        heur = extrair_objeto_edital(texto_extraido)
+        if heur and _norm_key(heur) == key:
+            return True
+    return False
 
 
 def is_generic_summary(resumo: Optional[str], titulo: Optional[str] = None) -> bool:
@@ -210,8 +252,9 @@ def _montar_prompt(
         f"Responda SOMENTE com um objeto JSON válido no formato {formato}.\n"
         "Regras:\n"
         f"{regra_titulo}"
-        f'- "resumo": no máximo 2 frases (até {MAX_RESUMO_CHARS} caracteres) explicando a oportunidade e o '
-        "público-alvo para estudantes da UnB. Não invente informações que não estejam no conteúdo.\n\n"
+        f'- "resumo": no máximo 2 frases (até {MAX_RESUMO_CHARS} caracteres) em linguagem clara e direta '
+        "para estudantes da UnB explicando a oportunidade e o público-alvo. Não copie fórmulas burocráticas "
+        "como 'O presente edital tem por objeto...' nem invente informações que não estejam no conteúdo.\n\n"
         f"Título atual: {titulo or '(vazio)'}\n"
         f"Órgão emissor: {orgao_emissor or '(não informado)'}\n"
         f"Assunto: {assunto or '(não informado)'}\n"
@@ -233,10 +276,17 @@ def _planejar(
     titulo_str = (titulo or "").strip()
     titulo_vago = is_vague_title(titulo_str)
     titulo_heur = reconstruir_titulo_edital(titulo_str, texto_extraido, assunto, orgao_emissor, url_pdf)
-    resumo_heur = _resumo_heuristico(titulo_str, texto_extraido, assunto, resumo_atual)
+    resumo_atual_limpo = None if is_clipped_summary(resumo_atual) else resumo_atual
+    resumo_heur = _resumo_heuristico(titulo_str, texto_extraido, assunto, resumo_atual_limpo)
 
     tem_conteudo = bool((texto_extraido and texto_extraido.strip()) or (assunto and assunto.strip()))
-    precisa_llm = tem_conteudo and (titulo_vago or is_generic_summary(resumo_atual, titulo_str))
+    resumo_fraco_para_llm = bool(settings.GEMINI_API_KEY) and is_weak_heuristic_summary(resumo_atual, texto_extraido)
+    precisa_llm = tem_conteudo and (
+        titulo_vago
+        or is_generic_summary(resumo_atual, titulo_str)
+        or is_clipped_summary(resumo_atual)
+        or resumo_fraco_para_llm
+    )
 
     prompt: Optional[str] = None
     if precisa_llm:
@@ -609,8 +659,9 @@ def _montar_prompt_unificado(
     if pedir_resumo:
         campos_json.append('"resumo": "string"')
         regras.append(
-            f'- "resumo": no máximo 2 frases (até {MAX_RESUMO_CHARS} caracteres) explicando a oportunidade e o '
-            "público-alvo para estudantes da UnB. Não invente informações que não estejam no conteúdo."
+            f'- "resumo": no máximo 2 frases (até {MAX_RESUMO_CHARS} caracteres) em linguagem clara e direta '
+            "para estudantes da UnB explicando a oportunidade e o público-alvo. Não copie fórmulas burocráticas "
+            "como 'O presente edital tem por objeto...' nem invente informações que não estejam no conteúdo."
         )
     if pedir_metadados:
         campos_json.extend(
@@ -670,8 +721,10 @@ def enrich_edital_with_llm(
     titulo_str = (titulo or "").strip()
     titulo_vago = is_vague_title(titulo_str)
     titulo_heur = reconstruir_titulo_edital(titulo_str, texto_extraido, assunto, orgao_emissor, url_pdf)
-    resumo_heur = _resumo_heuristico(titulo_str, texto_extraido, assunto, resumo_atual)
-    pedir_resumo = is_generic_summary(resumo_atual, titulo_str)
+    resumo_atual_limpo = None if is_clipped_summary(resumo_atual) else resumo_atual
+    resumo_heur = _resumo_heuristico(titulo_str, texto_extraido, assunto, resumo_atual_limpo)
+    resumo_fraco_para_llm = bool(settings.GEMINI_API_KEY) and is_weak_heuristic_summary(resumo_atual, texto_extraido)
+    pedir_resumo = is_generic_summary(resumo_atual, titulo_str) or is_clipped_summary(resumo_atual) or resumo_fraco_para_llm
 
     resultado: Dict[str, Any] = {
         "titulo": titulo_heur,

@@ -158,8 +158,8 @@ _MES_WORD_RE = r"([a-zçáéíóúãõâêîôû]{3,12}\.?)"
 # Aceita DD/MM/AA(AA) com barra OU DD.MM.AAAA / DD-MM-AAAA exigindo ano de 4 dígitos
 # (evita falsos positivos com numeração de itens como "3.1.10" ou "2.1-3").
 _DATE_NUM_RE = r"(?:(\d{1,2})/(\d{1,2})/(\d{2,4})|(\d{1,2})[.\-](\d{1,2})[.\-]((?:19|20)\d{2}))"
-_INTERVAL_CONN_RE = r"(?:a\s+at[eé]|at[eé]|ate|[aà]s|as|a|[-–—])"
-_INTERVAL_WORD_CONN_RE = r"(?:a\s+at[eé]|at[eé]|ate|[aà]s|as|a)"
+_INTERVAL_CONN_RE = r"(?:a\s+at[eé]|at[eé]|ate|[aà]s|as|[aà]|[-–—])"
+_INTERVAL_WORD_CONN_RE = r"(?:a\s+at[eé]|at[eé]|ate|[aà]s|as|[aà])"
 
 
 def _parse_date_num_groups(g1, g2, g3, g4, g5, g6) -> Optional[datetime]:
@@ -388,6 +388,17 @@ def parse_data_interval(text: str, default_year: Optional[int] = None) -> Tuple[
             dt_ini, dt_fim = parse_date_pt(d1, m, y_str), parse_date_pt(d2, m, y_str)
             if dt_ini and dt_fim:
                 return dt_ini, dt_fim
+
+        p6_single_ext = re.search(
+            rf"(\d{{1,2}})\s+de\s+{_MES_WORD_RE}",
+            clean,
+            re.I,
+        )
+        if p6_single_ext:
+            d, m = p6_single_ext.groups()
+            single = parse_date_pt(d, m, y_str)
+            if single:
+                return single, single
 
     return None, None
 
@@ -810,7 +821,22 @@ def parse_edital_metadados(
 
         if (
             "inscric" in etapa_clean
-            and not any(k in etapa_clean for k in ("homologac", "resultado", "deferimento", "indeferimento", "recurso"))
+            and not any(
+                k in etapa_clean
+                for k in (
+                    "homologac",
+                    "resultado",
+                    "deferimento",
+                    "indeferimento",
+                    "recurso",
+                    "analise",
+                    "avaliac",
+                    "verificac",
+                    "conferencia",
+                    "validac",
+                    "divulgac",
+                )
+            )
         ):
             if not inicio_inscricao and item.inicio:
                 inicio_inscricao = item.inicio
@@ -937,7 +963,7 @@ _CAIXA_ALTA_INICIAL_RE = re.compile(
 )
 
 _TORNA_PUBLICO_RE = re.compile(
-    r"torna(?:m)?\s+p[úu]blic[oa]s?\s+(?:a|o|as|os)?\s*(.+?)(?:\.\s|\.$|$)",
+    r"torna(?:m)?\s+p[úu]blic[oa]s?\s+(?:(?:as|os|a|o)\s+)?(.+?)(?:\.\s|\.$|$)",
     re.IGNORECASE,
 )
 

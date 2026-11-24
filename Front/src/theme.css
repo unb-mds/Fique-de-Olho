@@ -992,12 +992,16 @@ a {
 }
 
 .edital-card-title {
+  display: -webkit-box;
   font-family: var(--font-display);
   font-size: clamp(20px, 1.7vw, 25px);
   letter-spacing: -0.035em;
   line-height: 1.18;
   margin: 0;
+  overflow: hidden;
   text-wrap: balance;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
 
 .edital-card-title a:hover {

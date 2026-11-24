@@ -21,7 +21,9 @@ from app.modules.scraper.summarizer import (
     enrich_edital_with_llm,
     enrich_metadata_with_llm,
     enrich_title_and_summary,
+    is_clipped_summary,
     is_generic_summary,
+    is_weak_heuristic_summary,
 )
 from app.modules.scraper.pdf import (
     PDFCorruptedError,
@@ -518,12 +520,24 @@ def _enrich_edital_metadata(
                 logger.warning(f"Falha ao ler retificação '{ret_url}' para '{url_pagina}': {ret_exc}")
 
     # 2.2 / 3. Segunda passada unificada (Camada 1 + Camada 2 Gemini em no máximo 1 chamada)
+    texto_existente_ref = texto_extraido or (existing_edital.texto_extraido if existing_edital is not None else None)
+    resumo_existente_fraco = bool(
+        existing_edital is not None
+        and (
+            is_clipped_summary(existing_edital.resumo)
+            or (
+                bool(settings.GEMINI_API_KEY)
+                and is_weak_heuristic_summary(existing_edital.resumo, texto_existente_ref)
+            )
+        )
+    )
     existing_title_summary_ok = bool(
         existing_edital is not None
         and hash_conteudo
         and existing_edital.hash_conteudo == hash_conteudo
         and not is_vague_title(existing_edital.titulo)
         and not is_generic_summary(existing_edital.resumo, existing_edital.titulo)
+        and not resumo_existente_fraco
     )
     faltam_metadados_llm = bool(
         enable_pdf_enrichment
@@ -541,10 +555,12 @@ def _enrich_edital_metadata(
         incoming_resumo = edital_data.get("resumo") or edital_data.get("descricao")
         incoming_resumo = str(incoming_resumo).strip() if incoming_resumo else None
         resumo_base: Optional[str] = incoming_resumo
-        if is_generic_summary(incoming_resumo, titulo):
+        if is_generic_summary(incoming_resumo, titulo) or is_clipped_summary(incoming_resumo):
             resumo_base = None
-            if existing_edital is not None and not is_generic_summary(
-                existing_edital.resumo, existing_edital.titulo
+            if (
+                existing_edital is not None
+                and not is_generic_summary(existing_edital.resumo, existing_edital.titulo)
+                and not resumo_existente_fraco
             ):
                 resumo_base = existing_edital.resumo
 
