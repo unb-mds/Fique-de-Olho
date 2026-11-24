@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getEditalById } from "@/services/editaisService";
 import type { Edital } from "@/services/types";
-import { categoryBadgeStyle, formatDate } from "@/utils/editalDisplay";
+import { categoryBadgeStyle } from "@/utils/editalDisplay";
 import AlertButton from "@/components/AlertButton";
 import FavoriteButton from "@/components/FavoriteButton";
 
@@ -27,7 +27,12 @@ function formatarDataSegura(data?: string | null): string {
     return "Não informado";
   }
 
-  return formatDate(data);
+ return dataValida.toLocaleDateString("pt-BR", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  timeZone: "UTC",
+});
 }
 
 function linkSeguro(url?: string): string | null {
