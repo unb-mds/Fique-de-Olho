@@ -353,6 +353,44 @@ def _retry_delay(resp: httpx.Response) -> float:
 
 
 _RETRYABLE_STATUS_CODES = (429, 502, 503, 504)
+_RATE_LIMIT_FAILURE_THRESHOLD = 3
+_RATE_LIMIT_COOLDOWN_SECONDS = 300.0
+_consecutive_429_failures = 0
+_rate_limit_open_until = 0.0
+
+
+class _GeminiRateLimitCircuitOpen(RuntimeError):
+    """Indica que o circuit breaker de rate limit (HTTP 429) está temporariamente aberto."""
+
+
+def reset_gemini_rate_limit_state() -> None:
+    """Reseta o estado do circuit breaker de rate limit (HTTP 429) da Gemini API."""
+    global _consecutive_429_failures, _rate_limit_open_until
+    _consecutive_429_failures = 0
+    _rate_limit_open_until = 0.0
+
+
+def is_gemini_rate_limit_open() -> bool:
+    """Retorna True enquanto o circuit breaker de HTTP 429 estiver aberto."""
+    return time.monotonic() < _rate_limit_open_until
+
+
+def _record_gemini_status(status_code: Any) -> None:
+    """Atualiza o estado do circuit breaker com base no status HTTP final da chamada."""
+    global _consecutive_429_failures, _rate_limit_open_until
+    if not isinstance(status_code, int):
+        return
+    if status_code == 429:
+        _consecutive_429_failures += 1
+        if _consecutive_429_failures >= _RATE_LIMIT_FAILURE_THRESHOLD:
+            _rate_limit_open_until = time.monotonic() + _RATE_LIMIT_COOLDOWN_SECONDS
+            logger.warning(
+                f"Gemini API retornou HTTP 429 por {_consecutive_429_failures} chamadas consecutivas; "
+                f"pausando chamadas LLM por {int(_RATE_LIMIT_COOLDOWN_SECONDS)}s e usando heurística local."
+            )
+    elif 200 <= status_code < 300:
+        _consecutive_429_failures = 0
+        _rate_limit_open_until = 0.0
 
 
 def _post_with_retry_sync(
@@ -394,7 +432,9 @@ async def _post_with_retry_async(
 
 
 def _call_gemini_sync(prompt: str) -> Dict[str, Any]:
-    """Executa chamada síncrona ao Gemini com retry em 429/503 e fallback automático de modelo em 404."""
+    """Executa chamada síncrona ao Gemini com retry em 429/503, circuit breaker e fallback em 404."""
+    if is_gemini_rate_limit_open():
+        raise _GeminiRateLimitCircuitOpen("Circuit breaker de rate limit da Gemini API ativo.")
     primary_model = (settings.GEMINI_MODEL or "gemini-3.5-flash-lite").strip()
     fallback_model = (getattr(settings, "GEMINI_FALLBACK_MODEL", "") or "").strip()
     url, headers, body = _request_args(prompt, model=primary_model)
@@ -406,11 +446,14 @@ def _call_gemini_sync(prompt: str) -> Dict[str, Any]:
             )
             fb_url, fb_headers, fb_body = _request_args(prompt, model=fallback_model)
             resp = _post_with_retry_sync(client, fb_url, fb_headers, fb_body)
+        _record_gemini_status(resp.status_code)
         return _parse_resposta(resp)
 
 
 async def _call_gemini_async(prompt: str) -> Dict[str, Any]:
-    """Executa chamada assíncrona ao Gemini com retry em 429/503 e fallback automático de modelo em 404."""
+    """Executa chamada assíncrona ao Gemini com retry em 429/503, circuit breaker e fallback em 404."""
+    if is_gemini_rate_limit_open():
+        raise _GeminiRateLimitCircuitOpen("Circuit breaker de rate limit da Gemini API ativo.")
     primary_model = (settings.GEMINI_MODEL or "gemini-3.5-flash-lite").strip()
     fallback_model = (getattr(settings, "GEMINI_FALLBACK_MODEL", "") or "").strip()
     url, headers, body = _request_args(prompt, model=primary_model)
@@ -422,6 +465,7 @@ async def _call_gemini_async(prompt: str) -> Dict[str, Any]:
             )
             fb_url, fb_headers, fb_body = _request_args(prompt, model=fallback_model)
             resp = await _post_with_retry_async(client, fb_url, fb_headers, fb_body)
+        _record_gemini_status(resp.status_code)
         return _parse_resposta(resp)
 
 
@@ -480,6 +524,8 @@ def enrich_title_and_summary(
     dados: Optional[Dict[str, Any]] = None
     try:
         dados = _call_gemini_sync(plano.prompt)
+    except _GeminiRateLimitCircuitOpen:
+        pass
     except Exception as exc:
         _log_falha(exc)
     return _finalizar(plano, dados)
@@ -506,6 +552,8 @@ async def enrich_title_and_summary_async(
     dados: Optional[Dict[str, Any]] = None
     try:
         dados = await _call_gemini_async(plano.prompt)
+    except _GeminiRateLimitCircuitOpen:
+        pass
     except Exception as exc:
         _log_falha(exc)
     return _finalizar(plano, dados)
@@ -757,6 +805,8 @@ def enrich_edital_with_llm(
 
     try:
         dados = _call_gemini_sync(prompt)
+    except _GeminiRateLimitCircuitOpen:
+        return resultado
     except Exception as exc:
         _log_falha(exc)
         return resultado
@@ -800,6 +850,8 @@ def enrich_metadata_with_llm(
         prompt = _montar_prompt_metadados(texto_extraido, titulo)
         dados = _call_gemini_sync(prompt)
         return _converter_metadados_llm(dados)
+    except _GeminiRateLimitCircuitOpen:
+        return {}
     except Exception as exc:
         logger.warning(f"Falha ao enriquecer metadados com Gemini ({type(exc).__name__}: {exc}); usando dados locais.")
         return {}
@@ -819,6 +871,8 @@ async def enrich_metadata_with_llm_async(
         prompt = _montar_prompt_metadados(texto_extraido, titulo)
         dados = await _call_gemini_async(prompt)
         return _converter_metadados_llm(dados)
+    except _GeminiRateLimitCircuitOpen:
+        return {}
     except Exception as exc:
         logger.warning(f"Falha assíncrona ao enriquecer metadados com Gemini ({type(exc).__name__}: {exc}); usando dados locais.")
         return {}

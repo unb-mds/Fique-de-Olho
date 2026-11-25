@@ -41,6 +41,8 @@ def executar_ciclo_scraping(
     max_items_per_orgao: Optional[int] = 100,
     fetch_docs: Optional[bool] = None,
     enable_pdf_enrichment: Optional[bool] = None,
+    skip_closed_existing: bool = False,
+    recent_years_window: Optional[int] = None,
 ) -> dict[str, Any]:
     """Executa um ciclo completo de sincronização periódica dos portais configurados.
 
@@ -64,6 +66,8 @@ def executar_ciclo_scraping(
                     max_items_per_orgao=max_items_per_orgao,
                     fetch_docs=eff_fetch_docs,
                     enable_pdf_enrichment=eff_pdf_enrichment,
+                    skip_closed_existing=skip_closed_existing,
+                    recent_years_window=recent_years_window,
                 )
                 invalidar_cache_editais()
                 return resultado

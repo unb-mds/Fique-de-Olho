@@ -7,9 +7,10 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.modules.editais.models import Coleta, Edital
+from app.modules.editais.models import Coleta, Edital, StatusEdital
 from app.modules.scraper.deg import fetch_editais
 from app.modules.scraper.pipeline import gerar_notificacoes_prazo, upsert_edital
+from app.modules.scraper.summarizer import reset_gemini_rate_limit_state
 from app.modules.notificacoes.processor import processar_notificacoes_se_configuradas
 
 logger = logging.getLogger(__name__)
@@ -98,6 +99,33 @@ def inferir_categoria(titulo: str) -> str:
     return "Extensões"
 
 
+YEAR_4_REGEX = re.compile(r"\b((?:19|20)\d{2})\b")
+
+
+def _extract_item_year(item: Dict[str, Any]) -> Optional[int]:
+    """Extrai o ano de publicação/referência de um item raspado, quando disponível."""
+    raw_ano = item.get("ano")
+    if isinstance(raw_ano, int) and 1990 <= raw_ano <= 2100:
+        return raw_ano
+    if isinstance(raw_ano, str) and raw_ano.strip().isdigit():
+        val = int(raw_ano.strip())
+        if 1990 <= val <= 2100:
+            return val
+
+    raw_data = item.get("data_publicacao")
+    if raw_data:
+        parsed = parse_date_pt(str(raw_data))
+        if parsed is not None:
+            return parsed.year
+        m_year = YEAR_4_REGEX.search(str(raw_data))
+        if m_year:
+            val = int(m_year.group(1))
+            if 1990 <= val <= 2100:
+                return val
+
+    return None
+
+
 def sync_portal_editais(
     db: Session,
     orgao: str,
@@ -105,8 +133,19 @@ def sync_portal_editais(
     year: Optional[int] = None,
     fetch_docs: bool = False,
     enable_pdf_enrichment: Optional[bool] = None,
+    skip_closed_existing: bool = False,
+    recent_years_window: Optional[int] = None,
 ) -> Dict[str, Any]:
-    """Executa a coleta idempotente e periódica de um portal específico registrado em SCRAPERS_REGISTRY."""
+    """Executa a coleta idempotente e periódica de um portal específico registrado em SCRAPERS_REGISTRY.
+
+    Quando ``skip_closed_existing=True``, editais que já constam como ``ENCERRADO`` no banco
+    são ignorados antes de buscar documentos, PDFs ou chamar o LLM, mantendo a checagem de
+    atualizações para editais ``ABERTO``.
+    Quando ``recent_years_window`` é informado (ex.: ``2`` para ano atual e anterior), a janela
+    mínima ``date.today().year - (recent_years_window - 1)`` é calculada dinamicamente a cada
+    execução para descartar editais encerrados/antigos fora do intervalo (sem interromper
+    atualizações de editais que ainda estejam ``ABERTO`` no banco).
+    """
     from app.modules.scraper import get_scraper
 
     sigla = orgao.upper().strip()
@@ -115,6 +154,9 @@ def sync_portal_editais(
         raise ValueError(f"Portal '{sigla}' não registrado em SCRAPERS_REGISTRY.")
 
     eff_pdf_enrichment = fetch_docs if enable_pdf_enrichment is None else enable_pdf_enrichment
+    min_year: Optional[int] = None
+    if recent_years_window is not None and recent_years_window > 0:
+        min_year = date.today().year - (recent_years_window - 1)
 
     coleta = Coleta(fonte=sigla, status="executando")
     db.add(coleta)
@@ -123,18 +165,58 @@ def sync_portal_editais(
 
     novos_count = 0
     atualizados_count = 0
+    ignorados_count = 0
     try:
         if sigla == "DEG" and fetch_editais is not _DEFAULT_DEG_FETCH_EDITAIS:
             itens_raspados = fetch_editais() if year is None else fetch_editais(year=year)
         else:
             itens_raspados = scraper.fetch_editais(year=year)
-        itens_para_processar = itens_raspados[:max_items] if max_items is not None else itens_raspados
 
-        for item in itens_para_processar:
+        status_existentes: Dict[str, StatusEdital] = {}
+        if skip_closed_existing or min_year is not None:
+            all_links = list(
+                {
+                    str(item.get("link") or "").strip()
+                    for item in itens_raspados
+                    if str(item.get("titulo") or "").strip() and str(item.get("link") or "").strip()
+                }
+            )
+            for idx in range(0, len(all_links), 500):
+                chunk = all_links[idx : idx + 500]
+                rows = (
+                    db.query(Edital.url_pagina, Edital.status)
+                    .filter(Edital.url_pagina.in_(chunk))
+                    .all()
+                )
+                for url_pag, st in rows:
+                    if url_pag:
+                        status_existentes[url_pag] = st
+
+        itens_elegiveis: List[Dict[str, Any]] = []
+        for item in itens_raspados:
             titulo = str(item.get("titulo") or "").strip()
             link = str(item.get("link") or "").strip()
             if not titulo or not link:
                 continue
+
+            existing_status = status_existentes.get(link)
+            if skip_closed_existing and existing_status == StatusEdital.ENCERRADO:
+                ignorados_count += 1
+                continue
+
+            if min_year is not None and existing_status != StatusEdital.ABERTO:
+                item_year = _extract_item_year(item)
+                if item_year is not None and item_year < min_year:
+                    ignorados_count += 1
+                    continue
+
+            itens_elegiveis.append(item)
+
+        itens_para_processar = itens_elegiveis[:max_items] if max_items is not None else itens_elegiveis
+
+        for item in itens_para_processar:
+            titulo = str(item.get("titulo") or "").strip()
+            link = str(item.get("link") or "").strip()
 
             edital_existente = db.query(Edital).filter(Edital.url_pagina == link).first()
             hash_anterior = edital_existente.hash_conteudo if edital_existente else None
@@ -183,6 +265,15 @@ def sync_portal_editais(
                 f"Falha ao processar notificações após sincronizar {sigla}: {notif_exc}"
             )
 
+        mensagem = (
+            f"[{sigla}] Sincronização periódica concluída: "
+            f"{novos_count} novos, {atualizados_count} atualizados e {ignorados_count} ignorados."
+            if ignorados_count
+            else (
+                f"[{sigla}] Sincronização periódica concluída: "
+                f"{novos_count} novos e {atualizados_count} atualizados."
+            )
+        )
         return {
             "status": "success",
             "fonte": sigla,
@@ -190,10 +281,8 @@ def sync_portal_editais(
             "editais_encontrados": len(itens_raspados),
             "novos_editais": novos_count,
             "editais_atualizados": atualizados_count,
-            "mensagem": (
-                f"[{sigla}] Sincronização periódica concluída: "
-                f"{novos_count} novos e {atualizados_count} atualizados."
-            ),
+            "editais_ignorados": ignorados_count,
+            "mensagem": mensagem,
         }
     except Exception as exc:
         db.rollback()
@@ -227,9 +316,13 @@ def sync_all_portais(
     year: Optional[int] = None,
     fetch_docs: bool = False,
     enable_pdf_enrichment: Optional[bool] = None,
+    skip_closed_existing: bool = False,
+    recent_years_window: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Sincroniza periodicamente todos os portais da UnB (ou subconjunto informado), isolando erros por órgão."""
     from app.modules.scraper import SCRAPERS_REGISTRY
+
+    reset_gemini_rate_limit_state()
 
     target_orgaos = (
         [s.upper().strip() for s in orgaos]
@@ -241,6 +334,7 @@ def sync_all_portais(
     total_encontrados = 0
     total_novos = 0
     total_atualizados = 0
+    total_ignorados = 0
 
     for sigla in target_orgaos:
         try:
@@ -251,6 +345,8 @@ def sync_all_portais(
                 year=year,
                 fetch_docs=fetch_docs,
                 enable_pdf_enrichment=enable_pdf_enrichment,
+                skip_closed_existing=skip_closed_existing,
+                recent_years_window=recent_years_window,
             )
             relatorios[sigla] = res
             if res.get("coleta_id") is not None:
@@ -258,6 +354,7 @@ def sync_all_portais(
             total_encontrados += int(res.get("editais_encontrados", 0))
             total_novos += int(res.get("novos_editais", 0))
             total_atualizados += int(res.get("editais_atualizados", 0))
+            total_ignorados += int(res.get("editais_ignorados", 0))
         except Exception as exc:
             logger.error(f"Erro ao sincronizar portal {sigla} no ciclo periódico: {exc}")
             relatorios[sigla] = {
@@ -284,6 +381,7 @@ def sync_all_portais(
         "editais_encontrados": total_encontrados,
         "novos_editais": total_novos,
         "editais_atualizados": total_atualizados,
+        "editais_ignorados": total_ignorados,
         "portais": relatorios,
     }
 
@@ -295,6 +393,8 @@ def sync_orgaos_editais(
     year: Optional[int] = None,
     fetch_docs: bool = False,
     enable_pdf_enrichment: Optional[bool] = None,
+    skip_closed_existing: bool = False,
+    recent_years_window: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Serviço unificado de sincronização multi-órgão baseado em SCRAPERS_REGISTRY.
 
@@ -311,6 +411,8 @@ def sync_orgaos_editais(
             year=year,
             fetch_docs=fetch_docs,
             enable_pdf_enrichment=enable_pdf_enrichment,
+            skip_closed_existing=skip_closed_existing,
+            recent_years_window=recent_years_window,
         )
 
     if normalized is None or normalized == "ALL":
@@ -320,6 +422,8 @@ def sync_orgaos_editais(
             year=year,
             fetch_docs=fetch_docs,
             enable_pdf_enrichment=enable_pdf_enrichment,
+            skip_closed_existing=skip_closed_existing,
+            recent_years_window=recent_years_window,
         )
 
     return sync_portal_editais(
@@ -329,4 +433,6 @@ def sync_orgaos_editais(
         year=year,
         fetch_docs=fetch_docs,
         enable_pdf_enrichment=enable_pdf_enrichment,
+        skip_closed_existing=skip_closed_existing,
+        recent_years_window=recent_years_window,
     )

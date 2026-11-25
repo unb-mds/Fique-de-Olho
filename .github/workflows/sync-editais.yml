@@ -14,6 +14,15 @@ on:
         description: "Máximo de editais por portal"
         required: false
         default: "100"
+      skip_closed_existing:
+        description: "Pular editais já encerrados no banco (mantém atualização de editais abertos)"
+        required: false
+        type: boolean
+        default: true
+      recent_years_window:
+        description: "Janela móvel de anos para coleta (2 = ano atual e anterior; 0 = sem limite)"
+        required: false
+        default: "2"
 
 permissions:
   contents: read
@@ -30,10 +39,10 @@ jobs:
 
     steps:
       - name: Checkout do código
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Configurar Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: "pip"
@@ -74,6 +83,8 @@ jobs:
           SENDGRID_FROM_EMAIL: ${{ secrets.SENDGRID_FROM_EMAIL }}
           SYNC_ORGAOS: ${{ github.event.inputs.orgaos }}
           SYNC_MAX_ITEMS: ${{ github.event.inputs.max_items_per_orgao || '100' }}
+          SYNC_SKIP_CLOSED_EXISTING: ${{ github.event.inputs.skip_closed_existing }}
+          SYNC_RECENT_YEARS_WINDOW: ${{ github.event.inputs.recent_years_window || '2' }}
         run: |
           python - <<'PY'
           import logging
@@ -91,12 +102,18 @@ jobs:
           orgaos = [s.strip().upper() for s in raw_orgaos.split(",") if s.strip()] or None
           raw_max = os.environ.get("SYNC_MAX_ITEMS", "100").strip()
           max_items = int(raw_max) if raw_max.isdigit() and int(raw_max) > 0 else 100
+          raw_skip_closed = os.environ.get("SYNC_SKIP_CLOSED_EXISTING", "").strip().lower()
+          skip_closed_existing = raw_skip_closed not in ("false", "0", "no", "nao")
+          raw_window = os.environ.get("SYNC_RECENT_YEARS_WINDOW", "2").strip()
+          recent_years_window = int(raw_window) if raw_window.isdigit() and int(raw_window) > 0 else None
 
           resultado = executar_ciclo_scraping(
               orgaos=orgaos,
               max_items_per_orgao=max_items,
               fetch_docs=True,
               enable_pdf_enrichment=True,
+              skip_closed_existing=skip_closed_existing,
+              recent_years_window=recent_years_window,
           )
 
           status = resultado.get("status")
@@ -105,7 +122,8 @@ jobs:
               f"portais={resultado.get('portais_processados', 0)} | "
               f"encontrados={resultado.get('editais_encontrados', 0)} | "
               f"novos={resultado.get('novos_editais', 0)} | "
-              f"atualizados={resultado.get('editais_atualizados', 0)}",
+              f"atualizados={resultado.get('editais_atualizados', 0)} | "
+              f"ignorados={resultado.get('editais_ignorados', 0)}",
               flush=True,
           )
 
@@ -123,6 +141,7 @@ jobs:
                   fh.write(f"- **Editais encontrados:** {resultado.get('editais_encontrados', 0)}\n")
                   fh.write(f"- **Novos editais:** {resultado.get('novos_editais', 0)}\n")
                   fh.write(f"- **Editais atualizados:** {resultado.get('editais_atualizados', 0)}\n")
+                  fh.write(f"- **Editais encerrados/antigos ignorados:** {resultado.get('editais_ignorados', 0)}\n")
                   if erros:
                       fh.write(f"- **Portais com erro ({len(erros)}):** {', '.join(sorted(erros))}\n")
 
