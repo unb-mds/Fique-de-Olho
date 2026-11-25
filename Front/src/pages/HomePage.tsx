@@ -4,7 +4,7 @@ import Hero from '@/components/Hero';
 import FilterBar from '@/components/FilterBar';
 import EditalCard from '@/components/EditalCard';
 import Footer from '@/components/Footer';
-import { getEditais, getEditaisStats } from '@/services/editaisService';
+import { getEditais, getEditaisStats, getUltimaAtualizacao } from '@/services/editaisService';
 import type { Edital } from '@/services/types';
 
 export default function HomePage() {
@@ -18,6 +18,7 @@ export default function HomePage() {
   const [campus, setCampus] = useState<string | null>(null);
   const [ano, setAno] = useState<number | null>(null);
   const [totalAbertos, setTotalAbertos] = useState(0);
+  const [ultimaAtualizacao, setUltimaAtualizacao] = useState<string | null>(null);
   const [destaquesAbertos, setDestaquesAbertos] = useState<Edital[]>([]);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -46,6 +47,15 @@ export default function HomePage() {
       .catch(() => {
         if (ativo) setTotalAbertos(0);
       });
+
+    getUltimaAtualizacao()
+      .then((data) => {
+        if (ativo) setUltimaAtualizacao(data);
+      })
+      .catch(() => {
+        if (ativo) setUltimaAtualizacao(null);
+      });
+
     getEditais({ status: 'aberto', limit: 3 })
       .then((dados) => {
         if (ativo) setDestaquesAbertos(dados);
@@ -162,7 +172,8 @@ export default function HomePage() {
   return (
     <div>
       <Header />
-      <Hero editaisAbertos={destaquesAbertos} totalAbertos={totalAbertos} />
+      <Hero editaisAbertos={destaquesAbertos} totalAbertos={totalAbertos}
+       ultimaAtualizacao={ultimaAtualizacao} />
       <main className="catalog-section" id="editais">
         <div className="section-heading">
           <div>

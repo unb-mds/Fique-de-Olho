@@ -5,7 +5,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.core.database import Base, Edital, EditalDocumento, StatusEdital, TipoDocumento, get_db
+from app.core.database import Base, Coleta, Edital, EditalDocumento, StatusEdital, TipoDocumento, get_db
 from app.main import app
 from app.modules.editais.service import (
     _consultar_stats_editais,
@@ -172,6 +172,39 @@ def test_editais_stats_retorna_contagens_reais(client_editais):
         "encerrados": 1,
     }
 
+def test_ultima_atualizacao_usa_ultima_coleta_concluida(client_editais, db_session_editais):
+    db_session_editais.add_all(
+        [
+            Coleta(fonte="DEG", status="concluida", finalizada_em=datetime(2026, 11, 20, 10, 0)),
+            Coleta(fonte="INT", status="concluida", finalizada_em=datetime(2026, 11, 24, 19, 36)),
+            # Coletas que falharam não contam como atualização do catálogo
+            Coleta(fonte="DPG", status="falhou", finalizada_em=datetime(2026, 11, 25, 8, 0)),
+        ]
+    )
+    db_session_editais.commit()
+
+    response = client_editais.get("/api/v1/editais/ultima-atualizacao")
+
+    assert response.status_code == 200
+    assert response.json()["ultima_atualizacao"].startswith("2026-11-24T19:36")
+
+
+def test_ultima_atualizacao_sem_coletas_usa_edital_mais_recente(client_editais):
+    response = client_editais.get("/api/v1/editais/ultima-atualizacao")
+
+    assert response.status_code == 200
+    assert response.json()["ultima_atualizacao"] is not None
+
+
+def test_ultima_atualizacao_banco_vazio_retorna_null(client_editais, db_session_editais):
+    db_session_editais.query(EditalDocumento).delete()
+    db_session_editais.query(Edital).delete()
+    db_session_editais.commit()
+
+    response = client_editais.get("/api/v1/editais/ultima-atualizacao")
+
+    assert response.status_code == 200
+    assert response.json() == {"ultima_atualizacao": None}
 
 def _make_isolated_session():
     engine = create_engine(

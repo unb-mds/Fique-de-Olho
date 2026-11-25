@@ -13,7 +13,7 @@ from sqlalchemy import and_, case, extract, func, or_
 from sqlalchemy.orm import Session, defer, sessionmaker
 
 from app.core.config import settings
-from app.core.database import Campus, Edital, EditalDocumento, StatusEdital, TipoDocumento, TipoEdital
+from app.core.database import Campus,Coleta,Edital, EditalDocumento, StatusEdital, TipoDocumento, TipoEdital
 
 logger = logging.getLogger(__name__)
 
@@ -687,6 +687,20 @@ def _consultar_stats_editais(db: Session) -> Dict[str, int]:
         "encerrados": max(0, total - abertos),
     }
 
+def obter_ultima_atualizacao(db: Session) -> Optional[datetime]:
+    """Retorna quando o catálogo foi atualizado pela última vez.
+
+    Prioriza o fim da última coleta concluída; se nenhuma coleta foi registrada,
+    usa a alteração mais recente de um edital.
+    """
+    ultima = (
+        db.query(func.max(Coleta.finalizada_em))
+        .filter(Coleta.status == "concluida")
+        .scalar()
+    )
+    if ultima is None:
+        ultima = db.query(func.max(Edital.atualizado_em)).scalar()
+    return ultima
 
 def _revalidar_stats_cache(chave: str, bind: Any, geracao: int) -> None:
     session_factory = sessionmaker(autocommit=False, autoflush=False, bind=bind)

@@ -32,6 +32,8 @@ const detailCache = new Map<string, CacheItem<Edital>>();
 const detailInflight = new Map<string, Promise<Edital>>();
 let statsCache: CacheItem<EditaisStats> | null = null;
 let statsInflight: Promise<EditaisStats> | null = null;
+let ultimaAtualizacaoCache: CacheItem<string | null> | null = null;
+
 
 function setBoundedCache<T>(cache: Map<string, CacheItem<T>>, key: string, data: T): void {
   if (cache.has(key)) {
@@ -52,6 +54,7 @@ export function limparCacheEditais(): void {
   detailInflight.clear();
   statsCache = null;
   statsInflight = null;
+  ultimaAtualizacaoCache = null;
 }
 
 export async function getEditais(params: GetEditaisParams = {}): Promise<Edital[]> {
@@ -128,6 +131,23 @@ export async function getEditaisStats(): Promise<EditaisStats> {
 
   statsInflight = request;
   return request;
+}
+
+/** Data/hora ISO da última atualização do catálogo, ou null se ainda não houver. */
+export async function getUltimaAtualizacao(): Promise<string | null> {
+  if (ultimaAtualizacaoCache && Date.now() - ultimaAtualizacaoCache.timestamp < CACHE_TTL_MS) {
+    return ultimaAtualizacaoCache.data;
+  }
+  const dados = await apiRequest<{ ultima_atualizacao: string | null }>(
+    '/api/v1/editais/ultima-atualizacao',
+    {
+      method: 'GET',
+      errorMessage: 'Erro ao buscar a última atualização.',
+    },
+  );
+  const valor = dados?.ultima_atualizacao ?? null;
+  ultimaAtualizacaoCache = { timestamp: Date.now(), data: valor };
+  return valor;
 }
 
 export async function getEditalById(id: string): Promise<Edital> {

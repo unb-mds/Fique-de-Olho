@@ -90,6 +90,24 @@ export function daysUntil(isoDate: string | null | undefined): number | null {
   return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 }
 
+// Ex.: "24/11/2026 às 16:36", sempre no horário de Brasília.
+export function formatDateTime(isoDate: string | null | undefined): string {
+  if (!isoDate) return '';
+  const date = new Date(isoDate);
+  if (Number.isNaN(date.getTime())) return '';
+  const parts = new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date);
+  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? '';
+  return `${get('day')}/${get('month')}/${get('year')} às ${get('hour')}:${get('minute')}`;
+}
+
 export function formatDate(isoDate: string | null | undefined): string {
   if (!isoDate) return 'não informado';
   const date = new Date(isoDate);
