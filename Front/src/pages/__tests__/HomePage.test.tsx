@@ -2,12 +2,13 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import HomePage from '../HomePage';
-import { getEditais, getEditaisStats } from '@/services/editaisService';
+import { getEditais, getEditaisStats, getUltimaAtualizacao } from '@/services/editaisService';
 import type { Edital } from '@/services/types';
 
 vi.mock('@/services/editaisService', () => ({
   getEditais: vi.fn(),
   getEditaisStats: vi.fn(),
+  getUltimaAtualizacao: vi.fn(),
 }));
 
 vi.mock('@/contexts/AuthContext', () => ({
@@ -48,6 +49,7 @@ describe('HomePage', () => {
       abertos: 20,
       encerrados: 5,
     });
+    vi.mocked(getUltimaAtualizacao).mockResolvedValue(null);
   });
 
   it('renderiza 12 cards iniciais e permite carregar mais', async () => {
