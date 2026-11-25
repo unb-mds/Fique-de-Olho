@@ -1,8 +1,8 @@
 site_name: Fique de Olho - UnB editais
-site_url: https://unb-mds.github.io/G4-2026-2/
-site_description: Documentação do projeto G4 — plataforma que centraliza, filtra e notifica editais UnB.
-repo_url: https://github.com/unb-mds/G4-2026-2
-repo_name: unb-mds/G4-2026-2
+site_url: https://unb-mds.github.io/Fique-de-Olho/
+site_description: Documentação do projeto Fique de Olho — plataforma que centraliza, filtra e notifica editais UnB.
+repo_url: https://github.com/unb-mds/Fique-de-Olho
+repo_name: unb-mds/Fique-de-Olho
 
 theme:
   name: material
