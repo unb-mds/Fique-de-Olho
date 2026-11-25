@@ -502,46 +502,50 @@ a {
   background: var(--brand-soft);
 }
 
-/* Selo "Atualizado em ..." centralizado no fim do hero, acima da curva branca */
+/* Selo "Atualizado em ..." centralizado no fim do hero, acima da curva branca.
+   Segue a linguagem do hero: fundo branco, borda escura e sombra deslocada em verde-limão. */
 .hero-updated {
   align-items: center;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  background: var(--paper);
+  border: 2px solid var(--ink);
   border-radius: 999px;
-  color: var(--paper);
+  box-shadow: 6px 6px 0 var(--accent);
+  color: var(--ink);
   display: flex;
-  font-size: 14px;
-  font-weight: 600;
-  gap: 10px;
-  letter-spacing: 0.01em;
-  margin: clamp(36px, 5vw, 64px) auto 0;
+  flex-wrap: wrap;
+  font-size: clamp(16px, 1.5vw, 20px);
+  font-weight: 500;
+  gap: 4px 12px;
+  justify-content: center;
+  line-height: 1.3;
+  margin: clamp(40px, 5vw, 64px) auto 0;
   max-width: 100%;
-  padding: 10px 20px;
+  padding: 14px 30px;
   width: fit-content;
 }
 
 .hero-updated time {
-  color: var(--accent);
+  font-family: var(--font-display);
   font-variant-numeric: tabular-nums;
   font-weight: 700;
 }
 
 .hero-updated-dot {
   animation: hero-updated-pulse 2s ease-out infinite;
-  background: var(--accent);
+  background: var(--brand);
   border-radius: 50%;
   flex: none;
-  height: 9px;
-  width: 9px;
+  height: 12px;
+  width: 12px;
 }
 
 @keyframes hero-updated-pulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(185, 252, 1, 0.6);
+    box-shadow: 0 0 0 0 rgba(1, 49, 205, 0.45);
   }
   70%,
   100% {
-    box-shadow: 0 0 0 10px rgba(185, 252, 1, 0);
+    box-shadow: 0 0 0 10px rgba(1, 49, 205, 0);
   }
 }
 
@@ -553,8 +557,8 @@ a {
 
 @media (max-width: 480px) {
   .hero-updated {
-    font-size: 13px;
-    padding: 8px 16px;
+    box-shadow: 4px 4px 0 var(--accent);
+    padding: 12px 22px;
   }
 }
 
