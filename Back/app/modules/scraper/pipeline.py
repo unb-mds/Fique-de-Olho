@@ -385,7 +385,11 @@ def _enrich_edital_metadata(
             or existing_edital.url_pdf == candidate_pdf_url
             or any(d.url_pdf == candidate_pdf_url for d in existing_edital.documentos)
         )
-        if same_hash and same_pdf and existing_edital.texto_extraido:
+        ja_processado = bool(
+            existing_edital.texto_extraido
+            or existing_edital.status_processamento in ("processado", "erro", "parcialmente_processado")
+        )
+        if same_hash and same_pdf and ja_processado:
             is_redundant_reprocess = True
             if not texto_extraido:
                 texto_extraido = existing_edital.texto_extraido
@@ -542,10 +546,8 @@ def _enrich_edital_metadata(
     faltam_metadados_llm = bool(
         enable_pdf_enrichment
         and texto_extraido
-        and (
-            (not is_redundant_reprocess and (inicio_insc is None or fim_insc is None or valor_bolsa is None or vagas is None))
-            or (is_redundant_reprocess and fim_insc is None)
-        )
+        and not is_redundant_reprocess
+        and (inicio_insc is None or fim_insc is None or valor_bolsa is None or vagas is None)
     )
 
     if existing_title_summary_ok and not faltam_metadados_llm:
