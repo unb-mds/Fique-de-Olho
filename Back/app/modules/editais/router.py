@@ -1,5 +1,6 @@
 import logging
 import secrets
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
@@ -13,6 +14,7 @@ from app.modules.editais.service import (
     invalidar_cache_editais,
     listar_editais_com_cache,
     obter_stats_editais_com_cache,
+    obter_ultima_atualizacao,
     serialize_edital,
 )
 from app.modules.favoritos.service import (
@@ -50,6 +52,14 @@ def editais_stats(
         agendar_tarefa=background_tasks.add_task,
     )
 
+@router.get("/ultima-atualizacao", response_model=Dict[str, Optional[datetime]])
+def editais_ultima_atualizacao(
+    response: Response,
+    db: Session = Depends(get_db),
+):
+    """Data/hora da última atualização do catálogo (usada no selo da página inicial)."""
+    response.headers["Cache-Control"] = PUBLIC_CACHE_HEADER
+    return {"ultima_atualizacao": obter_ultima_atualizacao(db)}
 
 @router.get("/", response_model=List[Dict[str, Any]])
 def list_editais(
