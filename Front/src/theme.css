@@ -502,6 +502,62 @@ a {
   background: var(--brand-soft);
 }
 
+/* Selo "Atualizado em ..." centralizado no fim do hero, acima da curva branca */
+.hero-updated {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
+  color: var(--paper);
+  display: flex;
+  font-size: 14px;
+  font-weight: 600;
+  gap: 10px;
+  letter-spacing: 0.01em;
+  margin: clamp(36px, 5vw, 64px) auto 0;
+  max-width: 100%;
+  padding: 10px 20px;
+  width: fit-content;
+}
+
+.hero-updated time {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.hero-updated-dot {
+  animation: hero-updated-pulse 2s ease-out infinite;
+  background: var(--accent);
+  border-radius: 50%;
+  flex: none;
+  height: 9px;
+  width: 9px;
+}
+
+@keyframes hero-updated-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(185, 252, 1, 0.6);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 10px rgba(185, 252, 1, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-updated-dot {
+    animation: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-updated {
+    font-size: 13px;
+    padding: 8px 16px;
+  }
+}
+
 .highlight-card-top {
   align-items: center;
   display: flex;

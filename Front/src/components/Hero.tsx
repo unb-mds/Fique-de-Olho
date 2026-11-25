@@ -1,16 +1,18 @@
 import type { Edital } from '@/services/types';
-import { daysUntil, formatDate } from '@/utils/editalDisplay';
+import { daysUntil, formatDate, formatDateTime } from '@/utils/editalDisplay';
 import { Link } from 'react-router-dom';
 import FollowingEyes from './FollowingEyes';
 
 interface HeroProps {
   editaisAbertos: Edital[];
   totalAbertos?: number;
+  ultimaAtualizacao?: string | null;
 }
 
-export default function Hero({ editaisAbertos, totalAbertos }: HeroProps) {
+export default function Hero({ editaisAbertos, totalAbertos, ultimaAtualizacao }: HeroProps) {
   const safeEditais = Array.isArray(editaisAbertos) ? editaisAbertos : [];
   const destaques = safeEditais.slice(0, 3);
+  const atualizadoEm = formatDateTime(ultimaAtualizacao);
 
   return (
     <section className="hero">
@@ -64,6 +66,13 @@ export default function Hero({ editaisAbertos, totalAbertos }: HeroProps) {
             );
           })}
         </div>
+      )}
+
+      {atualizadoEm && (
+        <p className="hero-updated">
+          <span className="hero-updated-dot" aria-hidden="true" />
+          Atualizado em <time dateTime={ultimaAtualizacao ?? undefined}>{atualizadoEm}</time>
+        </p>
       )}
     </section>
   );
