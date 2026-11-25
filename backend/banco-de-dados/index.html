@@ -1,0 +1,2883 @@
+
+<!doctype html>
+<html lang="pt" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentação do projeto Fique de Olho — plataforma que centraliza, filtra e notifica editais UnB.">
+      
+      
+      
+        <link rel="canonical" href="https://unb-mds.github.io/Fique-de-Olho/backend/banco-de-dados/">
+      
+      
+        <link rel="prev" href="../api/">
+      
+      
+        <link rel="next" href="../coleta-e-ia/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
+    
+    
+      
+        <title>Banco de Dados & Migrations - Fique de Olho - UnB editais</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#banco-de-dados" class="md-skip">
+          Pular para conteúdo
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Cabeçalho">
+    <a href="../.." title="Fique de Olho - UnB editais" class="md-header__button md-logo" aria-label="Fique de Olho - UnB editais" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Fique de Olho - UnB editais
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Banco de Dados & Migrations
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Mudar para modo escuro"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Mudar para modo escuro" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Mudar para modo claro"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Mudar para modo claro" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Buscar" placeholder="Buscar" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Pesquisar">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Limpar" aria-label="Limpar" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Inicializando busca
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/unb-mds/Fique-de-Olho" title="Ir para repositório" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    unb-mds/Fique-de-Olho
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Abas" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Início
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Backend
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../front/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Frontend
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../Arquitetura/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Arquitetura
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../Requisitos/Requisitos/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Requisitos & Produto
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../Estudos/sprint00/agentes_IA/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Estudos
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navegação" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Fique de Olho - UnB editais" class="md-nav__button md-logo" aria-label="Fique de Olho - UnB editais" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Fique de Olho - UnB editais
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/unb-mds/Fique-de-Olho" title="Ir para repositório" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    unb-mds/Fique-de-Olho
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Início
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backend
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Backend
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Referência da API REST
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Banco de Dados & Migrations
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Banco de Dados & Migrations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Índice">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Índice
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#documentacao" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Documentação
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#inicio-rapido" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Início rápido
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sobre-o-banco" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sobre o banco
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sobre o banco">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#uma-unica-fonte-da-verdade-para-o-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Uma única fonte da verdade para o schema
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#seguro-contra-duplicidade" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Seguro contra duplicidade
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dados-com-regras-de-integridade" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dados com regras de integridade
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pronto-para-o-neon-serverless" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pronto para o Neon Serverless
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observavel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observável
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#modelo-de-dados" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Modelo de dados
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#catalogo-das-14-tabelas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Catálogo das 14 tabelas
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Catálogo das 14 tabelas">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#nucleo-de-editais" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Núcleo de editais
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#catalogos-controlados" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Catálogos controlados
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#usuarios-favoritos-alertas-e-notificacoes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Usuários, favoritos, alertas e notificações
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#coleta-e-suporte" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Coleta e suporte
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#enums-nativos-do-postgresql" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Enums nativos do PostgreSQL
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#migrations-com-alembic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migrations com Alembic
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Migrations com Alembic">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#regras-para-alterar-o-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Regras para alterar o schema
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ambientes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ambientes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#estrutura-de-pastas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Estrutura de pastas
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#operacao-do-dia-a-dia" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Operação do dia a dia
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Operação do dia a dia">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ver-o-estado-do-banco" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ver o estado do banco
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#popular-com-editais-reais" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Popular com editais reais
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backup-e-restauracao" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backup e restauração
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recriar-o-banco-local-do-zero" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recriar o banco local do zero
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#solucao-de-problemas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Solução de problemas
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#contribuindo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Contribuindo
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../coleta-e-ia/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipeline de Coleta, PDF & IA
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../operacao-e-deploy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operação, Notificações & Deploy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../front/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Frontend
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Arquitetura
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Arquitetura
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Arquitetura/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visão Geral
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../fontes-de-dados/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fontes de Dados
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0001-stack-backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR 0001 - Stack do Backend
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0002-stack-frontend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR 0002 - Stack do Frontend
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0003-database-schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR 0003 - Schema do Banco de Dados
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0004-plataformas-de-deploy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR 0004 - Plataformas de Hospedagem e Deploy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0005-enriquecimento-hibrido-camada1-gemini/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR 0005 - Pipeline Híbrido (Camada 1 + Gemini)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0006-evolucao-schema-catalogos-alertas-notificacoes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR 0006 - Evolução do Schema, Alertas e Notificações
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Requisitos & Produto
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Requisitos & Produto
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Requisitos/Requisitos/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Requisitos
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Requisitos/Vis%C3%A3o%20de%20produto/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visão de produto
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Requisitos/Criterios%20de%20aceitacao/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Critérios de aceitação
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Requisitos/produto/personas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Personas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Requisitos/produto/backlog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backlog do Produto
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Requisitos/StoryMap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Story Map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Requisitos/Wireframe/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Wireframe
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Requisitos/Prot%C3%B3tipo%20de%20altafidelidade/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Protótipo de alta fidelidade
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Estudos
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Estudos
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Estudos/sprint00/agentes_IA/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agentes de IA
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Estudos/sprint00/arquitetura/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Arquitetura
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Estudos/sprint00/Cyber_Security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cyber Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Estudos/sprint00/docker/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docker
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Estudos/sprint00/estudo_GitGtHub/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Git e GitHub
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Estudos/sprint00/Requisitos_software/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Requisitos de software
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Estudos/sprint00/Scrun/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scrum
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Estudos/estudo_plataformas_deploy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plataformas de Deploy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Estudos/relatorio_decisoes_infraestrutura_deploy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Relatório de Decisões de Deploy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Estudos/guia_keep_awake_uptimerobot_e_ping/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Keep-Alive e UptimeRobot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Estudos/guia_operacional_deploy_ci_cd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operação de Deploy e CI/CD
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Índice">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Índice
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#documentacao" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Documentação
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#inicio-rapido" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Início rápido
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sobre-o-banco" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sobre o banco
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sobre o banco">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#uma-unica-fonte-da-verdade-para-o-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Uma única fonte da verdade para o schema
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#seguro-contra-duplicidade" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Seguro contra duplicidade
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dados-com-regras-de-integridade" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dados com regras de integridade
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pronto-para-o-neon-serverless" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pronto para o Neon Serverless
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observavel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observável
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#modelo-de-dados" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Modelo de dados
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#catalogo-das-14-tabelas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Catálogo das 14 tabelas
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Catálogo das 14 tabelas">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#nucleo-de-editais" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Núcleo de editais
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#catalogos-controlados" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Catálogos controlados
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#usuarios-favoritos-alertas-e-notificacoes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Usuários, favoritos, alertas e notificações
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#coleta-e-suporte" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Coleta e suporte
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#enums-nativos-do-postgresql" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Enums nativos do PostgreSQL
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#migrations-com-alembic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migrations com Alembic
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Migrations com Alembic">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#regras-para-alterar-o-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Regras para alterar o schema
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ambientes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ambientes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#estrutura-de-pastas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Estrutura de pastas
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#operacao-do-dia-a-dia" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Operação do dia a dia
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Operação do dia a dia">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ver-o-estado-do-banco" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ver o estado do banco
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#popular-com-editais-reais" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Popular com editais reais
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backup-e-restauracao" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backup e restauração
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recriar-o-banco-local-do-zero" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recriar o banco local do zero
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#solucao-de-problemas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Solução de problemas
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#contribuindo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Contribuindo
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="banco-de-dados"><a href="https://fique-de-olho.vercel.app"><img alt="Fique de Olho logo" src="../docs/assets/img/logo.svg" /></a> Banco de dados</h1>
+<p><a href="https://github.com/unb-mds/G4-2026-2/actions/workflows/pipeline.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/unb-mds/G4-2026-2/pipeline.yml?branch=main&amp;label=CI&amp;logo=github&amp;style=flat-square" /></a>
+<a href="https://www.postgresql.org/"><img alt="PostgreSQL 16" src="https://img.shields.io/badge/PostgreSQL-16-07143D?style=flat-square&amp;logo=postgresql&amp;logoColor=B9FC01" /></a>
+<a href="https://www.sqlalchemy.org/"><img alt="SQLAlchemy 2" src="https://img.shields.io/badge/SQLAlchemy-2.0-07143D?style=flat-square&amp;logo=python&amp;logoColor=B9FC01" /></a>
+<a href="https://alembic.sqlalchemy.org/"><img alt="Alembic" src="https://img.shields.io/badge/Alembic-migrations-0131CD?style=flat-square" /></a>
+<a href="https://neon.tech/"><img alt="Neon" src="https://img.shields.io/badge/Neon-Serverless-0131CD?style=flat-square&amp;logo=neon&amp;logoColor=white" /></a></p>
+<p>O banco de dados do <strong>Fique de Olho</strong> guarda os editais da UnB coletados em 33 portais, os usuários, os favoritos, os alertas por e-mail e o histórico de cada coleta. É um PostgreSQL 16, rodando em Docker no seu computador e no <a href="https://neon.tech/">Neon</a> em produção, com o schema versionado exclusivamente pelo <a href="https://alembic.sqlalchemy.org/">Alembic</a>.</p>
+<h2 id="documentacao">Documentação</h2>
+<ul>
+<li><a href="#início-rápido">Início rápido</a></li>
+<li><a href="#modelo-de-dados">Modelo de dados</a></li>
+<li><a href="#catálogo-das-14-tabelas">Catálogo das 14 tabelas</a></li>
+<li><a href="#migrations-com-alembic">Migrations com Alembic</a></li>
+<li><a href="#ambientes">Ambientes</a></li>
+<li><a href="#operação-do-dia-a-dia">Operação do dia a dia</a></li>
+<li><a href="#solução-de-problemas">Solução de problemas</a></li>
+<li><a href="../docs/backend/banco-de-dados.md">Referência completa do backend</a></li>
+<li><a href="../docs/adr/0003-database-schema.md">ADR 0003 — Schema inicial do banco de dados</a></li>
+<li><a href="../docs/adr/0006-evolucao-schema-catalogos-alertas-notificacoes.md">ADR 0006 — Evolução do schema, alertas e notificações</a></li>
+</ul>
+<h2 id="inicio-rapido">Início rápido</h2>
+<p>Você precisa de Git, Docker e Docker Compose v2. Na <strong>raiz do repositório</strong>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d<span class="w"> </span>db<span class="w">        </span><span class="c1"># sobe só o PostgreSQL</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>ps<span class="w">              </span><span class="c1"># confere se está "healthy"</span>
+</code></pre></div>
+<p>Para subir tudo (banco, API e frontend), use <code>docker compose up --build -d</code>. Nesse caso a API aplica as migrations sozinha antes de iniciar (<code>alembic upgrade head</code>).</p>
+<p>Se você subiu só o banco e vai rodar a API fora do Docker, aplique o schema à mão:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">cd</span><span class="w"> </span>Back
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nb">source</span><span class="w"> </span>.venv/bin/activate
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>alembic<span class="w"> </span>upgrade<span class="w"> </span>head
+</code></pre></div>
+<p>Para conectar ao banco:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>db<span class="w"> </span>psql<span class="w"> </span>-U<span class="w"> </span>fique_de_olho<span class="w"> </span>-d<span class="w"> </span>fique_de_olho
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Parâmetro</th>
+<th style="text-align: left;">Valor padrão de desenvolvimento</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">Host / porta</td>
+<td style="text-align: left;"><code>localhost</code> / <code>5432</code> (muda com <code>POSTGRES_PORT</code>)</td>
+</tr>
+<tr>
+<td style="text-align: left;">Banco</td>
+<td style="text-align: left;"><code>fique_de_olho</code></td>
+</tr>
+<tr>
+<td style="text-align: left;">Usuário</td>
+<td style="text-align: left;"><code>fique_de_olho</code></td>
+</tr>
+<tr>
+<td style="text-align: left;">Senha</td>
+<td style="text-align: left;"><code>fique_de_olho_dev</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>DATABASE_URL</code></td>
+<td style="text-align: left;"><code>postgresql+psycopg2://fique_de_olho:fique_de_olho_dev@localhost:5432/fique_de_olho</code></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>Essas credenciais existem <strong>somente para desenvolvimento local</strong>. Em produção, a <code>DATABASE_URL</code> vem das variáveis de ambiente do Render e nunca é commitada.</p>
+</blockquote>
+<p>Se a porta <code>5432</code> já estiver em uso na sua máquina, crie um arquivo <code>.env</code> na raiz com <code>POSTGRES_PORT=55432</code> e suba de novo.</p>
+<h2 id="sobre-o-banco">Sobre o banco</h2>
+<p>Nós queremos um banco simples de operar, seguro contra dados duplicados e fácil de evoluir em equipe.</p>
+<h3 id="uma-unica-fonte-da-verdade-para-o-schema">Uma única fonte da verdade para o schema</h3>
+<p>Todas as tabelas, colunas, índices, constraints e enums nascem de revisões do Alembic em <a href="../Back/migrations/versions"><code>Back/migrations/versions/</code></a>. Os modelos SQLAlchemy ficam em <a href="../Back/app/core/database.py"><code>Back/app/core/database.py</code></a>. O startup da API <strong>nunca</strong> chama <code>Base.metadata.create_all()</code>, então nenhuma mudança de schema acontece sem uma migration revisada.</p>
+<h3 id="seguro-contra-duplicidade">Seguro contra duplicidade</h3>
+<p>A coleta pode rodar várias vezes sem criar editais repetidos. A tabela <code>editais</code> tem unicidade em <code>url_pagina</code> (chave de idempotência da coleta), <code>url_pdf</code> e <code>identificador_origem</code>. Já a tabela <code>notificacoes</code> tem a constraint <code>uq_notificacao_evento</code> sobre <code>(usuario_id, edital_id, tipo, chave_evento)</code>, que impede o mesmo e-mail de ser enviado duas vezes.</p>
+<h3 id="dados-com-regras-de-integridade">Dados com regras de integridade</h3>
+<p>O banco valida o que a aplicação promete. A constraint <code>editais_periodo_inscricao_ck</code> garante que a data de início da inscrição não seja posterior ao fim, e <code>editais_status_processamento_ck</code> restringe o estado de processamento a <code>pendente</code>, <code>processado</code>, <code>parcialmente_processado</code> ou <code>erro</code>.</p>
+<h3 id="pronto-para-o-neon-serverless">Pronto para o Neon Serverless</h3>
+<p>O Neon suspende o banco após 5 minutos sem uso. Por isso o engine SQLAlchemy usa <code>pool_pre_ping=True</code> (testa a conexão antes de usá-la) e <code>pool_recycle=300</code> (recicla conexões antes da janela de suspensão).</p>
+<h3 id="observavel">Observável</h3>
+<p>Cada execução do scraper por portal vira uma linha em <code>coletas</code>, com início, fim, situação e quantidade de editais encontrados. É dessa tabela que sai o selo <strong>"Atualizado em"</strong> da página inicial: a API devolve o <code>MAX(finalizada_em)</code> das coletas com status <code>concluida</code> em <code>GET /api/v1/editais/ultima-atualizacao</code>.</p>
+<h2 id="modelo-de-dados">Modelo de dados</h2>
+<pre class="mermaid"><code>erDiagram
+    EDITAIS ||--o{ EDITAL_DOCUMENTOS : "possui"
+    EDITAIS ||--o{ FAVORITOS : "salvo em"
+    EDITAIS ||--o{ ALERTAS_EDITAL : "monitorado por"
+    EDITAIS ||--o{ NOTIFICACOES : "origina"
+    EDITAIS ||--o{ EDITAL_TIPOS : "classificado"
+    EDITAIS ||--o{ EDITAL_CAMPI : "ofertado em"
+    EDITAIS ||--o{ EDITAL_CURSOS : "direcionado a"
+
+    TIPOS_EDITAIS ||--o{ EDITAL_TIPOS : "tipo"
+    CAMPI ||--o{ EDITAL_CAMPI : "campus"
+    CURSOS ||--o{ EDITAL_CURSOS : "curso"
+
+    USUARIOS ||--o{ FAVORITOS : "favorita"
+    USUARIOS ||--o{ ALERTAS_EDITAL : "ativa alerta"
+    USUARIOS ||--o{ NOTIFICACOES : "recebe"
+
+    EDITAIS {
+        int id PK
+        varchar titulo
+        varchar url_pagina UK
+        varchar url_pdf UK
+        varchar identificador_origem UK
+        varchar orgao_emissor
+        text resumo
+        text texto_extraido
+        date inicio_inscricao
+        date fim_inscricao
+        int vagas
+        numeric valor_bolsa
+        status_edital status
+        varchar status_processamento
+    }
+
+    USUARIOS {
+        int id PK
+        varchar email UK
+        varchar senha_hash
+        boolean receber_emails
+    }
+
+    COLETAS {
+        int id PK
+        varchar fonte
+        timestamptz finalizada_em
+        varchar status
+        int editais_encontrados
+    }
+
+    FEEDBACKS {
+        int id PK
+        varchar tipo
+        text mensagem
+    }</code></pre>
+<p>As tabelas <code>coletas</code> e <code>feedbacks</code> não têm relacionamento com as demais: uma registra a execução do scraper e a outra guarda os envios da Central de Ajuda.</p>
+<h2 id="catalogo-das-14-tabelas">Catálogo das 14 tabelas</h2>
+<h3 id="nucleo-de-editais">Núcleo de editais</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Tabela</th>
+<th style="text-align: left;">Chave primária</th>
+<th style="text-align: left;">Finalidade</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>editais</code></td>
+<td style="text-align: left;"><code>id</code></td>
+<td style="text-align: left;">Entidade central. Guarda título, links, órgão emissor, resumo, texto extraído do PDF, período de inscrição, vagas, valor da bolsa, situação e hash do conteúdo. Índices em <code>url_pagina</code>, <code>fim_inscricao</code> e <code>orgao_emissor</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>edital_documentos</code></td>
+<td style="text-align: left;"><code>id</code></td>
+<td style="text-align: left;">Anexos oficiais de um edital: original, retificação e resultados. Índice em <code>edital_id</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>O banco guarda o link oficial e o texto extraído do PDF. <strong>A cópia do PDF não é armazenada.</strong></p>
+<h3 id="catalogos-controlados">Catálogos controlados</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Tabela</th>
+<th style="text-align: left;">Chave primária</th>
+<th style="text-align: left;">Finalidade</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>tipos_editais</code></td>
+<td style="text-align: left;"><code>id</code></td>
+<td style="text-align: left;">Categorias de edital, com <code>nome</code> único.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>campi</code></td>
+<td style="text-align: left;"><code>id</code></td>
+<td style="text-align: left;">Campi da UnB, com <code>nome</code> único.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>cursos</code></td>
+<td style="text-align: left;"><code>id</code></td>
+<td style="text-align: left;">Cursos, com <code>nome</code> único.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>edital_tipos</code></td>
+<td style="text-align: left;"><code>(edital_id, tipo_edital_id)</code></td>
+<td style="text-align: left;">Liga editais a tipos (muitos para muitos).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>edital_campi</code></td>
+<td style="text-align: left;"><code>(edital_id, campus_id)</code></td>
+<td style="text-align: left;">Liga editais a campi (muitos para muitos).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>edital_cursos</code></td>
+<td style="text-align: left;"><code>(edital_id, curso_id)</code></td>
+<td style="text-align: left;">Liga editais a cursos (muitos para muitos).</td>
+</tr>
+</tbody>
+</table>
+<p>Nas tabelas associativas, apagar um edital apaga as ligações (<code>ON DELETE CASCADE</code>), mas um valor de catálogo em uso não pode ser removido (<code>ON DELETE RESTRICT</code>).</p>
+<h3 id="usuarios-favoritos-alertas-e-notificacoes">Usuários, favoritos, alertas e notificações</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Tabela</th>
+<th style="text-align: left;">Chave primária</th>
+<th style="text-align: left;">Finalidade</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>usuarios</code></td>
+<td style="text-align: left;"><code>id</code></td>
+<td style="text-align: left;">Conta do usuário. <code>email</code> único, <code>senha_hash</code> em Argon2 e <code>receber_emails</code> (padrão <code>true</code>) para optar por não receber e-mails.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>favoritos</code></td>
+<td style="text-align: left;"><code>(usuario_id, edital_id)</code></td>
+<td style="text-align: left;">Lista pessoal de editais. Favoritar <strong>não</strong> dispara e-mail.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>alertas_edital</code></td>
+<td style="text-align: left;"><code>(usuario_id, edital_id)</code></td>
+<td style="text-align: left;">Ativação explícita de alertas por e-mail para um edital.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>notificacoes</code></td>
+<td style="text-align: left;"><code>id</code></td>
+<td style="text-align: left;">Fila e histórico de e-mails, com proteção contra envio duplicado.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="coleta-e-suporte">Coleta e suporte</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Tabela</th>
+<th style="text-align: left;">Chave primária</th>
+<th style="text-align: left;">Finalidade</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>coletas</code></td>
+<td style="text-align: left;"><code>id</code></td>
+<td style="text-align: left;">Uma linha por execução do scraper em um portal (<code>fonte</code>), com <code>iniciada_em</code>, <code>finalizada_em</code>, <code>status</code>, <code>editais_encontrados</code> e <code>mensagem_erro</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>feedbacks</code></td>
+<td style="text-align: left;"><code>id</code></td>
+<td style="text-align: left;">Sugestões, relatos de problema e elogios enviados pela Central de Ajuda.</td>
+</tr>
+</tbody>
+</table>
+<p>O <code>status</code> de uma coleta assume um destes valores: <code>executando</code>, <code>concluida</code> ou <code>falhou</code>.</p>
+<h3 id="enums-nativos-do-postgresql">Enums nativos do PostgreSQL</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Enum</th>
+<th style="text-align: left;">Valores</th>
+<th style="text-align: left;">Usado em</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>status_edital</code></td>
+<td style="text-align: left;"><code>aberto</code>, <code>encerrado</code></td>
+<td style="text-align: left;"><code>editais.status</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>tipo_documento</code></td>
+<td style="text-align: left;"><code>original</code>, <code>retificacao</code>, <code>resultado_provisorio</code>, <code>resultado_final</code></td>
+<td style="text-align: left;"><code>edital_documentos.tipo_documento</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>tipo_notificacao</code></td>
+<td style="text-align: left;"><code>edital_atualizado</code>, <code>prazo_encerrando</code></td>
+<td style="text-align: left;"><code>notificacoes.tipo</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>status_notificacao</code></td>
+<td style="text-align: left;"><code>pendente</code>, <code>enviada</code>, <code>falhou</code></td>
+<td style="text-align: left;"><code>notificacoes.status</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="migrations-com-alembic">Migrations com Alembic</h2>
+<p>O histórico atual, em ordem:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Revisão</th>
+<th style="text-align: left;">O que faz</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>0001_initial_schema</code></td>
+<td style="text-align: left;">Tabelas iniciais (<code>editais</code>, <code>edital_documentos</code>, <code>usuarios</code>, <code>favoritos</code>) e enums básicos.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>0002_notifications</code></td>
+<td style="text-align: left;">Tabela <code>notificacoes</code> e seus enums.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>0003_email_preference</code></td>
+<td style="text-align: left;">Coluna <code>usuarios.receber_emails</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>0003_reconcilia_metadados</code></td>
+<td style="text-align: left;">Metadados dos editais, catálogos e tabela <code>coletas</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>0004_merge_notification_metadata</code></td>
+<td style="text-align: left;">Junta as duas linhas de revisão <code>0003</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>0005_alertas_edital</code></td>
+<td style="text-align: left;">Tabela <code>alertas_edital</code>, separando alertas de favoritos.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>0006_feedbacks</code></td>
+<td style="text-align: left;">Tabela <code>feedbacks</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>Comandos do dia a dia, dentro de <code>Back/</code> com o ambiente virtual ativo:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>alembic<span class="w"> </span>current<span class="w">                                    </span><span class="c1"># revisão aplicada no banco</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>alembic<span class="w"> </span>heads<span class="w">                                      </span><span class="c1"># deve listar uma única head</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>alembic<span class="w"> </span>upgrade<span class="w"> </span>head<span class="w">                               </span><span class="c1"># aplica as migrations pendentes</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>alembic<span class="w"> </span>revision<span class="w"> </span>--autogenerate<span class="w"> </span>-m<span class="w"> </span><span class="s2">"descricao"</span><span class="w">     </span><span class="c1"># gera uma nova migration</span>
+</code></pre></div>
+<p>Com o projeto no Docker, troque <code>alembic ...</code> por <code>docker compose exec api alembic ...</code>.</p>
+<h3 id="regras-para-alterar-o-schema">Regras para alterar o schema</h3>
+<ol>
+<li>Altere o modelo em <code>Back/app/core/database.py</code>.</li>
+<li>Gere a migration com <code>alembic revision --autogenerate</code> e <strong>leia o arquivo gerado</strong> antes de aceitar.</li>
+<li>Aplique em um PostgreSQL real com <code>alembic upgrade head</code>. Os testes unitários usam SQLite em memória e <strong>não validam</strong> enums nativos nem <code>CheckConstraint</code>.</li>
+<li>Rode <code>alembic heads</code> e confirme que existe uma única head.</li>
+<li>Nunca rode <code>alembic downgrade</code> em produção. Use só em banco local descartável.</li>
+<li>Abra a PR com o modelo e a migration juntos.</li>
+</ol>
+<h2 id="ambientes">Ambientes</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Ambiente</th>
+<th style="text-align: left;">Banco</th>
+<th style="text-align: left;">Como o schema é criado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Local (Docker Compose)</strong></td>
+<td style="text-align: left;"><code>postgres:16-alpine</code>, volume <code>postgres_data</code></td>
+<td style="text-align: left;">A API roda <code>alembic upgrade head</code> ao iniciar</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Testes unitários</strong></td>
+<td style="text-align: left;">SQLite em memória (<code>sqlite://</code>)</td>
+<td style="text-align: left;"><code>Base.metadata.create_all</code> dentro de cada teste</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>CI (GitHub Actions)</strong></td>
+<td style="text-align: left;">Serviço <code>postgres:16-alpine</code></td>
+<td style="text-align: left;"><code>alembic upgrade head</code> e depois os seeds de <code>db/migrations/</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Coleta periódica (GitHub Actions)</strong></td>
+<td style="text-align: left;">Banco de produção</td>
+<td style="text-align: left;"><code>alembic upgrade head</code> antes de cada ciclo</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Produção</strong></td>
+<td style="text-align: left;">Neon Serverless, AWS São Paulo (<code>sa-east-1</code>)</td>
+<td style="text-align: left;"><code>DATABASE_URL</code> definida no Render</td>
+</tr>
+</tbody>
+</table>
+<h2 id="estrutura-de-pastas">Estrutura de pastas</h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>db/
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>├── README.md                          # este arquivo
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>└── migrations/
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    ├── 001_initial_schema.sql         # legado: não é executado por nenhum ambiente
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    ├── 002_seed_catalogos.sql         # seed de catálogos (usado pelo CI)
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    └── 003_seed_editais.sql           # editais de demonstração (usado pelo CI)
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>Back/
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>├── app/core/database.py               # modelos SQLAlchemy e conexão
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>├── alembic.ini                        # configuração do Alembic
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>└── migrations/                        # revisões do Alembic (fonte da verdade do schema)
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>    ├── env.py
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>    └── versions/
+</code></pre></div>
+<blockquote>
+<p>A pasta <code>db/migrations/</code> <strong>não</strong> define o schema. Ela guarda scripts SQL de apoio. O Compose não a monta no PostgreSQL, porque isso criaria as tabelas antes do Alembic e geraria conflito.</p>
+</blockquote>
+<h2 id="operacao-do-dia-a-dia">Operação do dia a dia</h2>
+<h3 id="ver-o-estado-do-banco">Ver o estado do banco</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>db<span class="w"> </span>psql<span class="w"> </span>-U<span class="w"> </span>fique_de_olho<span class="w"> </span>-d<span class="w"> </span>fique_de_olho
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="err">\</span><span class="n">dt</span><span class="w">                                               </span><span class="c1">-- lista as 14 tabelas</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="k">SELECT</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">alembic_version</span><span class="p">;</span><span class="w">                    </span><span class="c1">-- revisão aplicada</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="k">SELECT</span><span class="w"> </span><span class="n">status</span><span class="p">,</span><span class="w"> </span><span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">editais</span><span class="w"> </span><span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">status</span><span class="p">;</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="k">SELECT</span><span class="w"> </span><span class="n">fonte</span><span class="p">,</span><span class="w"> </span><span class="n">status</span><span class="p">,</span><span class="w"> </span><span class="n">editais_encontrados</span><span class="p">,</span><span class="w"> </span><span class="n">finalizada_em</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">  </span><span class="k">FROM</span><span class="w"> </span><span class="n">coletas</span><span class="w"> </span><span class="k">ORDER</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">id</span><span class="w"> </span><span class="k">DESC</span><span class="w"> </span><span class="k">LIMIT</span><span class="w"> </span><span class="mi">10</span><span class="p">;</span><span class="w">         </span><span class="c1">-- últimas coletas</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="k">SELECT</span><span class="w"> </span><span class="k">MAX</span><span class="p">(</span><span class="n">finalizada_em</span><span class="p">)</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">coletas</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">  </span><span class="k">WHERE</span><span class="w"> </span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">'concluida'</span><span class="p">;</span><span class="w">                     </span><span class="c1">-- o que o selo "Atualizado em" mostra</span>
+</code></pre></div>
+<h3 id="popular-com-editais-reais">Popular com editais reais</h3>
+<p>Com o banco vazio, o site não tem o que mostrar. Dispare uma coleta pela API:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span><span class="s2">"http://localhost:8000/api/v1/editais/sync?orgao=DEG&amp;max_itens=5"</span>
+</code></pre></div>
+<p>Sem o parâmetro <code>orgao</code>, a coleta percorre todos os portais. Mais detalhes em <a href="../docs/backend/coleta-e-ia.md">Pipeline de coleta, PDF e IA</a>.</p>
+<h3 id="backup-e-restauracao">Backup e restauração</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># backup</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-T<span class="w"> </span>db<span class="w"> </span>pg_dump<span class="w"> </span>-U<span class="w"> </span>fique_de_olho<span class="w"> </span>-d<span class="w"> </span>fique_de_olho<span class="w"> </span>-Fc<span class="w"> </span>&gt;<span class="w"> </span>backup.dump
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="c1"># restauração (substitui os dados atuais)</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-T<span class="w"> </span>db<span class="w"> </span>pg_restore<span class="w"> </span>-U<span class="w"> </span>fique_de_olho<span class="w"> </span>-d<span class="w"> </span>fique_de_olho<span class="w"> </span>--clean<span class="w"> </span>--if-exists<span class="w"> </span>&lt;<span class="w"> </span>backup.dump
+</code></pre></div>
+<h3 id="recriar-o-banco-local-do-zero">Recriar o banco local do zero</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>down<span class="w"> </span>-v<span class="w">      </span><span class="c1"># apaga o volume com os dados locais</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d<span class="w">        </span><span class="c1"># a API recria o schema com as migrations</span>
+</code></pre></div>
+<blockquote>
+<p>O <code>-v</code> <strong>apaga todos os dados</strong> do volume. Use apenas no seu ambiente local e nunca em um banco que tenha dados importantes.</p>
+</blockquote>
+<h2 id="solucao-de-problemas">Solução de problemas</h2>
+<p><strong><code>port is already allocated</code> ou <code>address already in use</code> na porta 5432 (ou 5433).</strong>
+Outro PostgreSQL ou um contêiner antigo está usando a porta. Veja quem é com <code>sudo ss -tlnp | grep 5432</code> e <code>docker ps -a</code>. Para evitar o conflito, crie um <code>.env</code> na raiz com <code>POSTGRES_PORT=55432</code>. A API continua falando com o banco pela rede interna do Docker, então nada mais muda.</p>
+<p><strong>Contêiner ou volume de uma stack antiga.</strong>
+Uma configuração anterior usava o banco <code>fiquedeolho_db</code>, o usuário <code>fiquedeolho</code> e a porta <code>5433</code>. Se ela ainda existir na sua máquina, pare com <code>docker compose down</code> (sem <code>-v</code>) na pasta onde ela foi criada. Se houver dados a preservar, exporte com <code>pg_dump</code> antes de remover o volume.</p>
+<p><strong><code>Multiple head revisions are present</code>.</strong>
+Duas migrations partiram da mesma revisão. Rode <code>alembic heads</code> para ver quais são e crie uma revisão de merge com <code>alembic merge -m "merge" &lt;head1&gt; &lt;head2&gt;</code>. O histórico já passou por isso uma vez (<code>0004_merge_notification_metadata</code>).</p>
+<p><strong><code>relation "..." does not exist</code> ao iniciar a API fora do Docker.</strong>
+As migrations não foram aplicadas. Rode <code>alembic upgrade head</code> em <code>Back/</code>.</p>
+<p><strong><code>password authentication failed</code>.</strong>
+O volume foi criado com outras credenciais. Confira <code>POSTGRES_USER</code>, <code>POSTGRES_PASSWORD</code> e <code>POSTGRES_DB</code> no <code>.env</code> da raiz. Se mudou as credenciais depois de criar o volume, é preciso recriá-lo (<code>docker compose down -v</code>).</p>
+<p><strong>O selo "Atualizado em" não aparece.</strong>
+Ele depende de pelo menos uma coleta registrada ou de editais com <code>atualizado_em</code>. Confira <code>GET /api/v1/editais/ultima-atualizacao</code>. Se retornar <code>{"ultima_atualizacao": null}</code>, o banco está vazio: veja <a href="#popular-com-editais-reais">Popular com editais reais</a>.</p>
+<h2 id="contribuindo">Contribuindo</h2>
+<p>O Fique de Olho é um projeto de código aberto da disciplina de Métodos de Desenvolvimento de Software (UnB, 2026/2), e contribuições são bem-vindas. Antes de mexer no banco, leia as <a href="#regras-para-alterar-o-schema">regras para alterar o schema</a> e a <a href="../docs/backend/banco-de-dados.md">referência completa do backend</a>. Para o guia geral do projeto, veja o <a href="../README.md">README principal</a>.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Voltar para o topo
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.instant", "navigation.tracking", "search.suggest", "search.highlight", "content.code.copy", "content.tabs.link", "toc.follow"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copiado para \u00e1rea de transfer\u00eancia", "clipboard.copy": "Copiar para \u00e1rea de transfer\u00eancia", "search.result.more.one": "mais 1 nesta p\u00e1gina", "search.result.more.other": "# mais nesta p\u00e1gina", "search.result.none": "Nenhum documento encontrado", "search.result.one": "1 documento encontrado", "search.result.other": "# documentos encontrados", "search.result.placeholder": "Digite para iniciar a busca", "search.result.term.missing": "Ausente", "select.version": "Selecione a vers\u00e3o"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
+      
+    
+  </body>
+</html>
